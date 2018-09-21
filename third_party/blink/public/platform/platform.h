@@ -704,6 +704,7 @@ class BLINK_PLATFORM_EXPORT Platform {
   virtual void DidStartWorkerThread() {}
   virtual void WillStopWorkerThread() {}
   virtual void WorkerContextCreated(const v8::Local<v8::Context>& worker) {}
+  virtual void WorkerContextWillDestroy(const v8::Local<v8::Context>& worker) {}
   virtual ProtocolHandlerSecurityLevel GetProtocolHandlerSecurityLevel(
       const WebSecurityOrigin& origin) {
     return ProtocolHandlerSecurityLevel::kStrict;

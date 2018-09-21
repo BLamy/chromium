@@ -811,6 +811,12 @@ void WorkerThread::PrepareForShutdownOnWorkerThread() {
   }
   pause_handle_.reset();
 
+  {
+    v8::HandleScope handle_scope(GetIsolate());
+    Platform::Current()->WorkerContextWillDestroy(
+        GlobalScope()->ScriptController()->GetContext());
+  }
+
   if (WorkerThreadDebugger* debugger = WorkerThreadDebugger::From(GetIsolate()))
     debugger->WorkerThreadDestroyed(this);
 
