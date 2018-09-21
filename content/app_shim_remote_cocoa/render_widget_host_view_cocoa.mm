@@ -192,6 +192,11 @@ void ExtractUnderlines(NSAttributedString* string,
 
 }  // namespace
 
+@interface NSWindow (AtomCustomMethods)
+- (BOOL)acceptsFirstMouse;
+- (BOOL)disableAutoHideCursor;
+@end
+
 // RenderWidgetHostViewCocoa ---------------------------------------------------
 
 // Private methods:
@@ -858,6 +863,10 @@ static NSWindow* __weak _deferredResignKeyWindow;
 }
 
 - (BOOL)acceptsFirstMouse:(NSEvent*)theEvent {
+  if ([self.window respondsToSelector:@selector(acceptsFirstMouse)] &&
+      [self.window acceptsFirstMouse])
+    return YES;
+
   // A click that another process posts straight to this process does not
   // activate the app, unlike one the window server routes here, so treating it
   // as an activation click would only drop it.
@@ -1528,6 +1537,10 @@ static NSWindow* __weak _deferredResignKeyWindow;
   bool shouldAutohideCursor = _textInputType != ui::TEXT_INPUT_TYPE_NONE &&
                               eventType == NSEventTypeKeyDown &&
                               !(modifierFlags & NSEventModifierFlagCommand);
+
+  if ([theEvent.window respondsToSelector:@selector(disableAutoHideCursor)] &&
+      [theEvent.window disableAutoHideCursor])
+    shouldAutohideCursor = NO;
 
   // We only handle key down events and just simply forward other events.
   if (eventType != NSEventTypeKeyDown) {
