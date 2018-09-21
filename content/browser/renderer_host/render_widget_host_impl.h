@@ -1107,6 +1107,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   base::TimeDelta GetHungRendererDelayForTesting();
 
+  // Electron: Prevents the widget from getting hidden.
+  bool disable_hidden_ = false;
  protected:
   // |routing_id| must not be IPC::mojom::kRoutingIdNone.
   // If this object outlives |delegate|, DetachDelegate() must be called when

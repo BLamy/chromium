@@ -768,7 +768,7 @@ void RenderWidgetHostViewAura::HideImpl() {
   CHECK(visibility_ == Visibility::HIDDEN ||
         visibility_ == Visibility::OCCLUDED);
 
-  if (!host()->IsHidden()) {
+  if (!host()->IsHidden() && !host()->disable_hidden_) {
     host()->WasHidden();
     aura::WindowTreeHost* host = window_->GetHost();
       aura::Window* parent = window_->parent();
@@ -3894,7 +3894,12 @@ RenderWidgetHostViewAura::DidUpdateVisualProperties(
 void RenderWidgetHostViewAura::DidNavigate() {
   CHECK(delegated_frame_host_) << "Cannot be invoked during destruction.";
 
-  if (!IsShowing()) {
+  // Electron: a widget that Electron keeps visible while its native view is
+  // hidden is still producing frames, so treat it as showing here. Otherwise
+  // the next VisualProperties update is sent without a LocalSurfaceId and the
+  // renderer stops producing frames until the view is shown. This matches
+  // RenderWidgetHostViewMac, which keys this off the host's visibility.
+  if (!IsShowing() && host()->IsHidden()) {
     // Navigating while hidden should not allocate a new LocalSurfaceID. Once
     // sizes are ready, or we begin to Show, we can then allocate the new
     // LocalSurfaceId.
