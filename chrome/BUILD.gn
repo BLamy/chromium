@@ -1755,7 +1755,7 @@ group("extra_resources") {
   ]
 }
 
-if (!is_android) {
+if (!is_android && !is_electron_build) {
   chrome_paks("packed_resources") {
     if (is_mac) {
       output_dir = "$root_gen_dir/repack"
@@ -1777,6 +1777,12 @@ repack("browser_tests_pak") {
   sources = [ "$root_gen_dir/chrome/webui_test_resources.pak" ]
   output = "$root_out_dir/browser_tests.pak"
   deps = [ "//chrome/test/data/webui:resources" ]
+}
+
+if (is_electron_build) {
+  group("packed_resources") {
+    public_deps = [ "//electron:packed_resources" ]
+  }
 }
 
 group("strings") {
