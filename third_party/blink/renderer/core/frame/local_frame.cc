@@ -802,10 +802,6 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
   }
   DCHECK(!view_ || !view_->IsAttached());
 
-  // This is the earliest that scripting can be disabled:
-  // - FrameLoader::Detach() can fire XHR abort events
-  // - Document::Shutdown() can dispose plugins which can run script.
-  ScriptForbiddenScope forbid_script;
   if (!Client()) {
     return false;
   }
@@ -879,6 +875,11 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
 
   DCHECK(!view_->IsAttached());
   Client()->WillBeDetached();
+
+  // This is the earliest that scripting can be disabled:
+  // - FrameLoader::Detach() can fire XHR abort events
+  // - Document::Shutdown() can dispose plugins which can run script.
+  ScriptForbiddenScope forbid_script;
 
   // TODO(crbug.com/729196): Trace why LocalFrameView::DetachFromLayout crashes.
   CHECK(!view_->IsAttached());
