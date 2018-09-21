@@ -32,7 +32,8 @@ class GIN_EXPORT V8Initializer {
   static void Initialize(IsolateHolder::ScriptMode mode,
                          const std::string& js_command_line_flags,
                          bool disallow_v8_feature_flag_overrides,
-                         v8::OOMErrorCallback oom_error_callback);
+                         v8::OOMErrorCallback oom_error_callback,
+                         bool create_v8_platform = true);
 
   // Get address and size information for currently loaded snapshot.
   // If no snapshot is loaded, the return values are null for addresses
