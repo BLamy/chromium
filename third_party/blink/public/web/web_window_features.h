@@ -69,6 +69,8 @@ struct WebWindowFeatures {
   bool noreferrer = false;
   bool background = false;
   bool persistent = false;
+
+  WebString raw_features;
 };
 
 }  // namespace blink

@@ -10903,6 +10903,7 @@ void RenderFrameHostImpl::CreateNewWindow(
           last_committed_origin_, params->window_container_type,
           params->target_url, params->referrer.To<Referrer>(),
           params->frame_name, params->disposition, *params->features,
+          params->raw_features, params->body,
           effective_transient_activation_state, params->opener_suppressed,
           &no_javascript_access);
 
@@ -10912,6 +10913,11 @@ void RenderFrameHostImpl::CreateNewWindow(
     std::move(callback).Run(mojom::CreateNewWindowStatus::kBlocked, nullptr);
     return;
   }
+
+  // A window the opener has no script access to must live in its own
+  // BrowsingInstance, which is exactly what suppressing the opener does.
+  if (no_javascript_access)
+    params->opener_suppressed = true;
 
   // Otherwise, consume user activation before we proceed. In particular, it is
   // important to do this before we return from the |opener_suppressed| case

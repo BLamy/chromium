@@ -19,6 +19,7 @@
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
+#include "content/common/frame.mojom.h"
 #include "content/public/browser/eye_dropper.h"
 #include "content/public/browser/fullscreen_types.h"
 #include "content/public/browser/immersive_playback_options.h"
@@ -30,6 +31,7 @@
 #include "content/public/browser/select_audio_output_request.h"
 #include "content/public/browser/serial_chooser.h"
 #include "content/public/browser/storage_partition_config.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/window_container_type.mojom-forward.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/page/drag_operation.h"
@@ -422,6 +424,16 @@ class CONTENT_EXPORT WebContentsDelegate {
       const blink::mojom::WindowFeatures& window_features,
       const StoragePartitionConfig& partition_config,
       SessionStorageNamespaceHandle* session_storage_namespace);
+
+  virtual void WebContentsCreatedWithFullParams(
+      WebContents* source_contents,
+      int opener_render_process_id,
+      int opener_render_frame_id,
+      const mojom::CreateNewWindowParams& params,
+      WebContents* new_contents);
+
+  virtual void MaybeOverrideCreateParamsForNewWindow(
+      content::WebContents::CreateParams* create_params) {}
 
   // Notifies the delegate about the creation of a new WebContents. This
   // typically happens when popups are created.

@@ -35,6 +35,18 @@ namespace content {
 
 WebContentsDelegate::WebContentsDelegate() = default;
 
+void WebContentsDelegate::WebContentsCreatedWithFullParams(
+    WebContents* source_contents,
+    int opener_render_process_id,
+    int opener_render_frame_id,
+    const mojom::CreateNewWindowParams& params,
+    WebContents* new_contents) {
+  WebContentsCreated(source_contents,
+                     GlobalRenderFrameHostId(opener_render_process_id,
+                                             opener_render_frame_id),
+                     params.frame_name, params.target_url, new_contents);
+}
+
 WebContents* WebContentsDelegate::OpenURLFromTab(
     WebContents* source,
     const OpenURLParams& params,

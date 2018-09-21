@@ -2559,6 +2559,8 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   WebWindowFeatures window_features =
       GetWindowFeaturesFromString(features, entered_window);
 
+  window_features.raw_features = features;
+
   // In fenced frames, we should always use `noopener`.
   if (GetFrame()->IsInFencedFrameTree()) {
     window_features.noopener = true;

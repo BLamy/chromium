@@ -623,6 +623,10 @@ struct CreateNewWindowParams {
   pending_associated_remote<blink.mojom.Widget> widget;
   pending_associated_receiver<blink.mojom.FrameWidgetHost> frame_widget_host;
   pending_associated_remote<blink.mojom.FrameWidget> frame_widget;
+
+  // Extra fields added by Electron.
+  string raw_features;
+  network.mojom.URLRequestBody? body;
 };
 
 // Operation result when the renderer asks the browser to create a new window.

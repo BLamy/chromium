@@ -565,6 +565,8 @@ bool WebTestContentBrowserClient::CanCreateWindow(
     const std::string& frame_name,
     WindowOpenDisposition disposition,
     const blink::mojom::WindowFeatures& features,
+    const std::string& raw_features,
+    const scoped_refptr<network::ResourceRequestBody>& body,
     bool user_gesture,
     bool opener_suppressed,
     bool* no_javascript_access) {
