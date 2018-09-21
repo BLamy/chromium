@@ -11,6 +11,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "build/ios_buildflags.h"
+#include "electron/mas.h"
 #include "ui/accelerated_widget_mac/ca_renderer_layer_tree.h"
 #include "ui/base/cocoa/animation_utils.h"
 #include "ui/base/cocoa/remote_layer_api.h"
@@ -158,6 +159,7 @@ void CALayerTreeCoordinator::Present(
 }
 
 void CALayerTreeCoordinator::EnsureCAContextAndRootLayer() {
+#if !IS_MAS_BUILD()
   if (!allow_remote_layers_) {
     return;
   }
@@ -192,6 +194,7 @@ void CALayerTreeCoordinator::EnsureCAContextAndRootLayer() {
     ca_context_.layer = root_ca_layer_;
 #endif  // !BUILDFLAG(IS_IOS) || BUILDFLAG(IS_IOS_TVOS)
   }
+#endif  // !IS_MAS_BUILD()
 }
 
 void CALayerTreeCoordinator::CommitPresentedFrameToCA(
@@ -222,11 +225,13 @@ void CALayerTreeCoordinator::CommitPresentedFrameToCA(
   if (has_resized_since_last_swap_) {
     // Create a new CAContext for the new size. This allows new frame update at
     // the new size to be atomic with things like resizing the NSWindow.
+#if !IS_MAS_BUILD()
     if (base::FeatureList::IsEnabled(features::kCAContextFenceOnResize) &&
         allow_remote_layers_) {
       params.ca_context_fence_mach_port.reset([ca_context_ createFencePort]);
       [ca_context_ setFencePort:params.ca_context_fence_mach_port.get()];
     }
+#endif  // !IS_MAS_BUILD()
     has_resized_since_last_swap_ = false;
   }
 #endif
@@ -249,10 +254,13 @@ void CALayerTreeCoordinator::CommitPresentedFrameToCA(
     TRACE_EVENT_INSTANT("test_gpu", "SwapBuffers", "GLImpl",
                         static_cast<int>(gl::GetGLImplementation()), "width",
                         pixel_size_.width());
-
+#if !IS_MAS_BUILD()
     if (allow_remote_layers_) {
       params.ca_context_id = [ca_context_ contextId];
     } else {
+#else
+    if (true) {
+#endif
       IOSurfaceRef io_surface = frame.layer_tree->GetContentIOSurface();
       if (io_surface) {
         DCHECK(!allow_remote_layers_);

@@ -10,8 +10,11 @@
 #include <vector>
 
 #include "base/component_export.h"
+#include "electron/mas.h"
 
 // NSAccessibilityRemoteUIElement is a private class in AppKit.
+
+#if !IS_MAS_BUILD()
 
 @interface NSAccessibilityRemoteUIElement : NSObject
 + (void)setRemoteUIApp:(BOOL)flag;
@@ -37,5 +40,7 @@ class COMPONENT_EXPORT(UI_BASE) RemoteAccessibility {
 };
 
 }  // namespace ui
+
+#endif  // MAS_BUILD
 
 #endif  // UI_BASE_COCOA_REMOTE_ACCESSIBILITY_API_H_

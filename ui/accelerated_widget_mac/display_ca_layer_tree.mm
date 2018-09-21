@@ -12,6 +12,7 @@
 #include "base/mac/mac_util.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
+#include "electron/mas.h"
 #include "ui/base/cocoa/animation_utils.h"
 #include "ui/base/cocoa/remote_layer_api.h"
 #include "ui/base/ui_base_features.h"
@@ -122,6 +123,7 @@ void DisplayCALayerTree::UpdateCALayerTree(gfx::CALayerParams ca_layer_params) {
 }
 
 void DisplayCALayerTree::GotCALayerFrame(uint32_t ca_context_id) {
+#if !IS_MAS_BUILD()
   // Early-out if the remote layer has not changed.
   if (remote_layer_.contextId == ca_context_id) {
     return;
@@ -151,6 +153,9 @@ void DisplayCALayerTree::GotCALayerFrame(uint32_t ca_context_id) {
     [io_surface_layer_ removeFromSuperlayer];
     io_surface_layer_ = nil;
   }
+#else
+  NOTREACHED() << "Remote layer is being used in MAS build";
+#endif
 }
 
 void DisplayCALayerTree::GotIOSurfaceFrame(

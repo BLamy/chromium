@@ -28,6 +28,7 @@ component("seatbelt") {
     "//base:compiler_specific",
   ]
   defines = [ "SEATBELT_IMPLEMENTATION" ]
+  deps += ["//electron/build/config:generate_mas_config"]
 }
 
 component("seatbelt_extension") {
@@ -41,6 +42,7 @@ component("seatbelt_extension") {
   libs = [ "sandbox" ]
   public_deps = [ "//base" ]
   defines = [ "SEATBELT_IMPLEMENTATION" ]
+  deps += ["//electron/build/config:generate_mas_config"]
 }
 
 component("system_services") {
@@ -55,6 +57,7 @@ component("system_services") {
   deps = [ ":seatbelt_export" ]
   public_deps = [ "//base" ]
   defines = [ "SEATBELT_IMPLEMENTATION" ]
+  deps += ["//electron/build/config:generate_mas_config"]
 }
 
 source_set("sandbox_unittests") {

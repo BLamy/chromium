@@ -4,6 +4,10 @@
 
 #import "components/remote_cocoa/app_shim/native_widget_mac_frameless_nswindow.h"
 
+#include "electron/mas.h"
+
+#if !IS_MAS_BUILD()
+
 @interface NSWindow (PrivateAPI)
 + (Class)frameViewClassForStyleMask:(NSUInteger)windowStyle;
 @end
@@ -18,7 +22,11 @@
 }
 @end
 
+#endif  // MAS_BUILD
+
 @implementation NativeWidgetMacFramelessNSWindow
+
+#if !IS_MAS_BUILD()
 
 + (Class)frameViewClassForStyleMask:(NSUInteger)windowStyle {
   if ([NativeWidgetMacFramelessNSWindowFrame class]) {
@@ -26,5 +34,7 @@
   }
   return [super frameViewClassForStyleMask:windowStyle];
 }
+
+#endif  // MAS_BUILD
 
 @end

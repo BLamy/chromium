@@ -367,6 +367,13 @@ component("base") {
     ]
   }
 
+  if (is_mas_build) {
+    sources -= [
+      "cocoa/remote_accessibility_api.h",
+      "cocoa/remote_accessibility_api.mm",
+    ]
+  }
+
   if (is_ios) {
     sources += [
       "device_form_factor_ios.mm",
@@ -520,6 +527,12 @@ component("base") {
     "//ui/webui/resources:resources_grit",
     "//url",
   ]
+
+  if (is_mac) {
+    deps += [
+      "//electron/build/config:generate_mas_config"
+    ]
+  }
 
   if (is_debug || dcheck_always_on) {
     deps += [ "//third_party/re2" ]

@@ -139,6 +139,12 @@ component("display") {
     "//ui/gfx/geometry",
   ]
 
+  if (is_mac) {
+    deps += [
+      "//electron/build/config:generate_mas_config"
+    ]
+  }
+
   if (is_ios) {
     deps += [ "//build:ios_buildflags" ]
   }

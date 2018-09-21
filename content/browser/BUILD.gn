@@ -396,6 +396,7 @@ source_set("browser") {
     "//ui/webui/resources",
     "//v8",
     "//v8:v8_version",
+    "//electron/build/config:generate_mas_config",
   ]
 
   public_deps = [

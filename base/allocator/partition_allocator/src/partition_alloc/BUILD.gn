@@ -1035,6 +1035,7 @@ if (is_clang_or_gcc) {
       ":allocator_base",
       ":allocator_core",
       ":buildflags",
+      "//electron/build/config:generate_mas_config",
     ]
   }
 }  # if (is_clang_or_gcc)

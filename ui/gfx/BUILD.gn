@@ -285,6 +285,8 @@ component("gfx") {
       "CoreGraphics.framework",
       "CoreText.framework",
     ]
+
+    deps += ["//electron/build/config:generate_mas_config"]
   }
   if (is_ios) {
     sources += [

@@ -4,6 +4,9 @@
 
 #import "components/remote_cocoa/app_shim/NSToolbar+Private.h"
 
+#include "electron/mas.h"
+
+#if !IS_MAS_BUILD()
 // Access the private view that backs the toolbar.
 // TODO(http://crbug.com/40261565): Remove when FB12010731 is fixed in AppKit.
 @interface NSToolbar (ToolbarView)
@@ -18,3 +21,4 @@
                                                            : nil;
 }
 @end
+#endif

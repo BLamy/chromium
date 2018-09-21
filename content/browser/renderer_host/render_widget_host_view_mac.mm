@@ -58,6 +58,7 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/page_visibility_state.h"
+#include "electron/mas.h"
 #include "media/base/media_switches.h"
 #include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_mac.h"
@@ -317,8 +318,10 @@ RenderWidgetHostViewMac::~RenderWidgetHostViewMac() {
 void RenderWidgetHostViewMac::MigrateNSViewBridge(
     remote_cocoa::mojom::Application* remote_cocoa_application,
     uint64_t parent_ns_view_id) {
+#if !IS_MAS_BUILD()
   // Destroy the previous remote accessibility element.
   remote_window_accessible_ = nil;
+#endif
 
   // Reset `ns_view_` before resetting `remote_ns_view_` to avoid dangling
   // pointers. `ns_view_` gets reinitialized later in this method.
@@ -1897,10 +1900,12 @@ RenderWidgetHostViewMac::AccessibilityGetNativeViewAccessible() {
 
 gfx::NativeViewAccessible
 RenderWidgetHostViewMac::AccessibilityGetNativeViewAccessibleForWindow() {
+#if !IS_MAS_BUILD()
   if (remote_window_accessible_) {
     return gfx::NativeViewAccessible(
         (id<NSAccessibility>)remote_window_accessible_);
   }
+#endif
   return gfx::NativeViewAccessible([GetInProcessNSView() window]);
 }
 
@@ -1975,9 +1980,11 @@ id RenderWidgetHostViewMac::GetFocusedBrowserAccessibilityElement() {
 }
 
 void RenderWidgetHostViewMac::SetAccessibilityWindow(NSWindow* window) {
+#if !IS_MAS_BUILD()
   // When running in-process, just use the NSView's NSWindow as its own
   // accessibility element.
   remote_window_accessible_ = nil;
+#endif
 }
 
 bool RenderWidgetHostViewMac::SyncIsWidgetForMainFrame(
@@ -2550,20 +2557,26 @@ void RenderWidgetHostViewMac::StopSpeaking() {
 void RenderWidgetHostViewMac::GetRenderWidgetAccessibilityToken(
     GetRenderWidgetAccessibilityTokenCallback callback) {
   base::ProcessId pid = getpid();
+#if !IS_MAS_BUILD()
   id element_id = GetNativeViewAccessible().Get();
   std::vector<uint8_t> token =
       ui::RemoteAccessibility::GetTokenForLocalElement(element_id);
   std::move(callback).Run(pid, token);
+#else
+  std::move(callback).Run(pid, std::vector<uint8_t>());
+#endif
 }
 
 void RenderWidgetHostViewMac::SetRemoteAccessibilityWindowToken(
     const std::vector<uint8_t>& window_token) {
+#if !IS_MAS_BUILD()
   if (window_token.empty()) {
     remote_window_accessible_ = nil;
   } else {
     remote_window_accessible_ =
         ui::RemoteAccessibility::GetRemoteElementFromToken(window_token);
   }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

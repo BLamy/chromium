@@ -25,6 +25,7 @@
 #include "base/threading/scoped_blocking_call.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "electron/mas.h"
 #include "net/base/ip_endpoint.h"
 #include "net/dns/dns_config.h"
 #include "net/dns/dns_hosts.h"
@@ -132,8 +133,8 @@ class DnsConfigServicePosix::Watcher : public DnsConfigService::Watcher {
 
   bool Watch() override {
     CheckOnCorrectSequence();
-
     bool success = true;
+#if !IS_MAS_BUILD()
     if (!config_watcher_.Watch(base::BindRepeating(&Watcher::OnConfigChanged,
                                                    base::Unretained(this)))) {
       LOG(ERROR) << "DNS config watch failed to start.";
@@ -150,6 +151,7 @@ class DnsConfigServicePosix::Watcher : public DnsConfigService::Watcher {
       success = false;
     }
 #endif  // !BUILDFLAG(IS_IOS)
+#endif
     return success;
   }
 

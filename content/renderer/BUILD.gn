@@ -321,6 +321,7 @@ target(link_target_type, "renderer") {
     "//ui/strings:auto_image_annotation_strings_grit",
     "//url",
     "//v8",
+    "//electron/build/config:generate_mas_config",
   ]
 
   if (is_android) {

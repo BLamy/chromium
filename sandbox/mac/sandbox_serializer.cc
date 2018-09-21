@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "electron/mas.h"
 #include "sandbox/mac/sandbox_logging.h"
 #include "sandbox/mac/seatbelt.h"
 
@@ -193,6 +194,7 @@ SandboxSerializer::DeserializePolicy(const std::string& serialized_policy,
 // static
 bool SandboxSerializer::ApplySerializedPolicy(
     const std::string& serialized_policy) {
+#if !IS_MAS_BUILD()
   std::string error;
   std::optional<DeserializedPolicy> deserialized_policy =
       DeserializePolicy(serialized_policy, error);
@@ -223,6 +225,9 @@ bool SandboxSerializer::ApplySerializedPolicy(
       break;
   }
   return true;
+#else
+  return true;
+#endif
 }
 
 }  // namespace sandbox

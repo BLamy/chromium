@@ -279,6 +279,7 @@ source_set("common") {
     "//ui/shell_dialogs",
     "//url",
     "//url/ipc:url_ipc",
+    "//electron/build/config:generate_mas_config",
   ]
 
   defines = []

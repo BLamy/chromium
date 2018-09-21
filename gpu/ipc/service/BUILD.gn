@@ -136,6 +136,7 @@ component("service") {
         "QuartzCore.framework",
       ]
       defines += [ "GL_SILENCE_DEPRECATION" ]
+      deps += ["//electron/build/config:generate_mas_config"]
     }
     if (is_ios) {
       sources += [ "image_transport_surface_ios.mm" ]

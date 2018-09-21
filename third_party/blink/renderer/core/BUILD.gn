@@ -448,6 +448,7 @@ component("core") {
     "//ui/gfx/geometry",
     "//ui/gfx/geometry:geometry_skia",
     "//ui/strings",
+    "//electron/build/config:generate_mas_config",
   ]
 
   if (is_mac) {

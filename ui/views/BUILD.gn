@@ -795,6 +795,8 @@ component("views") {
       "IOSurface.framework",
       "QuartzCore.framework",
     ]
+
+    deps += ["//electron/build/config:generate_mas_config"]
   }
 
   if (is_win) {
@@ -1214,6 +1216,8 @@ source_set("test_support") {
     "//ui/base/mojom",
     "//ui/base/mojom:ui_base_types",
   ]
+
+  deps += ["//electron/build/config:generate_mas_config"]
 
   if (is_win) {
     sources += [

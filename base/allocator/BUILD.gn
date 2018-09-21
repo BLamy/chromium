@@ -29,6 +29,7 @@ if (is_apple) {
     deps = [
       ":buildflags",
       "//base/allocator/partition_allocator:buildflags",
+      "//electron/build/config:generate_mas_config",
     ]
   }
 }

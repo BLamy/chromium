@@ -11,15 +11,19 @@
 #include "base/apple/bundle_locations.h"
 #include "base/apple/foundation_util.h"
 #include "base/containers/span.h"
+#include "electron/mas.h"
 
+#if !IS_MAS_BUILD()
 extern "C" {
 // Key used within CoreFoundation for loaded Info plists
 extern const CFStringRef _kCFBundleNumericVersionKey;
 }
+#endif
 
 namespace base::mac {
 
 std::vector<uint8_t> OuterBundleCachedInfoPlistData() {
+#if !IS_MAS_BUILD()
   // NSBundle's info dictionary is used to ensure that any changes to Info.plist
   // on disk due to pending updates do not result in a version of the data being
   // used that doesn't match the code signature of the running app.
@@ -43,6 +47,9 @@ std::vector<uint8_t> OuterBundleCachedInfoPlistData() {
                      error:nullptr];
   base::span<const uint8_t> span = apple::NSDataToSpan(data);
   return {span.begin(), span.end()};
+#else
+  return {};
+#endif
 }
 
 }  // namespace base::mac

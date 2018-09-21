@@ -42,6 +42,7 @@
 #import "components/remote_cocoa/app_shim/views_nswindow_delegate.h"
 #import "components/remote_cocoa/app_shim/window_move_loop.h"
 #include "components/remote_cocoa/common/native_widget_ns_window_host.mojom.h"
+#include "electron/mas.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/cert/x509_util_apple.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
@@ -78,10 +79,13 @@ using CGSWindowID = NSInteger;
 using CGRegionRef = CFTypeRef;
 
 CG_EXTERN CGSConnectionID CGSMainConnectionID(void);
+
+#if !IS_MAS_BUILD()
 CG_EXTERN CGError CGSSetWindowCaptureExcludeShape(CGSConnectionID cid,
                                                   CGSWindowID wid,
                                                   CGRegionRef region);
 CG_EXTERN CGRegionRef CGRegionCreateWithRect(CGRect rect);
+#endif
 
 namespace remote_cocoa {
 
@@ -94,6 +98,7 @@ namespace {
 constexpr auto kUIPaintTimeout = base::Milliseconds(500);
 
 void ApplyCaptureExclusion(NSWindow* window, bool allow) {
+#if !IS_MAS_BUILD()
   CGSConnectionID connection_id = CGSMainConnectionID();
   CGSWindowID window_id = window.windowNumber;
   CGRect frame = window.frame;
@@ -103,6 +108,9 @@ void ApplyCaptureExclusion(NSWindow* window, bool allow) {
     region.reset(CGRegionCreateWithRect(frame));
   }
   CGSSetWindowCaptureExcludeShape(connection_id, window_id, region.get());
+#else
+  [window setSharingType:allow ? NSWindowSharingReadOnly : NSWindowSharingNone];
+#endif
 }
 
 // Returns the display that the specified window is on.
@@ -822,10 +830,12 @@ void NativeWidgetNSWindowBridge::CreateContentView(
   // this should be treated as an error and caught early.
   CHECK(bridged_view_);
 
+#if !IS_MAS_BUILD()
   // Send the accessibility tokens for the NSView now that it exists.
   host_->SetRemoteAccessibilityTokens(
       ui::RemoteAccessibility::GetTokenForLocalElement(window_),
       ui::RemoteAccessibility::GetTokenForLocalElement(bridged_view_));
+#endif
 
   // Beware: This view was briefly removed (in favor of a bare CALayer) in
   // https://crrev.com/c/1236675. The ordering of unassociated layers relative

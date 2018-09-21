@@ -8,6 +8,7 @@
 #include "base/apple/foundation_util.h"
 #include "base/logging.h"
 #import "base/message_loop/message_pump_apple.h"
+#import "electron/mas.h"
 #import "skia/ext/skia_utils_mac.h"
 #import "ui/base/cocoa/cocoa_base_utils.h"
 #include "ui/base/interaction/element_tracker_mac.h"
@@ -111,6 +112,7 @@ NSImage* IPHDotImage(const remote_cocoa::mojom::MenuControllerParams& params) {
 
 @interface NSMenu (Impl)
 
+#if !IS_MAS_BUILD()
 // Returns the impl. (If called on macOS 14 this would return a subclass of
 // NSCocoaMenuImpl, but private API use is not needed on macOS 14.)
 - (id<CrNSCarbonMenuImpl>)_menuImpl;
@@ -119,6 +121,7 @@ NSImage* IPHDotImage(const remote_cocoa::mojom::MenuControllerParams& params) {
 // on both Carbon and Cocoa impls, but always (incorrectly) returns a zero
 // origin with the Cocoa impl. Therefore, do not use with macOS 14 or later.
 - (CGRect)_boundsIfOpen;
+#endif
 
 @end
 
@@ -239,6 +242,7 @@ NSImage* IPHDotImage(const remote_cocoa::mojom::MenuControllerParams& params) {
       }
       menuShown = true;
 
+#if !IS_MAS_BUILD()
       if (alertedIndex.has_value()) {
         const auto index = base::checked_cast<NSInteger>(alertedIndex.value());
         if (@available(macOS 14.0, *)) {
@@ -247,6 +251,7 @@ NSImage* IPHDotImage(const remote_cocoa::mojom::MenuControllerParams& params) {
           [strongMenu._menuImpl highlightItemAtIndex:index];
         }
       }
+#endif
 
       if (@available(macOS 14.0, *)) {
         for (auto [elementId, index] : elementIds) {
@@ -267,7 +272,11 @@ NSImage* IPHDotImage(const remote_cocoa::mojom::MenuControllerParams& params) {
             dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC),
             dispatch_get_main_queue(), ^{
               gfx::Rect bounds =
+#if !IS_MAS_BUILD()
                   gfx::ScreenRectFromNSRect(strongMenu._boundsIfOpen);
+#else
+                  gfx::ScreenRectFromNSRect(NSMakeRect(0, 0, 0, 0));
+#endif
               for (auto [elementId, index] : elementIds) {
                 ui::ElementTrackerMac::GetInstance()->NotifyMenuItemShown(
                     strongMenu, elementId, bounds);

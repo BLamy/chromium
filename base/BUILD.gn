@@ -1166,6 +1166,7 @@ component("base") {
     "//build:ios_buildflags",
     "//build/config/compiler:compiler_buildflags",
     "//third_party/modp_b64",
+    "//electron/build/config:generate_mas_config",
   ]
 
   # Used by metrics/crc32

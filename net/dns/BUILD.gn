@@ -224,6 +224,8 @@ source_set("dns") {
     ":host_resolver_manager",
     ":mdns_client",
   ]
+
+  deps += ["//electron/build/config:generate_mas_config"]
 }
 
 # The standard API of net/dns.

@@ -197,15 +197,33 @@ void EarlyMallocZoneRegistration() {
   // a duplicate even when a binary copy of this code exists.
   if (allocator_shim::IsZoneAlreadyRegistered(
           allocator_shim::kDelegatingZoneName)) {
+#if !IS_MAS_BUILD()
     abort_report_np(
         "The delegating default zone has unexpectedly already been "
         "registered.");
+#else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+    os_log_fault(OS_LOG_DEFAULT, "The delegating default zone "
+                 "has unexpectedly already been registered.");
+#pragma clang diagnostic pop
+    abort();
+#endif
   }
   if (allocator_shim::IsZoneAlreadyRegistered(
           allocator_shim::kPartitionAllocZoneName)) {
+#if !IS_MAS_BUILD()
     abort_report_np(
         "The PartitionAlloc default zone has unexpectedly already been "
         "registered.");
+#else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+    os_log_fault(OS_LOG_DEFAULT, "The PartitionAlloc default zone "
+                 "has unexpectedly already been registered.");
+#pragma clang diagnostic pop
+    abort();
+#endif
   }
 
   // Register puts the new zone at the end, unregister swaps the new zone with
@@ -229,7 +247,16 @@ void EarlyMallocZoneRegistration() {
 
   // Sanity check.
   if (allocator_shim::GetDefaultMallocZoneOrDie() != &g_delegating_zone) {
+#if !IS_MAS_BUILD()
     abort_report_np("Failed to install the delegating zone as default.");
+#else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+    os_log_fault(OS_LOG_DEFAULT, "Failed to install the delegating zone "
+                 "as default.");
+#pragma clang diagnostic pop
+    abort();
+#endif
   }
 }
 

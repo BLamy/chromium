@@ -16,6 +16,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
+#include "electron/mas.h"
 
 namespace base {
 
@@ -115,6 +116,14 @@ DeviceUserDomainJoinState AreDeviceAndUserJoinedToDomain() {
   static DeviceUserDomainJoinState state = [] {
     DeviceUserDomainJoinState state{.device_joined = false,
                                     .user_joined = false};
+
+#if IS_MAS_BUILD()
+    return state;
+  }();
+
+  return state;
+}
+#else
 
     @autoreleasepool {
       ODSession* session = [ODSession defaultSession];
@@ -219,5 +228,6 @@ DeviceUserDomainJoinState AreDeviceAndUserJoinedToDomain() {
 
   return state;
 }
+#endif
 
 }  // namespace base

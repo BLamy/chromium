@@ -198,6 +198,7 @@ source_set("audio") {
       "CoreMedia.framework",
       "ScreenCaptureKit.framework",
     ]
+    deps += ["//electron/build/config:generate_mas_config"]
   }
 
   if (is_ios) {

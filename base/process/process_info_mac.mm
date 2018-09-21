@@ -4,6 +4,8 @@
 
 #include "base/process/process_info.h"
 
+#include "electron/mas.h"
+
 #import <AppKit/AppKit.h>
 #include <unistd.h>
 
@@ -11,12 +13,15 @@
 
 #include "base/check.h"
 
+#if !IS_MAS_BUILD()
 extern "C" {
 pid_t responsibility_get_pid_responsible_for_pid(pid_t);
 }
+#endif
 
 namespace {
 
+#if !IS_MAS_BUILD()
 bool AppContainsBluetoothUsageDescription(NSRunningApplication* app) {
   NSURL* bundle_url = app.bundleURL;
   if (!bundle_url) {
@@ -35,16 +40,22 @@ std::optional<pid_t> ResponsiblePidIfNotSelf() {
   PCHECK(responsible_pid != -1);
   return pid != responsible_pid ? std::optional(responsible_pid) : std::nullopt;
 }
+#endif
 
 }  // namespace
 
 namespace base {
 
 bool IsCurrentProcessSelfResponsible() {
+#if !IS_MAS_BUILD()
   return ResponsiblePidIfNotSelf() == std::nullopt;
+#else
+  return true;
+#endif
 }
 
 bool DoesResponsibleProcessHaveBluetoothMetadata() {
+#if !IS_MAS_BUILD()
   const std::optional<pid_t> responsible_pid = ResponsiblePidIfNotSelf();
 
   // Returns true directly if this is a self-responsible app (e.g., Chrome opens
@@ -61,6 +72,9 @@ bool DoesResponsibleProcessHaveBluetoothMetadata() {
     return AppContainsBluetoothUsageDescription(app);
   }
   return false;
+#else
+  return true;
+#endif
 }
 
 }  // namespace base

@@ -255,6 +255,7 @@ component("bluetooth") {
       "CoreBluetooth.framework",
       "Foundation.framework",
     ]
+    deps += ["//electron/build/config:generate_mas_config"]
   }
 
   if (is_mac) {

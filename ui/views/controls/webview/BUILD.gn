@@ -53,6 +53,12 @@ component("webview") {
     "//url",
   ]
 
+  if (is_mac) {
+    deps += [
+      "//electron/build/config:generate_mas_config",
+    ]
+  }
+
   public_deps = [
     "//base",
     "//content/public/browser",

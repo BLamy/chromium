@@ -16,6 +16,7 @@
 #include "base/strings/string_view_util.h"
 #include "build/branding_buildflags.h"
 #include "crypto/apple/keychain_v2.h"
+#include "electron/mas.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 
 using crypto::apple::KeychainV2;

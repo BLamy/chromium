@@ -26,6 +26,7 @@
 #include "content/browser/renderer_host/text_input_manager.h"
 #include "content/common/content_export.h"
 #include "content/common/render_widget_host_ns_view.mojom.h"
+#include "electron/mas.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "third_party/blink/public/common/page/content_to_visible_time_request.h"
@@ -58,7 +59,9 @@ class CursorManager;
 
 @protocol RenderWidgetHostViewMacDelegate;
 
+#if !IS_MAS_BUILD()
 @class NSAccessibilityRemoteUIElement;
+#endif
 @class RenderWidgetHostViewCocoa;
 
 namespace content {
@@ -725,9 +728,11 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   bool pointer_lock_unadjusted_movement_ = false;
 
 
+#if !IS_MAS_BUILD()
   // Remote accessibility objects corresponding to the NSWindow that this is
   // displayed to the user in.
   NSAccessibilityRemoteUIElement* __strong remote_window_accessible_;
+#endif
 
   ui::AXTreeID parent_ax_tree_id_ = ui::AXTreeIDUnknown();
 

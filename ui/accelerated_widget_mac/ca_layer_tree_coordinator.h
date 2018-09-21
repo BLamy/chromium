@@ -8,13 +8,16 @@
 #include <queue>
 
 #include "base/containers/queue.h"
+#include "electron/mas.h"
 #include "ui/accelerated_widget_mac/accelerated_widget_mac_export.h"
 #include "ui/gfx/ca_layer_result.h"
 #include "ui/gfx/presentation_feedback.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/presenter.h"
 
+#if !IS_MAS_BUILD()
 @class CAContext;
+#endif
 @class CALayer;
 @protocol MTLDevice;
 
@@ -128,7 +131,9 @@ class ACCELERATED_WIDGET_MAC_EXPORT CALayerTreeCoordinator {
   // both the current tree and the pending trees.
   size_t presented_ca_layer_trees_max_length_ = 2;
 
+#if !IS_MAS_BUILD()
   CAContext* __strong ca_context_;
+#endif
 
   // The root CALayer to display the current frame. This does not change
   // over the lifetime of the object.

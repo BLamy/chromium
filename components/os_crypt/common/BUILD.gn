@@ -26,6 +26,7 @@ if (is_apple) {
       "//base",
       "//build:branding_buildflags",
       "//crypto",
+      "//electron/build/config:generate_mas_config",
     ]
   }
 }

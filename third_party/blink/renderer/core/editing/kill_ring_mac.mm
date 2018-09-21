@@ -25,8 +25,11 @@
 
 #import "third_party/blink/renderer/core/editing/kill_ring.h"
 
+#include "electron/mas.h"
+
 namespace blink {
 
+#if !IS_MAS_BUILD()
 extern "C" {
 
 // Kill ring calls. Would be better to use NSKillRing.h, but that's not
@@ -39,7 +42,9 @@ NSString* _NSYankFromKillRing();
 void _NSNewKillRingSequence();
 void _NSSetKillRingToYankedState();
 }
+#endif  // !IS_MAS_BUILD()
 
+#if !IS_MAS_BUILD()
 static void InitializeKillRingIfNeeded() {
   static bool initialized_kill_ring = false;
   if (!initialized_kill_ring) {
@@ -47,30 +52,43 @@ static void InitializeKillRingIfNeeded() {
     _NSInitializeKillRing();
   }
 }
+#endif  // !IS_MAS_BUILD()
 
 void KillRing::Append(const String& string) {
+#if !IS_MAS_BUILD()
   InitializeKillRingIfNeeded();
   _NSAppendToKillRing(string);
+#endif  // !IS_MAS_BUILD()
 }
 
 void KillRing::Prepend(const String& string) {
+#if !IS_MAS_BUILD()
   InitializeKillRingIfNeeded();
   _NSPrependToKillRing(string);
+#endif  // !IS_MAS_BUILD()
 }
 
 String KillRing::Yank() {
+#if !IS_MAS_BUILD()
   InitializeKillRingIfNeeded();
   return _NSYankFromKillRing();
+#else
+  return String();
+#endif  // !IS_MAS_BUILD()
 }
 
 void KillRing::StartNewSequence() {
+#if !IS_MAS_BUILD()
   InitializeKillRingIfNeeded();
   _NSNewKillRingSequence();
+#endif  // !IS_MAS_BUILD()
 }
 
 void KillRing::SetToYankedState() {
+#if !IS_MAS_BUILD()
   InitializeKillRingIfNeeded();
   _NSSetKillRingToYankedState();
+#endif  // !IS_MAS_BUILD()
 }
 
 }  // namespace blink

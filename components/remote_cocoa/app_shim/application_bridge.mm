@@ -13,6 +13,7 @@
 #include "components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h"
 #include "components/remote_cocoa/app_shim/native_widget_ns_window_host_helper.h"
 #include "components/system_media_controls/mac/remote_cocoa/system_media_controls_bridge.h"
+#include "electron/mas.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
@@ -54,6 +55,7 @@ class NativeWidgetBridgeOwner : public NativeWidgetNSWindowHostHelper {
 
   // NativeWidgetNSWindowHostHelper:
   id GetNativeViewAccessible() override {
+#if !IS_MAS_BUILD()
     if (!remote_accessibility_element_) {
       base::ProcessId browser_pid = base::kNullProcessId;
       std::vector<uint8_t> element_token;
@@ -64,6 +66,9 @@ class NativeWidgetBridgeOwner : public NativeWidgetNSWindowHostHelper {
           ui::RemoteAccessibility::GetRemoteElementFromToken(element_token);
     }
     return remote_accessibility_element_;
+#else
+    return nil;
+#endif
   }
   void DispatchKeyEvent(ui::KeyEvent* event) override {
     bool event_handled = false;
@@ -101,7 +106,9 @@ class NativeWidgetBridgeOwner : public NativeWidgetNSWindowHostHelper {
   mojo::AssociatedRemote<mojom::TextInputHost> text_input_host_remote_;
 
   std::unique_ptr<NativeWidgetNSWindowBridge> bridge_;
+#if !IS_MAS_BUILD()
   NSAccessibilityRemoteUIElement* __strong remote_accessibility_element_;
+#endif
 };
 
 bool g_is_out_of_process_app_shim = false;

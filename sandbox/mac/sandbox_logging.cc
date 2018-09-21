@@ -17,6 +17,7 @@
 
 #include "base/compiler_specific.h"
 #include "build/build_config.h"
+#include "electron/mas.h"
 #include "sandbox/mac/sandbox_crash_message.h"
 
 #if defined(ARCH_CPU_X86_64)
@@ -34,9 +35,11 @@
   }
 #endif
 
+#if !IS_MAS_BUILD()
 extern "C" {
 void abort_report_np(const char*, ...);
 }
+#endif
 
 namespace sandbox::logging {
 
@@ -78,7 +81,12 @@ void SendOsLog(Level level, const char* message) {
   }
 
   if (level == Level::FATAL) {
+#if !IS_MAS_BUILD()
     abort_report_np(message);
+#else
+    UNSAFE_TODO(os_log_fault(OS_LOG_DEFAULT, "%s", message));
+    abort();
+#endif
   }
 }
 

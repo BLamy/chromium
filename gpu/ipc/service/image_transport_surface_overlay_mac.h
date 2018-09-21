@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
+#include "electron/mas.h"
 #include "gpu/ipc/service/command_buffer_stub.h"
 #include "gpu/ipc/service/image_transport_surface.h"
 #include "ui/gfx/ca_layer_result.h"
@@ -27,7 +28,9 @@
 #include <BrowserEngineKit/BrowserEngineKit.h>
 #endif
 
+#if !IS_MAS_BUILD()
 @class CAContext;
+#endif
 @class CALayer;
 
 namespace ui {

@@ -8,6 +8,7 @@
 
 #include "base/apple/foundation_util.h"
 #include "base/strings/sys_string_conversions.h"
+#include "electron/mas.h"
 #include "ui/accessibility/ax_range.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
 #include "ui/accessibility/platform/ax_platform_node_cocoa.h"
@@ -108,6 +109,7 @@ base::Value AXNSObjectToBaseValue(id value, const AXTreeIndexerMac* indexer) {
     }
   }
 
+#if !IS_MAS_BUILD()
   // AXTextMarker
   if (IsAXTextMarker(value)) {
     return AXTextMarkerToBaseValue(value, indexer);
@@ -117,6 +119,7 @@ base::Value AXNSObjectToBaseValue(id value, const AXTreeIndexerMac* indexer) {
   if (IsAXTextMarkerRange(value)) {
     return AXTextMarkerRangeToBaseValue(value, indexer);
   }
+#endif
 
   // Accessible object
   if (AXElementWrapper::IsValidElement(value)) {

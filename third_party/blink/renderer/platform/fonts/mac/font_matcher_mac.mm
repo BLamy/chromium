@@ -41,6 +41,7 @@
 #include "base/apple/foundation_util.h"
 #include "base/apple/scoped_cftyperef.h"
 #include "base/numerics/byte_conversions.h"
+#include "electron/mas.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_selection_types.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -64,8 +65,10 @@ using base::apple::ScopedCFTypeRef;
 // We don't need localized variation axis name, so we can use
 // `CTFontCopyVariationAxesInternal()` instead.
 // Request for public API: FB13788219.
+#if !IS_MAS_BUILD()
 extern "C" CFArrayRef CTFontCopyVariationAxesInternal(CTFontRef)
     CT_AVAILABLE(macos(12.1));
+#endif
 
 namespace blink {
 
@@ -596,12 +599,16 @@ void ClampVariationValuesToFontAcceptableRange(
   // we are enabling it only on MacOS 13+ because these are our benchmarking
   // platforms.
   NSArray* all_axes;
+#if !IS_MAS_BUILD()
   if (@available(macOS 13.0, *)) {
     all_axes =
         CFToNSOwnershipCast(CTFontCopyVariationAxesInternal(ct_font.get()));
   } else {
     all_axes = CFToNSOwnershipCast(CTFontCopyVariationAxes(ct_font.get()));
   }
+#else
+  all_axes = CFToNSOwnershipCast(CTFontCopyVariationAxes(ct_font.get()));
+#endif
   if (!all_axes) {
     return;
   }

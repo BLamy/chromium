@@ -219,6 +219,7 @@ static_library("web_test_browser") {
     "//ui/gl",
     "//ui/shell_dialogs",
     "//url",
+    "//electron/build/config:generate_mas_config",
   ]
 
   if (is_mac) {

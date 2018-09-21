@@ -12,16 +12,21 @@
 
 #include <mach/mach.h>
 #include <malloc/malloc.h>
+#include <os/log.h>
 
 #include <span>
 #include <string_view>
 
+#include "electron/mas.h"
+
+#if !IS_MAS_BUILD()
 extern "C" {
 // abort_report_np() records the message in a special section that both the
 // system CrashReporter and Crashpad collect in crash reports. See also in
 // chrome_exe_main_mac.cc.
 void abort_report_np(const char* fmt, ...);
 }  // extern "C"
+#endif
 
 namespace allocator_shim {
 
@@ -34,7 +39,15 @@ inline std::span<malloc_zone_t*> GetMallocZonesOrDie() {
   kern_return_t result = malloc_get_all_zones(
       mach_task_self(), /*reader=*/nullptr, &zones, &zone_count);
   if (result != KERN_SUCCESS) [[unlikely]] {
+#if !IS_MAS_BUILD()
     abort_report_np("Cannot enumerate malloc zones.");
+#else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+    os_log_fault(OS_LOG_DEFAULT, "Cannot enumerate malloc zones.");
+#pragma clang diagnostic pop
+    abort();
+#endif
   }
   // This is not guaranteed by the C++ standard, but commonly satisfied.
   // It must be safe to assume the same memory layout for arrays of two

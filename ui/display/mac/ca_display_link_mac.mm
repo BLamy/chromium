@@ -21,15 +21,18 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/trace_event/trace_event.h"
+#include "electron/mas.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "ui/display/mac/screen_utils_mac.h"
 
 extern "C" {
+#if !IS_MAS_BUILD()
 // Undocumented CoreGraphics framework functions.
 using CGSConnectionID = uint32_t;
 CGSConnectionID CGSMainConnectionID();
 CGError CGSGetEventPort(CGSConnectionID connection_id, mach_port_t* port);
 CGEventRef CGEventCreateNextEvent(CGSConnectionID connection_id);
+#endif
 
 // Undocumented SkyLight framework functions.
 // SLSGetDisplayLink() is a private function (SPI) that creates a CADisplayLink
@@ -305,6 +308,15 @@ WindowServerEventPumpThread::WindowServerEventPumpThread(
       viz_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
   weak_ptr_ = weak_factory_.GetWeakPtr();
 
+#if IS_MAS_BUILD()
+  // Draining the WindowServer event queue needs the private CGS* functions
+  // declared above, which the Mac App Store build cannot use. Without the
+  // pump, CADisplayLink may stop firing after display reconfiguration or power
+  // resume, so treat the pump as failed up front and let every root frame sink
+  // fall back to a timer-based VSync source.
+  shutdown_ = true;
+  CADisplayLinkGlobals::Get().SetWindowServerEventPumpFailed();
+#else
   base::Thread::Options thread_options;
   thread_options.message_pump_type = base::MessagePumpType::NS_RUNLOOP;
   thread_options.thread_type = base::ThreadType::kPresentation;
@@ -314,6 +326,7 @@ WindowServerEventPumpThread::WindowServerEventPumpThread(
       FROM_HERE,
       base::BindOnce(&WindowServerEventPumpThread::PumpWindowServerEvents,
                      base::Unretained(this)));
+#endif
 }
 
 // In a standard out-of-process GPU scenario,
@@ -331,6 +344,7 @@ WindowServerEventPumpThread::~WindowServerEventPumpThread() {
 
   shutdown_ = true;
 
+#if !IS_MAS_BUILD()
   // Send an empty message to wake up the thread and quit the while loop.
   // See WindowServerEventPumpThread::PumpWindowServerEvents() for details.
   CGSConnectionID connection_id = CGSMainConnectionID();
@@ -354,10 +368,12 @@ WindowServerEventPumpThread::~WindowServerEventPumpThread() {
         << "CGSGetEventPort() in ~WindowServerEventPumpThread failed. Error: "
         << err;
   }
+#endif
 
   Stop();
 }
 
+#if !IS_MAS_BUILD()
 void WindowServerEventPumpThread::PumpWindowServerEvents() {
   CGSConnectionID connection_id = CGSMainConnectionID();
   // We haven't seen this happen in practice, but WebKit's implementation
@@ -505,6 +521,7 @@ void WindowServerEventPumpThread::PumpWindowServerEvents() {
     }
   }
 }
+#endif
 
 void WindowServerEventPumpThread::DisableDisplayLink(Result failure) {
   // This may be called from the pump thread. Hop to the Viz thread, which owns
