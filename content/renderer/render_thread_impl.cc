@@ -1258,11 +1258,11 @@ bool RenderThreadImpl::IsLcdTextEnabled() {
 }
 
 bool RenderThreadImpl::IsElasticOverscrollEnabledOnRoot() {
-  return is_elastic_overscroll_enabled_on_root_;
+  return base::CommandLine::ForCurrentProcess()->HasSwitch("scroll-bounce");
 }
 
 bool RenderThreadImpl::IsElasticOverscrollSupported() {
-  return is_elastic_overscroll_supported_;
+  return base::CommandLine::ForCurrentProcess()->HasSwitch("scroll-bounce");
 }
 
 blink::scheduler::WebThreadScheduler*
