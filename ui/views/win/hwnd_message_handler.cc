@@ -1119,8 +1119,11 @@ void HWNDMessageHandler::SetFullscreen(bool fullscreen,
 
 void HWNDMessageHandler::SetAspectRatio(float aspect_ratio,
                                         const gfx::Size& excluded_margin) {
-  // If the aspect ratio is not in the valid range, do nothing.
-  DCHECK_GT(aspect_ratio, 0.0f);
+  // If the aspect ratio is 0, reset it to null.
+  if (aspect_ratio == 0.0f) {
+    aspect_ratio_.reset();
+    return;
+  }
 
   aspect_ratio_ = aspect_ratio;
   excluded_margin_dip_ = excluded_margin;
