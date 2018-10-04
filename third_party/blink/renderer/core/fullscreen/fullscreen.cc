@@ -107,7 +107,6 @@ void FullscreenElementChanged(Document& document,
     // is the iframe element for the out-of-process frame that contains the
     // fullscreen element. Hence, it must match :-webkit-full-screen-ancestor.
     if (new_request_type & FullscreenRequestType::kForCrossProcessDescendant) {
-      DCHECK(IsA<HTMLIFrameElement>(new_element));
       new_element->SetContainsFullScreenElement(true);
     }
     new_element->SetContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(

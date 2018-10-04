@@ -9833,6 +9833,17 @@ void RenderFrameHostImpl::EnterFullscreen(
     }
   }
 
+  // Entering fullscreen from webview should also notify its outer frame.
+  if (frame_tree_node()->render_manager()->IsMainFrameForInnerDelegate()) {
+    RenderFrameProxyHost* outer_proxy =
+        frame_tree_node()->render_manager()->GetProxyToOuterDelegate();
+    DCHECK(outer_proxy);
+    if (outer_proxy->is_render_frame_proxy_live()) {
+      outer_proxy->GetAssociatedRemoteFrame()->WillEnterFullscreen(
+          options.Clone());
+    }
+  }
+
   // Focus the window if another frame may have delegated the capability.
   if (had_fullscreen_token && !GetView()->HasFocus()) {
     GetView()->Focus();
