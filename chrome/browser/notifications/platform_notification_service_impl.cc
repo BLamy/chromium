@@ -257,6 +257,7 @@ bool PlatformNotificationServiceImpl::WasClosedProgrammatically(
 
 // TODO(awdf): Rename to DisplayNonPersistentNotification (Similar for Close)
 void PlatformNotificationServiceImpl::DisplayNotification(
+    content::RenderFrameHost* render_frame_host,
     const std::string& notification_id,
     const GURL& origin,
     const GURL& document_url,

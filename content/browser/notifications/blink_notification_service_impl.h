@@ -44,6 +44,7 @@ class CONTENT_EXPORT BlinkNotificationServiceImpl
       BrowserContext* browser_context,
       scoped_refptr<ServiceWorkerContextWrapper> service_worker_context,
       RenderProcessHost* render_process_host,
+      RenderFrameHost* render_frame_host,
       const blink::StorageKey& storage_key,
       const GURL& document_url,
       const WeakDocumentPtr& weak_document_ptr,
@@ -119,6 +120,7 @@ class CONTENT_EXPORT BlinkNotificationServiceImpl
   raw_ptr<PlatformNotificationContextImpl, DanglingUntriaged>
       notification_context_;
 
+  raw_ptr<RenderFrameHost, DanglingUntriaged> render_frame_host_;
   raw_ptr<BrowserContext> browser_context_;
 
   scoped_refptr<ServiceWorkerContextWrapper> service_worker_context_;

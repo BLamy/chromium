@@ -2568,7 +2568,7 @@ void RenderProcessHostImpl::CreateNotificationService(
     case RenderProcessHost::NotificationServiceCreatorType::kSharedWorker:
     case RenderProcessHost::NotificationServiceCreatorType::kDedicatedWorker: {
       storage_partition_impl_->GetPlatformNotificationContext()->CreateService(
-          this, storage_key, /*document_url=*/GURL(), weak_document_ptr,
+          this, rfh, storage_key, /*document_url=*/GURL(), weak_document_ptr,
           creator_type, std::move(receiver));
       break;
     }
@@ -2576,7 +2576,7 @@ void RenderProcessHostImpl::CreateNotificationService(
       CHECK(rfh);
 
       storage_partition_impl_->GetPlatformNotificationContext()->CreateService(
-          this, storage_key, rfh->GetLastCommittedURL(), weak_document_ptr,
+          this, rfh, storage_key, rfh->GetLastCommittedURL(), weak_document_ptr,
           creator_type, std::move(receiver));
       break;
     }

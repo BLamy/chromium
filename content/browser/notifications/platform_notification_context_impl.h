@@ -47,6 +47,7 @@ class PlatformNotificationServiceProxy;
 class RenderProcessHost;
 class ServiceWorkerContextWrapper;
 class WeakDocumentPtr;
+class RenderFrameHost;
 
 // Implementation of the Web Notification storage context. The public methods
 // defined in this interface must only be called on the UI thread.
@@ -80,6 +81,7 @@ class CONTENT_EXPORT PlatformNotificationContextImpl
   // service is created by a dedicated worker, or is `nullptr` otherwise.
   void CreateService(
       RenderProcessHost* render_process_host,
+      RenderFrameHost* render_frame_host,
       const blink::StorageKey& storage_key,
       const GURL& document_url,
       const WeakDocumentPtr& weak_document_ptr,
