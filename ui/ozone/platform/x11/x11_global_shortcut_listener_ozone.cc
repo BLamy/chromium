@@ -26,27 +26,30 @@ void X11GlobalShortcutListenerOzone::StopListening() {
 bool X11GlobalShortcutListenerOzone::RegisterAccelerator(KeyboardCode key_code,
                                                          bool is_alt_down,
                                                          bool is_ctrl_down,
-                                                         bool is_shift_down) {
+                                                         bool is_shift_down,
+                                                         bool is_cmd_down) {
   return XGlobalShortcutListener::RegisterAccelerator(
-      key_code, is_alt_down, is_ctrl_down, is_shift_down);
+      key_code, is_alt_down, is_ctrl_down, is_shift_down, is_cmd_down);
 }
 
 void X11GlobalShortcutListenerOzone::UnregisterAccelerator(
     KeyboardCode key_code,
     bool is_alt_down,
     bool is_ctrl_down,
-    bool is_shift_down) {
+    bool is_shift_down,
+    bool is_cmd_down) {
   return XGlobalShortcutListener::UnregisterAccelerator(
-      key_code, is_alt_down, is_ctrl_down, is_shift_down);
+      key_code, is_alt_down, is_ctrl_down, is_shift_down, is_cmd_down);
 }
 
 void X11GlobalShortcutListenerOzone::OnKeyPressed(KeyboardCode key_code,
                                                   bool is_alt_down,
                                                   bool is_ctrl_down,
-                                                  bool is_shift_down) {
+                                                  bool is_shift_down,
+                                                  bool is_cmd_down) {
   if (delegate()) {
     delegate()->OnKeyPressed(key_code, is_alt_down, is_ctrl_down,
-                             is_shift_down);
+                             is_shift_down, is_cmd_down);
   }
 }
 

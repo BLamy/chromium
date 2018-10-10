@@ -411,6 +411,11 @@ void MediaKeysListenerManagerImpl::UpdateSystemMediaControlsEnabledControls() {
         case ui::VKEY_MEDIA_STOP:
           browser_system_media_controls_->SetIsStopEnabled(should_enable);
           break;
+        case ui::VKEY_VOLUME_DOWN:
+        case ui::VKEY_VOLUME_UP:
+        case ui::VKEY_VOLUME_MUTE:
+          // Do nothing.
+          break;
         default:
           NOTREACHED();
       }
@@ -448,6 +453,11 @@ void MediaKeysListenerManagerImpl::UpdateSystemMediaControlsEnabledControls() {
           break;
         case ui::VKEY_MEDIA_STOP:
           smc->SetIsStopEnabled(should_enable);
+          break;
+        case ui::VKEY_VOLUME_DOWN:
+        case ui::VKEY_VOLUME_UP:
+        case ui::VKEY_VOLUME_MUTE:
+          // Do nothing.
           break;
         default:
           NOTREACHED();

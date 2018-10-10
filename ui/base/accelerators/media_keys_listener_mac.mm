@@ -40,6 +40,12 @@ KeyboardCode MediaKeyCodeToKeyboardCode(int key_code) {
     case NX_KEYTYPE_NEXT:
     case NX_KEYTYPE_FAST:
       return VKEY_MEDIA_NEXT_TRACK;
+    case NX_KEYTYPE_SOUND_UP:
+      return VKEY_VOLUME_UP;
+    case NX_KEYTYPE_SOUND_DOWN:
+      return VKEY_VOLUME_DOWN;
+    case NX_KEYTYPE_MUTE:
+      return VKEY_VOLUME_MUTE;
   }
   return VKEY_UNKNOWN;
 }
@@ -246,7 +252,10 @@ CGEventRef MediaKeysListenerImpl::EventTapCallback(CGEventTapProxy proxy,
   int key_code = (data1 & 0xFFFF0000) >> 16;
   if (key_code != NX_KEYTYPE_PLAY && key_code != NX_KEYTYPE_NEXT &&
       key_code != NX_KEYTYPE_PREVIOUS && key_code != NX_KEYTYPE_FAST &&
-      key_code != NX_KEYTYPE_REWIND) {
+      key_code != NX_KEYTYPE_REWIND &&
+      key_code != NX_KEYTYPE_SOUND_UP &&
+      key_code != NX_KEYTYPE_SOUND_DOWN &&
+      key_code != NX_KEYTYPE_MUTE) {
     return event;
   }
 

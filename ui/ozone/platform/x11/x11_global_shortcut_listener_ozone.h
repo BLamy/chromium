@@ -28,17 +28,20 @@ class X11GlobalShortcutListenerOzone : public PlatformGlobalShortcutListener,
   bool RegisterAccelerator(KeyboardCode key_code,
                            bool is_alt_down,
                            bool is_ctrl_down,
-                           bool is_shift_down) override;
+                           bool is_shift_down,
+                           bool is_cmd_down) override;
   void UnregisterAccelerator(KeyboardCode key_code,
                              bool is_alt_down,
                              bool is_ctrl_down,
-                             bool is_shift_down) override;
+                             bool is_shift_down,
+                             bool is_cmd_down) override;
 
   // ui::XGlobalShortcutListener:
   void OnKeyPressed(KeyboardCode key_code,
                     bool is_alt_down,
                     bool is_ctrl_down,
-                    bool is_shift_down) override;
+                    bool is_shift_down,
+                    bool is_cmd_down) override;
 };
 
 }  // namespace ui

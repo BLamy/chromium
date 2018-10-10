@@ -132,7 +132,8 @@ bool GlobalAcceleratorListenerOzone::StartListeningForAccelerator(
   const bool registered =
       platform_global_shortcut_listener_->RegisterAccelerator(
           accelerator.key_code(), accelerator.IsAltDown(),
-          accelerator.IsCtrlDown(), accelerator.IsShiftDown());
+          accelerator.IsCtrlDown(), accelerator.IsShiftDown(),
+          accelerator.IsCmdDown());
   if (registered) {
     registered_hot_keys_.insert(accelerator);
   }
@@ -147,14 +148,15 @@ void GlobalAcceleratorListenerOzone::StopListeningForAccelerator(
 
   platform_global_shortcut_listener_->UnregisterAccelerator(
       accelerator.key_code(), accelerator.IsAltDown(), accelerator.IsCtrlDown(),
-      accelerator.IsShiftDown());
+      accelerator.IsShiftDown(), accelerator.IsCmdDown());
   registered_hot_keys_.erase(accelerator);
 }
 
 void GlobalAcceleratorListenerOzone::OnKeyPressed(ui::KeyboardCode key_code,
                                                   bool is_alt_down,
                                                   bool is_ctrl_down,
-                                                  bool is_shift_down) {
+                                                  bool is_shift_down,
+                                                  bool is_cmd_down) {
   int modifiers = 0;
   if (is_alt_down) {
     modifiers |= ui::EF_ALT_DOWN;
@@ -164,6 +166,9 @@ void GlobalAcceleratorListenerOzone::OnKeyPressed(ui::KeyboardCode key_code,
   }
   if (is_shift_down) {
     modifiers |= ui::EF_SHIFT_DOWN;
+  }
+  if (is_cmd_down) {
+    modifiers |= ui::EF_COMMAND_DOWN;
   }
 
   NotifyKeyPressed(ui::Accelerator(key_code, modifiers));
