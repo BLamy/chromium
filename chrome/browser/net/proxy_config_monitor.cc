@@ -12,8 +12,10 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/net/proxy_service_factory.h"
+#if 0
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
+#endif
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/proxy_config/pref_proxy_config_tracker_impl.h"
 #include "content/public/browser/browser_thread.h"
@@ -29,12 +31,13 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#if 0
 #include "extensions/browser/api/proxy/proxy_api.h"
 #endif // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 using content::BrowserThread;
 
+#if 0
 ProxyConfigMonitor::ProxyConfigMonitor(Profile* profile) {
   CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
   CHECK(profile, base::NotFatalUntil::M161);
@@ -72,6 +75,7 @@ ProxyConfigMonitor::ProxyConfigMonitor(Profile* profile) {
 
   proxy_config_service_->AddObserver(this);
 }
+#endif
 
 ProxyConfigMonitor::ProxyConfigMonitor(PrefService* local_state) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI) ||
@@ -179,8 +183,10 @@ void ProxyConfigMonitor::OnLazyProxyConfigPoll() {
 void ProxyConfigMonitor::OnPACScriptError(int32_t line_number,
                                           const std::string& details) {
   CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M161);
+#if 0
   extensions::ProxyEventRouter::GetInstance()->OnPACScriptError(
       profile_, line_number, base::UTF8ToUTF16(details));
+#endif
 }
 
 void ProxyConfigMonitor::OnRequestMaybeFailedDueToProxySettings(
@@ -196,7 +202,9 @@ void ProxyConfigMonitor::OnRequestMaybeFailedDueToProxySettings(
     return;
   }
 
+#if 0
   extensions::ProxyEventRouter::GetInstance()->OnProxyError(profile_,
                                                             net_error);
+#endif
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
