@@ -1808,6 +1808,11 @@
     "includes": [12000],
   },
 
+  "electron/build/electron_resources.grd": {
+    "messages": [31750],
+    "includes": [31950],
+  }
+
   # END "everything else" section.
   # Everything but chrome/, components/, content/, and ios/
 
