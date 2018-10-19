@@ -216,10 +216,14 @@ content::DesktopMediaID::Id GetUpdatedWindowId(
     }
   }
 #elif BUILDFLAG(IS_MAC)
+#if 0
+  // Should be re-enabled when addressing
+  // https://github.com/electron/electron/issues/30682
   if (!is_source_list_delegated &&
       remote_cocoa::ScopedCGWindowID::Get(desktop_media_id.id)) {
     window_id = desktop_media_id.id;
   }
+#endif
 #endif
 
   return window_id;
@@ -1041,6 +1045,11 @@ void NativeDesktopMediaList::RefreshForVizFrameSinkWindows(
         FROM_HERE, base::BindOnce(&Worker::RefreshThumbnails,
                                   base::Unretained(worker_.get()),
                                   std::move(native_ids), thumbnail_size_));
+  } else {
+#if defined(USE_AURA)
+    pending_native_thumbnail_capture_ = true;
+#endif
+    UpdateNativeThumbnailsFinished();
   }
 }
 
