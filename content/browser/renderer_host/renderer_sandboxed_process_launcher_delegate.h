@@ -25,6 +25,11 @@ class CONTENT_EXPORT RendererSandboxedProcessLauncherDelegate
  public:
   RendererSandboxedProcessLauncherDelegate() = default;
 
+#if BUILDFLAG(USE_ZYGOTE)
+  RendererSandboxedProcessLauncherDelegate(bool use_zygote):
+    use_zygote_(use_zygote) {}
+#endif
+
   ~RendererSandboxedProcessLauncherDelegate() override = default;
 
 #if BUILDFLAG(USE_ZYGOTE)
@@ -37,6 +42,11 @@ class CONTENT_EXPORT RendererSandboxedProcessLauncherDelegate
 
   // sandbox::policy::SandboxDelegate:
   sandbox::mojom::Sandbox GetSandboxType() override;
+
+ private:
+#if BUILDFLAG(USE_ZYGOTE)
+  bool use_zygote_ = true;
+#endif
 };
 
 #if BUILDFLAG(IS_WIN)

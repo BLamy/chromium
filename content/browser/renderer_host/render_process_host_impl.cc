@@ -2146,6 +2146,10 @@ bool RenderProcessHostImpl::Init() {
     std::unique_ptr<SandboxedProcessLauncherDelegate> sandbox_delegate =
         std::make_unique<RendererSandboxedProcessLauncherDelegateWin>(
             *cmd_line, IsPdf(), IsJitDisabled(), GetID());
+#elif BUILDFLAG(USE_ZYGOTE)
+    bool use_zygote = !cmd_line->HasSwitch(switches::kNoZygote);
+    std::unique_ptr<SandboxedProcessLauncherDelegate> sandbox_delegate =
+        std::make_unique<RendererSandboxedProcessLauncherDelegate>(use_zygote);
 #else
     std::unique_ptr<SandboxedProcessLauncherDelegate> sandbox_delegate =
         std::make_unique<RendererSandboxedProcessLauncherDelegate>();

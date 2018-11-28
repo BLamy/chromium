@@ -41,6 +41,9 @@ static inline bool MaybeRecordingOrReplaying() {
   return true;
 }
 ZygoteCommunication* RendererSandboxedProcessLauncherDelegate::GetZygote() {
+  if (!use_zygote_) {
+    return nullptr;
+  }
   const base::CommandLine& browser_command_line =
       *base::CommandLine::ForCurrentProcess();
   base::CommandLine::StringType renderer_prefix =
