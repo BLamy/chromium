@@ -137,6 +137,7 @@ PERFETTO_DEFINE_CATEGORIES_IN_NAMESPACE_WITH_ATTRS(
     perfetto::Category("drm"),
     perfetto::Category("drmcursor"),
     perfetto::Category("dwrite"),
+    perfetto::Category("electron"),
     perfetto::Category("evdev").SetTags("input"),
     perfetto::Category("event"),
     perfetto::Category("exo"),
