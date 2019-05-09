@@ -351,6 +351,17 @@ struct SocketBrokerRemotes {
   pending_remote<SocketBroker> server;
 };
 
+interface CertVerifierClient {
+  Verify(
+    int32 default_error,
+    CertVerifyResult default_result,
+    X509Certificate certificate,
+    string hostname,
+    int32 flags,
+    string? ocsp_response
+  ) => (int32 error_code, CertVerifyResult result);
+};
+
 // Parameters for constructing a network context.
 struct NetworkContextParams {
   // The user agent string.
@@ -1061,6 +1072,8 @@ interface NetworkContext {
   // `NetworkContext`.
   CreateSocketFactory(pending_receiver<SocketFactory> receiver);
 
+  // Sets a certificate verifier client for this network context.
+  SetCertVerifierClient(pending_remote<CertVerifierClient>? client);
   // Creates a new URLLoaderFactory with the given |params|.
   CreateURLLoaderFactory(
       pending_receiver<URLLoaderFactory> url_loader_factory,

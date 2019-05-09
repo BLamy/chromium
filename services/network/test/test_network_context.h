@@ -68,6 +68,8 @@ class TestNetworkContext : public mojom::NetworkContext {
   void CreateURLLoaderFactory(
       mojo::PendingReceiver<mojom::URLLoaderFactory> receiver,
       mojom::URLLoaderFactoryParamsPtr params) override {}
+  void SetCertVerifierClient(
+      mojo::PendingRemote<mojom::CertVerifierClient> client) override {}
   void GetCookieManager(
       mojo::PendingReceiver<mojom::CookieManager> cookie_manager) override {}
   void GetRestrictedCookieManager(

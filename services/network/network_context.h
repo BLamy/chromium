@@ -130,6 +130,7 @@ class SimpleUrlPatternMatcher;
 }
 
 namespace network {
+class RemoteCertVerifier;
 class CookieManager;
 class HostResolver;
 class MdnsResponderManager;
@@ -273,6 +274,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void CreateURLLoaderFactory(
       mojo::PendingReceiver<mojom::URLLoaderFactory> receiver,
       mojom::URLLoaderFactoryParamsPtr params) override;
+  void SetCertVerifierClient(
+      mojo::PendingRemote<mojom::CertVerifierClient> client) override;
   void ResetURLLoaderFactories() override;
   void GetViaObliviousHttp(
       mojom::ObliviousHttpRequestPtr request,
@@ -1125,6 +1128,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // directories used by this NetworkClosure.
   std::vector<base::OnceClosure> dismount_closures_;
 #endif  // BUILDFLAG(IS_DIRECTORY_TRANSFER_REQUIRED)
+
+  raw_ptr<RemoteCertVerifier> remote_cert_verifier_ = nullptr;
 
   // Created on-demand. Null if unused.
   std::unique_ptr<HostResolver> internal_host_resolver_;

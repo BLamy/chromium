@@ -194,6 +194,11 @@
 #include "services/network/ssl_private_key_proxy.h"
 #endif
 
+// Electron
+#include "net/cert/caching_cert_verifier.h"
+#include "net/cert/cert_verify_proc.h"
+#include "net/cert/multi_threaded_cert_verifier.h"
+
 #if BUILDFLAG(IS_CT_SUPPORTED)
 // gn check does not account for BUILDFLAG(). So, for iOS builds, it will
 // complain about a missing dependency on the target exposing this header. Add a
@@ -670,6 +675,132 @@ void RemoveInvalidationFilterCallback(
 
 }  // namespace
 
+class RemoteCertVerifier : public net::CertVerifier {
+ public:
+  class Request : public net::CertVerifier::Request {
+   public:
+    Request() {}
+    ~Request() override = default;
+    void OnRemoteResponse(
+        const RequestParams& params,
+        net::CertVerifyResult* verify_result,
+        int error_from_upstream,
+        net::CompletionOnceCallback callback,
+        int error_from_client,
+        const net::CertVerifyResult& verify_result_from_client) {
+      if (error_from_client == net::ERR_ABORTED) {
+        // use the default
+        std::move(callback).Run(error_from_upstream);
+      } else {
+        // use the override
+        verify_result->Reset();
+        verify_result->verified_cert = verify_result_from_client.verified_cert;
+        std::move(callback).Run(error_from_client);
+      }
+    }
+    base::WeakPtr<Request> GetWeakPtr() { return weak_factory_.GetWeakPtr(); }
+   private:
+    base::WeakPtrFactory<Request> weak_factory_{this};
+  };
+
+  RemoteCertVerifier(std::unique_ptr<net::CertVerifier> upstream): upstream_(std::move(upstream)) {
+  }
+  ~RemoteCertVerifier() override = default;
+
+  void Bind(
+      mojo::PendingRemote<mojom::CertVerifierClient> client_info) {
+    client_.reset();
+    if (client_info.is_valid()) {
+      client_.Bind(std::move(client_info));
+    }
+  }
+
+  // CertVerifier implementation
+  int Verify(const RequestParams& params,
+             net::CertVerifyResult* verify_result,
+             net::CompletionOnceCallback callback,
+             std::unique_ptr<CertVerifier::Request>* out_req,
+             const net::NetLogWithSource& net_log) override {
+    out_req->reset();
+
+    auto [async_callback, sync_callback] =
+        base::SplitOnceCallback(std::move(callback));
+    int result = upstream_->Verify(
+        params, verify_result,
+        base::BindOnce(&RemoteCertVerifier::OnRequestFinished,
+                       base::Unretained(this), params,
+                       std::move(async_callback), verify_result, out_req),
+        out_req, net_log);
+    if (result != net::ERR_IO_PENDING && client_.is_bound()) {
+      // The upstream verifier can complete synchronously (e.g. a cache hit in
+      // an inner CachingCertVerifier); the client must still be consulted.
+      VerifyWithClient(params, std::move(sync_callback), verify_result, out_req,
+                       result);
+      return net::ERR_IO_PENDING;
+    }
+    return result;
+  }
+
+  void Verify2QwacBinding(
+      const std::string& binding,
+      const std::string& hostname,
+      const scoped_refptr<net::X509Certificate>& tls_cert,
+      base::OnceCallback<void(const scoped_refptr<net::X509Certificate>&)> callback,
+      const net::NetLogWithSource& net_log) override {
+    // 2-QWAC binding verification isn't cached.  This isn't performance
+    // critical and if we wanted to cache, it would make more sense to do at
+    // the 2-QWAC link header processing layer.
+    upstream_->Verify2QwacBinding(binding, hostname, tls_cert,
+                                  std::move(callback), net_log);
+  }
+
+  void SetConfig(const Config& config) override {
+    upstream_->SetConfig(config);
+  }
+
+  void AddObserver(CertVerifier::Observer* observer) override {
+    upstream_->AddObserver(observer);
+  }
+
+  void RemoveObserver(CertVerifier::Observer* observer) override {
+    upstream_->RemoveObserver(observer);
+  }
+
+  void OnRequestFinished(const RequestParams& params,
+                         net::CompletionOnceCallback callback,
+                         net::CertVerifyResult* verify_result,
+                         std::unique_ptr<CertVerifier::Request>* out_req,
+                         int error) {
+    if (client_.is_bound()) {
+      VerifyWithClient(params, std::move(callback), verify_result, out_req,
+                       error);
+    } else {
+      std::move(callback).Run(error);
+    }
+  }
+
+  void VerifyWithClient(const RequestParams& params,
+                        net::CompletionOnceCallback callback,
+                        net::CertVerifyResult* verify_result,
+                        std::unique_ptr<CertVerifier::Request>* out_req,
+                        int error) {
+    // We take a weak pointer to the request because deletion of the request
+    // is what signals cancellation. Thus if the request is cancelled, the
+    // callback won't be called, thus avoiding UAF, because |verify_result|
+    // is freed when the request is cancelled.
+    *out_req = std::make_unique<Request>();
+    base::WeakPtr<Request> weak_req = static_cast<Request*>(out_req->get())->GetWeakPtr();
+    client_->Verify(error, *verify_result, params.certificate(),
+        params.hostname(), params.flags(), params.ocsp_response(),
+        base::BindOnce(&Request::OnRemoteResponse,
+          weak_req, params, verify_result, error, std::move(callback)));
+  }
+
+ private:
+  std::unique_ptr<net::CertVerifier> upstream_;
+  mojo::Remote<mojom::CertVerifierClient> client_;
+};
+
 constexpr uint32_t NetworkContext::kMaxOutstandingRequestsPerProcess;
 
 NetworkContext::NetworkContextHttpAuthPreferences::
@@ -1134,6 +1265,12 @@ void NetworkContext::CreateSocketFactory(
   socket_factory_receivers_.Add(socket_factory_.get(), std::move(receiver));
 }
 
+void NetworkContext::SetCertVerifierClient(
+    mojo::PendingRemote<mojom::CertVerifierClient> client) {
+  if (remote_cert_verifier_) {
+    remote_cert_verifier_->Bind(std::move(client));
+  }
+}
 void NetworkContext::CreateURLLoaderFactory(
     mojo::PendingReceiver<mojom::URLLoaderFactory> receiver,
     mojom::URLLoaderFactoryParamsPtr params) {
@@ -2955,6 +3092,10 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
     cert_verifier = std::make_unique<net::CachingCertVerifier>(
         std::make_unique<net::CoalescingCertVerifier>(
             std::move(cert_verifier)));
+
+    auto remote_cert_verifier = std::make_unique<RemoteCertVerifier>(std::move(cert_verifier));
+    remote_cert_verifier_ = remote_cert_verifier.get();
+    cert_verifier = std::make_unique<net::CachingCertVerifier>(std::move(remote_cert_verifier));
   }
 
   builder.SetCertVerifier(IgnoreErrorsCertVerifier::MaybeWrapCertVerifier(
