@@ -355,6 +355,11 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   virtual ~ContentBrowserClient() = default;
 
+  // Electron: Registers a pending site instance during a navigation.
+  virtual void RegisterPendingSiteInstance(
+      content::RenderFrameHost* rfh,
+      content::SiteInstance* pending_site_instance) {}
+
   // Allows the embedder to set any number of custom BrowserMainParts
   // implementations for the browser startup code. See comments in
   // browser_main_parts.h.
