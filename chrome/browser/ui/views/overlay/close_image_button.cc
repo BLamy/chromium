@@ -4,14 +4,18 @@
 
 #include "chrome/browser/ui/views/overlay/close_image_button.h"
 
+#include "build/branding_buildflags.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/grit/generated_resources.h"
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "components/vector_icons/vector_icons.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/vector_icons.h"
 
 namespace {
 
@@ -26,9 +30,12 @@ CloseImageButton::CloseImageButton(PressedCallback callback)
     : OverlayWindowImageButton(std::move(callback)) {
   SetSize(gfx::Size(kCloseButtonSize, kCloseButtonSize));
 
-  auto* icon = &(features::IsRoundedIconsEnabled()
+  auto* icon = &views::kIcCloseOldIcon;
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  icon = &(features::IsRoundedIconsEnabled()
                      ? vector_icons::kCloseIcon
                      : vector_icons::kCloseChromeRefreshOldIcon);
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
   SetImageModel(views::Button::STATE_NORMAL,
                 ui::ImageModel::FromVectorIcon(*icon, kColorPipWindowForeground,
                                                kCloseButtonIconSize));
