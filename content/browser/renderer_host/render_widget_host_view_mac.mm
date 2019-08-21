@@ -629,7 +629,11 @@ void RenderWidgetHostViewMac::WasOccluded() {
   }
 
   host()->WasHidden();
-  browser_compositor_->SetRenderWidgetHostIsHidden(true);
+  // Consider the RWHV occluded only if it is not attached to a window
+  // (e.g. unattached BrowserView). Otherwise we treat it as visible to
+  // prevent unnecessary compositor recycling.
+  const bool unattached = ![GetInProcessNSView() window];
+  browser_compositor_->SetRenderWidgetHostIsHidden(unattached);
 
   // Headless mode forces focus change propagation inside Focus(), since there
   // is no NSWindow to deliver the normal focus change notifications. As a
