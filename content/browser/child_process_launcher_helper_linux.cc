@@ -66,6 +66,15 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
       options->fds_to_remap.emplace_back(sandbox_fd, GetSandboxFD());
     }
 
+    // (For Electron), if we're launching without zygote, that means we're
+    // launching an unsandboxed process (since all sandboxed processes are
+    // forked from the zygote). Relax the allow_new_privs option to permit
+    // launching suid processes from unsandboxed child processes.
+    if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoZygote) &&
+        delegate_->GetZygote() == nullptr) {
+      options->allow_new_privs = true;
+    }
+
     options->environment = delegate_->GetEnvironment();
   } else {
     CHECK(GetZygoteForLaunch(), base::NotFatalUntil::M159);
