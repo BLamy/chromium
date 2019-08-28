@@ -2141,6 +2141,13 @@ void NetworkContext::SetNetworkConditions(
                                       std::move(network_conditions));
 }
 
+void NetworkContext::SetUserAgent(const std::string& new_user_agent) {
+  // This may only be called on NetworkContexts created with a constructor that
+  // calls ApplyContextParamsToBuilder.
+  DCHECK(user_agent_settings_);
+  user_agent_settings_->set_user_agent(new_user_agent);
+}
+
 void NetworkContext::SetAcceptLanguage(const std::string& new_accept_language) {
   // This may only be called on NetworkContexts created with the constructor
   // that calls MakeURLRequestContext().

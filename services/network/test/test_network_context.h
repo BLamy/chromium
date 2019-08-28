@@ -175,6 +175,7 @@ class TestNetworkContext : public mojom::NetworkContext {
       const base::UnguessableToken& throttling_profile_id,
       const base::UnguessableToken& throttling_client_id,
       std::vector<mojom::MatchedNetworkConditionsPtr>) override {}
+  void SetUserAgent(const std::string& new_user_agent) override {}
   void SetAcceptLanguage(const std::string& new_accept_language) override {}
   void SetEnableReferrers(bool enable_referrers) override {}
 #if BUILDFLAG(IS_CT_SUPPORTED)

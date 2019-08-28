@@ -1464,6 +1464,9 @@ interface NetworkContext {
                        mojo_base.mojom.UnguessableToken throttling_client_id,
                        array<MatchedNetworkConditions> conditions);
 
+  // Updates the user agent to be used for requests.
+  SetUserAgent(string new_user_agent);
+
   // Updates the Accept-Language header to be used for requests.
   SetAcceptLanguage(string new_accept_language);
 
