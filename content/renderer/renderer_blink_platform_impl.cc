@@ -982,6 +982,12 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
       worker);
 }
 
+void RendererBlinkPlatformImpl::WorkerScriptReadyForEvaluation(
+    const v8::Local<v8::Context>& worker) {
+  GetContentClient()->renderer()->WorkerScriptReadyForEvaluationOnWorkerThread(
+      worker);
+}
+
 blink::ProtocolHandlerSecurityLevel
 RendererBlinkPlatformImpl::GetProtocolHandlerSecurityLevel(
     const blink::WebSecurityOrigin& origin) {

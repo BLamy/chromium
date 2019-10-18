@@ -425,6 +425,11 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual void DidInitializeWorkerContextOnWorkerThread(
       v8::Local<v8::Context> context) {}
 
+  // Notifies that a worker script has been downloaded, scope initialized and
+  // ready for evaluation. This function is called from the worker thread.
+  virtual void WorkerScriptReadyForEvaluationOnWorkerThread(
+      v8::Local<v8::Context> context) {}
+
   // Notifies that a worker context will be destroyed. This function is called
   // from the worker thread.
   virtual void WillDestroyWorkerContextOnWorkerThread(

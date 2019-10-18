@@ -219,6 +219,8 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   void DidStartWorkerThread() override;
   void WillStopWorkerThread() override;
   void WorkerContextCreated(const v8::Local<v8::Context>& worker) override;
+  void WorkerScriptReadyForEvaluation(
+      const v8::Local<v8::Context>& worker) override;
   void WorkerContextWillDestroy(const v8::Local<v8::Context>& worker) override;
   blink::ProtocolHandlerSecurityLevel GetProtocolHandlerSecurityLevel(
       const blink::WebSecurityOrigin& origin) override;

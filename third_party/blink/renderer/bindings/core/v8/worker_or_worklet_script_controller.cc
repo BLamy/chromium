@@ -266,6 +266,7 @@ void WorkerOrWorkletScriptController::PrepareForEvaluation() {
   V8PerContextData* per_context_data = script_state_->PerContextData();
   std::ignore =
       per_context_data->ConstructorForType(global_scope_->GetWrapperTypeInfo());
+  Platform::Current()->WorkerScriptReadyForEvaluation(script_state_->GetContext());
   // Inform V8 that origin trial information is now connected with the context,
   // and V8 can extend the context with origin trial features.
   isolate_->InstallConditionalFeatures(script_state_->GetContext());
