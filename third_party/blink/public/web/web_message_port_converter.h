@@ -13,6 +13,7 @@
 namespace v8 {
 class Isolate;
 class Value;
+class Context;
 }  // namespace v8
 
 namespace blink {
@@ -25,6 +26,11 @@ class BLINK_EXPORT WebMessagePortConverter {
   // neutered, it will return nullopt.
   static std::optional<MessagePortChannel>
   DisentangleAndExtractMessagePortChannel(v8::Isolate*, v8::Local<v8::Value>);
+
+  BLINK_EXPORT static v8::Local<v8::Value>
+  EntangleAndInjectMessagePortChannel(v8::Isolate*,
+                                      v8::Local<v8::Context>,
+                                      MessagePortChannel);
 };
 
 }  // namespace blink

@@ -6,6 +6,7 @@
 
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_message_port.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
 
@@ -19,6 +20,18 @@ WebMessagePortConverter::DisentangleAndExtractMessagePortChannel(
   if (!port || port->IsNeutered())
     return std::nullopt;
   return port->Disentangle();
+}
+
+v8::Local<v8::Value>
+WebMessagePortConverter::EntangleAndInjectMessagePortChannel(
+    v8::Isolate* isolate,
+    v8::Local<v8::Context> context,
+    MessagePortChannel port_channel) {
+  auto* execution_context = ToExecutionContext(context);
+  CHECK(execution_context);
+  auto* port = MakeGarbageCollected<MessagePort>(*execution_context);
+  port->Entangle(std::move(port_channel));
+  return port->ToV8(isolate, context->Global());
 }
 
 }  // namespace blink
