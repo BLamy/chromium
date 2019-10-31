@@ -67,7 +67,8 @@ struct KeyValue {
 interface StorageArea {
   // The quota for each storage area.
   // This value is enforced in renderer processes and the browser process.
-  const uint32 kPerStorageAreaQuota = 10485760; // 10 MiB
+  // Electron's dom_storage_limits.patch increased this value from 10MiB to 100MiB
+  const uint32 kPerStorageAreaQuota = 104857600; // 100 MiB
 
   // In the browser process we allow some overage to
   // accommodate concurrent writes from different renderers

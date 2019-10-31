@@ -11,7 +11,8 @@ namespace storage {
 
 // The quota for each storage area.
 // This value is enforced by clients and by the storage service.
-inline constexpr size_t kPerStorageAreaQuota = 10 * 1024 * 1024;
+// Electron's dom_storage_limits.patch increased this value from 10MiB to 100MiB
+inline constexpr size_t kPerStorageAreaQuota = 100 * 1024 * 1024;
 
 // In the storage service we allow some overage to
 // accommodate concurrent writes from different clients
