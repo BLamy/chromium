@@ -620,6 +620,8 @@ class CONTENT_EXPORT RenderFrameImpl
       uint64_t performance_timeline_navigation_id) override;
   void DidCreateScriptContext(v8::Local<v8::Context> context,
                               int world_id) override;
+  void DidInstallConditionalFeatures(v8::Local<v8::Context> context,
+                                     int world_id) override;
   void WillReleaseScriptContext(v8::Local<v8::Context> context,
                                 int world_id) override;
   void DidChangeScrollOffset(blink::mojom::ScrollType) override;

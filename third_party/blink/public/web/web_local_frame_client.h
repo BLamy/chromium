@@ -678,6 +678,9 @@ class BLINK_EXPORT WebLocalFrameClient {
   virtual void DidCreateScriptContext(v8::Local<v8::Context>,
                                       int32_t world_id) {}
 
+  virtual void DidInstallConditionalFeatures(v8::Local<v8::Context>,
+                                             int32_t world_id) {}
+
   // WebKit is about to release its reference to a v8 context for a frame.
   virtual void WillReleaseScriptContext(v8::Local<v8::Context>,
                                         int32_t world_id) {}

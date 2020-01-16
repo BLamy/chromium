@@ -315,6 +315,8 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
 
   virtual void DidCreateScriptContext(v8::Local<v8::Context>,
                                       int32_t world_id) = 0;
+  virtual void DidInstallConditionalFeatures(v8::Local<v8::Context>,
+                                             int32_t world_id) = 0;
   virtual void WillReleaseScriptContext(v8::Local<v8::Context>,
                                         int32_t world_id) = 0;
 
