@@ -62,6 +62,7 @@ class VIZ_SERVICE_EXPORT SoftwareOutputDeviceMac : public SoftwareOutputDevice {
   void UpdateAndCopyBufferDamage(Buffer* previous_paint_buffer,
                                  const SkRegion& new_damage_rect);
 
+  gfx::Rect last_damage;
   gfx::Size pixel_size_;
   float scale_factor_ = 1;
 

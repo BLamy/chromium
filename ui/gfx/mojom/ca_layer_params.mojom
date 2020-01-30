@@ -30,5 +30,6 @@ struct CALayerParams {
 
   // The geometry of the frame.
   gfx.mojom.Size pixel_size;
+  gfx.mojom.Rect damage;
   float scale_factor;
 };

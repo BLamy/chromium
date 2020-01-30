@@ -16,6 +16,10 @@ struct StructTraits<gfx::mojom::CALayerParamsDataView, gfx::CALayerParams> {
     return ca_layer_params.pixel_size;
   }
 
+  static gfx::Rect damage(const gfx::CALayerParams& ca_layer_params) {
+    return ca_layer_params.damage;
+  }
+
   static float scale_factor(gfx::CALayerParams& ca_layer_params) {
     return ca_layer_params.scale_factor;
   }

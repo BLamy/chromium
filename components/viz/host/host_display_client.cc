@@ -50,9 +50,9 @@ void HostDisplayClient::OnDisplayReceivedCALayerParams(
 }
 #endif
 
-#if BUILDFLAG(IS_WIN)
 void HostDisplayClient::CreateLayeredWindowUpdater(
     mojo::PendingReceiver<mojom::LayeredWindowUpdater> receiver) {
+#if BUILDFLAG(IS_WIN)
   if (!NeedsToUseLayerWindow(widget_)) {
     DLOG(ERROR) << "HWND shouldn't be using a layered window";
     return;
@@ -60,7 +60,15 @@ void HostDisplayClient::CreateLayeredWindowUpdater(
 
   layered_window_updater_ =
       std::make_unique<LayeredWindowUpdaterImpl>(widget_, std::move(receiver));
+
+#else
+  // Outside Windows only Electron's offscreen display client provides a
+  // LayeredWindowUpdater; drop the request for any other window.
+  DLOG(ERROR) << "CreateLayeredWindowUpdater called for a non-OSR window";
+#endif
 }
+
+#if BUILDFLAG(IS_WIN)
 void HostDisplayClient::AddChildWindowToBrowser(
     gpu::SurfaceHandle child_window) {
   NOTREACHED();

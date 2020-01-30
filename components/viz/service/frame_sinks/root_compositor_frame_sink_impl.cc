@@ -133,7 +133,8 @@ RootCompositorFrameSinkImpl::Create(
       params->gpu_compositing, params->widget);
   auto output_surface = output_surface_provider->CreateOutputSurface(
       params->widget, params->gpu_compositing, display_client.get(),
-      display_controller.get(), params->renderer_settings, debug_settings);
+      display_controller.get(), params->renderer_settings, debug_settings,
+      params->offscreen);
 
   // Creating output surface failed. The host can send a new request, possibly
   // with a different compositing mode.

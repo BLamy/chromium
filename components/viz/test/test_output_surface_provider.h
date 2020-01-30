@@ -32,7 +32,8 @@ class TestOutputSurfaceProvider : public OutputSurfaceProvider {
       mojom::DisplayClient* display_client,
       DisplayCompositorMemoryAndTaskController* display_controller,
       const RendererSettings& renderer_settings,
-      const DebugRendererSettings* debug_settings) override;
+      const DebugRendererSettings* debug_settings,
+      bool offscreen) override;
   gpu::SharedImageManager* GetSharedImageManager() override;
   gpu::SyncPointManager* GetSyncPointManager() override;
   gpu::Scheduler* GetGpuScheduler() override;

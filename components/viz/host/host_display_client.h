@@ -39,6 +39,9 @@ class VIZ_HOST_EXPORT HostDisplayClient : public mojom::DisplayClient {
   gfx::AcceleratedWidget widget() const { return widget_; }
 #endif
 
+  void CreateLayeredWindowUpdater(
+      mojo::PendingReceiver<mojom::LayeredWindowUpdater> receiver) override;
+
  private:
   // mojom::DisplayClient implementation:
 #if BUILDFLAG(IS_APPLE)
@@ -47,8 +50,6 @@ class VIZ_HOST_EXPORT HostDisplayClient : public mojom::DisplayClient {
 #endif
 
 #if BUILDFLAG(IS_WIN)
-  void CreateLayeredWindowUpdater(
-      mojo::PendingReceiver<mojom::LayeredWindowUpdater> receiver) override;
   void AddChildWindowToBrowser(gpu::SurfaceHandle child_window) override;
 #endif
 

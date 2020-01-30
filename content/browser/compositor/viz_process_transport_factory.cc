@@ -397,8 +397,14 @@ void VizProcessTransportFactory::OnEstablishedGpuChannel(
   mojo::AssociatedRemote<viz::mojom::DisplayPrivate> display_private;
   root_params->display_private =
       display_private.BindNewEndpointAndPassReceiver();
-  compositor_data.display_client =
-      std::make_unique<HostDisplayClient>(compositor);
+  if (compositor->delegate()) {
+    compositor_data.display_client = compositor->delegate()->CreateHostDisplayClient(
+        compositor);
+    root_params->offscreen = compositor->delegate()->IsOffscreen();
+  } else {
+    compositor_data.display_client =
+        std::make_unique<HostDisplayClient>(compositor);
+  }
   root_params->display_client =
       compositor_data.display_client->GetBoundRemote(resize_task_runner_);
   mojo::AssociatedRemote<viz::mojom::ExternalBeginFrameController>

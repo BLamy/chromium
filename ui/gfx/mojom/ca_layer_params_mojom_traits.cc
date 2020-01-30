@@ -67,6 +67,9 @@ bool StructTraits<gfx::mojom::CALayerParamsDataView, gfx::CALayerParams>::Read(
   if (!data.ReadPixelSize(&out->pixel_size))
     return false;
 
+  if (!data.ReadDamage(&out->damage))
+    return false;
+
   out->scale_factor = data.scale_factor();
   return true;
 }
