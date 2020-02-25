@@ -97,6 +97,8 @@ class SpellcheckHunspellDictionary : public SpellcheckDictionary {
   // Tests use this method to set a custom URL for downloading dictionaries.
   static void SetDownloadURLForTesting(const GURL url);
 
+  static void SetBaseDownloadURL(const GURL url);
+
  private:
   // Dictionary download status.
   enum DownloadStatus {

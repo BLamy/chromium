@@ -55,6 +55,8 @@ GURL& GetDownloadUrlForTesting() {
   return *download_url_for_testing;
 }
 
+base::NoDestructor<GURL> g_base_download_url_override;
+
 // Close the file.
 void CloseDictionary(base::File file) {
   base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
@@ -269,6 +271,10 @@ void SpellcheckHunspellDictionary::SetDownloadURLForTesting(const GURL url) {
   GetDownloadUrlForTesting() = url;
 }
 
+void SpellcheckHunspellDictionary::SetBaseDownloadURL(const GURL url) {
+  *g_base_download_url_override = url;
+}
+
 GURL SpellcheckHunspellDictionary::GetDictionaryURL() {
   if (GetDownloadUrlForTesting() != GURL()) {
     return GetDownloadUrlForTesting();
@@ -276,6 +282,9 @@ GURL SpellcheckHunspellDictionary::GetDictionaryURL() {
 
   std::string bdict_file = dictionary_file_.path.BaseName().MaybeAsASCII();
   DCHECK(!bdict_file.empty());
+
+  if (*g_base_download_url_override != GURL())
+    return GURL(g_base_download_url_override->spec() + base::ToLowerASCII(bdict_file));
 
   static const char kDownloadServerUrl[] =
       "https://redirector.gvt1.com/edgedl/chrome/dict/";
