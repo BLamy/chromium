@@ -135,6 +135,8 @@ class SpellcheckService : public KeyedService,
   // dictionaries available.
   bool IsSpellcheckEnabled() const;
 
+  void SetHunspellObserver(SpellcheckHunspellDictionary::Observer* observer);
+
   // content::RenderProcessHostCreationObserver implementation.
   void OnRenderProcessHostCreated(content::RenderProcessHost* host) override;
 
@@ -307,6 +309,8 @@ class SpellcheckService : public KeyedService,
 
   // A pointer to the BrowserContext which this service refers to.
   raw_ptr<content::BrowserContext> context_;
+
+  raw_ptr<SpellcheckHunspellDictionary::Observer> hunspell_observer_ = nullptr;
 
   std::unique_ptr<SpellCheckHostMetrics> metrics_;
 

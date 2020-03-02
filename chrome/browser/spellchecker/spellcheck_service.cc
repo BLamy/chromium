@@ -599,6 +599,8 @@ void SpellcheckService::LoadDictionaries() {
         std::make_unique<SpellcheckHunspellDictionary>(
             dictionary, platform_spellcheck_language, context_, this));
     hunspell_dictionaries_.back()->AddObserver(this);
+    if (hunspell_observer_)
+      hunspell_dictionaries_.back()->AddObserver(hunspell_observer_);
     hunspell_dictionaries_.back()->Load();
   }
 
@@ -653,6 +655,20 @@ bool SpellcheckService::IsSpellcheckEnabled() const {
   return prefs->GetBoolean(spellcheck::prefs::kSpellCheckEnable) &&
          (!hunspell_dictionaries_.empty() || enable_if_uninitialized);
 #endif  // BUILDFLAG(IS_MAC)
+}
+
+void SpellcheckService::SetHunspellObserver(SpellcheckHunspellDictionary::Observer* observer) {
+  if (hunspell_observer_) {
+    for (auto& dict : hunspell_dictionaries_) {
+      dict->RemoveObserver(hunspell_observer_);
+    }
+  }
+  if (observer) {
+    for (auto& dict : hunspell_dictionaries_) {
+      dict->AddObserver(observer);
+    }
+  }
+  hunspell_observer_ = observer;
 }
 
 void SpellcheckService::OnRenderProcessHostCreated(
