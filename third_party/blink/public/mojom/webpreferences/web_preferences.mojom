@@ -225,6 +225,17 @@ struct WebPreferences {
   // If true, stylus handwriting recognition to text input will be available in
   // editable input fields which are non-password type.
   bool stylus_handwriting_enabled;
+  // Begin Electron-specific WebPreferences.
+  bool context_isolation;
+  bool is_webview;
+  bool hidden_page;
+  bool node_integration;
+  bool node_integration_in_worker;
+  bool node_integration_in_sub_frames;
+  bool enable_spellcheck;
+  bool enable_plugins;
+  bool webview_tag;
+  // End Electron-specific WebPreferences.
 
   // This flags corresponds to a Page's Settings' setCookieEnabled state. It
   // only controls whether or not the "document.cookie" field is properly

@@ -451,6 +451,44 @@ struct BLINK_COMMON_EXPORT StructTraits<blink::mojom::WebPreferencesDataView,
     return r.stylus_handwriting_enabled;
   }
 
+  // Begin Electron-specific WebPreferences.
+  static bool context_isolation(const blink::web_pref::WebPreferences& r) {
+    return r.context_isolation;
+  }
+
+  static int is_webview(const blink::web_pref::WebPreferences& r) {
+    return r.is_webview;
+  }
+
+  static bool hidden_page(const blink::web_pref::WebPreferences& r) {
+    return r.hidden_page;
+  }
+
+  static bool node_integration(const blink::web_pref::WebPreferences& r) {
+    return r.node_integration;
+  }
+
+  static bool node_integration_in_worker(const blink::web_pref::WebPreferences& r) {
+    return r.node_integration_in_worker;
+  }
+
+  static bool node_integration_in_sub_frames(const blink::web_pref::WebPreferences& r) {
+    return r.node_integration_in_sub_frames;
+  }
+
+  static bool enable_spellcheck(const blink::web_pref::WebPreferences& r) {
+    return r.enable_spellcheck;
+  }
+
+  static bool enable_plugins(const blink::web_pref::WebPreferences& r) {
+    return r.enable_plugins;
+  }
+
+  static bool webview_tag(const blink::web_pref::WebPreferences& r) {
+    return r.webview_tag;
+  }
+  // End Electron-specific WebPreferences.
+
   static bool cookie_enabled(const blink::web_pref::WebPreferences& r) {
     return r.cookie_enabled;
   }

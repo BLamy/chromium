@@ -500,6 +500,17 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   // trials and enterprise policy).
   bool is_xslt_deprecation_banner_suppressed = false;
 
+  // Begin Electron-specific WebPreferences.
+  bool context_isolation = false;
+  bool is_webview = false;
+  bool hidden_page = false;
+  bool node_integration = false;
+  bool node_integration_in_worker = false;
+  bool node_integration_in_sub_frames = false;
+  bool enable_spellcheck = false;
+  bool enable_plugins = false;
+  bool webview_tag = false;
+
   // We try to keep the default values the same as the default values in
   // chrome, except for the cases where it would require lots of extra work for
   // the embedder to use the same default value.
