@@ -27,6 +27,7 @@
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/base/cursor/cursor.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/mojom/delegated_ink_point_renderer.mojom.h"
 #include "ui/gfx/native_ui_types.h"
@@ -328,6 +329,9 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
 
   // Returns the associated RenderViewHostDelegateView*, if possible.
   virtual RenderViewHostDelegateView* GetDelegateView();
+
+  // Notify the delegate of the RenderWidget's changing cursor.
+  virtual void OnCursorChanged(const ui::Cursor& cursor) {}
 
   // Returns true if the provided RenderWidgetHostImpl matches the current
   // RenderWidgetHost on the primary main frame, and false otherwise.

@@ -6768,6 +6768,11 @@ TextInputManager* WebContentsImpl::GetTextInputManager() {
   return text_input_manager_.get();
 }
 
+void WebContentsImpl::OnCursorChanged(const ui::Cursor& cursor) {
+  observers_.NotifyObservers(&WebContentsObserver::OnCursorChanged,
+                             cursor);
+}
+
 bool WebContentsImpl::IsWidgetForPrimaryMainFrame(
     RenderWidgetHostImpl* render_widget_host) {
   return render_widget_host == GetPrimaryMainFrame()->GetRenderWidgetHost();

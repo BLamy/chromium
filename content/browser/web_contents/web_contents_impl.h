@@ -1262,6 +1262,7 @@ class CONTENT_EXPORT WebContentsImpl
   void SendScreenRects() override;
   void SendActiveState(bool active) override;
   TextInputManager* GetTextInputManager() override;
+  void OnCursorChanged(const ui::Cursor& cursor) override;
   bool IsWidgetForPrimaryMainFrame(
       RenderWidgetHostImpl* render_widget_host) override;
   bool IsShowingContextMenuOnPage() const override;
