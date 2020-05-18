@@ -765,6 +765,11 @@ void RenderViewHostImpl::SetBackgroundOpaque(bool opaque) {
   GetWidget()->GetAssociatedFrameWidget()->SetBackgroundOpaque(opaque);
 }
 
+void RenderViewHostImpl::SetSchedulerThrottling(bool allowed) {
+  if (auto& broadcast = GetAssociatedPageBroadcast())
+    broadcast->SetSchedulerThrottling(allowed);
+}
+
 bool RenderViewHostImpl::IsMainFrameActive() {
   return is_active();
 }

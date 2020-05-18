@@ -618,6 +618,7 @@ WebViewImpl::WebViewImpl(
   CoreInitializer::GetInstance().ProvideModulesToPage(
       *page_, session_storage_namespace_id_);
 
+  browser_visibility_state_ = visibility;
   SetVisibilityState(visibility, /*is_initial_state=*/true);
   if (prerender_param) {
     page_->SetIsPrerendering(true);
@@ -2602,6 +2603,13 @@ void WebViewImpl::SetPageLifecycleStateInternal(
   TRACE_EVENT2("navigation", "WebViewImpl::SetPageLifecycleStateInternal",
                "old_state", old_state, "new_state", new_state);
 
+  // If backgroundThrottling is disabled, the page is always visible. Remember
+  // what the browser asked for so it can be re-applied if throttling is
+  // allowed again while the page is still in that state.
+  browser_visibility_state_ = new_state->visibility;
+  if (!scheduler_throttling_allowed_)
+      new_state->visibility = mojom::blink::PageVisibilityState::kVisible;
+
   bool storing_in_bfcache = new_state->is_in_back_forward_cache &&
                             !old_state->is_in_back_forward_cache;
   bool restoring_from_bfcache = !new_state->is_in_back_forward_cache &&
@@ -4327,10 +4335,26 @@ PageScheduler* WebViewImpl::Scheduler() const {
   return GetPage()->GetPageScheduler();
 }
 
+void WebViewImpl::SetSchedulerThrottling(bool allowed) {
+  DCHECK(GetPage());
+  scheduler_throttling_allowed_ = allowed;
+  // Re-apply the visibility the browser last reported: forced to kVisible
+  // while throttling is disallowed, back to the real state once it is allowed
+  // again. Without this, toggling the setting on a page that is already
+  // hidden only took effect at the next visibility change.
+  SetVisibilityState(browser_visibility_state_, /*is_initial_state=*/false);
+}
+
 void WebViewImpl::SetVisibilityState(
     mojom::blink::PageVisibilityState visibility_state,
     bool is_initial_state) {
   DCHECK(GetPage());
+
+  // If backgroundThrottling is disabled, the page (and everything observing
+  // its visibility, e.g. media) is told it is visible.
+  if (!scheduler_throttling_allowed_)
+    visibility_state = mojom::blink::PageVisibilityState::kVisible;
+
   GetPage()->SetVisibilityState(visibility_state, is_initial_state);
   // Do not throttle if the page should be painting.
   bool is_visible =

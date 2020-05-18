@@ -366,6 +366,7 @@ class BLINK_EXPORT WebView {
   // Scheduling -----------------------------------------------------------
 
   virtual PageScheduler* Scheduler() const = 0;
+  virtual void SetSchedulerThrottling(bool allowed) {}
 
   // Visibility -----------------------------------------------------------
 

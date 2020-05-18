@@ -73,6 +73,9 @@ class CONTENT_EXPORT RenderViewHost {
   virtual void WriteIntoTrace(
       perfetto::TracedProto<TraceProto> context) const = 0;
 
+  // Disable/Enable scheduler throttling.
+  virtual void SetSchedulerThrottling(bool allowed) {}
+
  private:
   // This interface should only be implemented inside content.
   friend class RenderViewHostImpl;

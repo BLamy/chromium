@@ -179,4 +179,7 @@ interface PageBroadcast {
   // Indicates that the page's main frame should collect draggable regions set
   // using the app-region CSS property.
   SetSupportsDraggableRegions(bool supports_draggable_regions);
+
+  // Whether to enable the Renderer scheduler background throttling.
+  SetSchedulerThrottling(bool allowed);
 };

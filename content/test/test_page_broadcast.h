@@ -51,6 +51,7 @@ class TestPageBroadcast : public blink::mojom::PageBroadcast {
   void UpdateColorProviders(
       const blink::ColorProviderColorMaps& color_provider_colors) override;
   void SetSupportsDraggableRegions(bool supports_draggable_regions) override;
+  void SetSchedulerThrottling(bool allowed) override {}
 
   mojo::AssociatedReceiver<blink::mojom::PageBroadcast> receiver_;
 };
