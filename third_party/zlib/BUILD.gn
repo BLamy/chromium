@@ -327,6 +327,10 @@ component("zlib") {
   defines = []
   deps = []
 
+  if (is_win) {
+    defines += [ "ZLIB_DLL" ]
+  }
+
   if (!use_x86_x64_optimizations && !use_arm_neon_optimizations) {
     # Apparently android_cronet bot builds with NEON disabled and
     # we also should disable optimizations for iOS@x86 (a.k.a. simulator).
