@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 #include <utility>
+#include <algorithm>
 
 #include "base/feature_list.h"
 #include "base/location.h"
@@ -32,6 +33,7 @@
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/public/web/web_associated_url_loader.h"
 #include "third_party/blink/renderer/platform/media/cache_util.h"
+#include "third_party/blink/renderer/platform/media/multi_buffer_data_source.h"
 #include "third_party/blink/renderer/platform/media/resource_fetch_context.h"
 #include "third_party/blink/renderer/platform/media/url_index.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -375,6 +377,16 @@ void ResourceMultiBufferDataProvider::DidReceiveResponse(
       do_fail = true;
     }
   } else {
+    // For non-HTTP protocols, only set range_supported for registered streaming schemes
+    const std::string scheme = destination_url_data->url().Protocol().Ascii();
+
+    if (std::ranges::any_of(*MultiBufferDataSource::GetStreamingSchemes(),
+                         [&scheme](const std::string& streaming_scheme) {
+                           return base::EqualsCaseInsensitiveASCII(scheme, streaming_scheme);
+                         })) {
+      destination_url_data->set_range_supported();
+    }
+
     if (content_length != kPositionNotSpecified) {
       destination_url_data->set_length(content_length + byte_pos());
     }
