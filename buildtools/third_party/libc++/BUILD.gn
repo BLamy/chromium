@@ -422,6 +422,7 @@ target(libcxx_target_type, "libc++") {
   # need to explicitly depend on libc++.
   visibility = [
     "//build/config:common_deps",
+    "//electron:libcxx_objects_zip",
     "//third_party/catapult/devil",
   ]
   if (is_linux) {
