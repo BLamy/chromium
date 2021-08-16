@@ -13,6 +13,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/values.h"
+#include "content/public/browser/media_keys_listener_manager.h"
 #include "ui/base/accelerators/command.h"
 #include "ui/gfx/native_ui_types.h"
 
@@ -46,6 +47,9 @@ class COMPONENT_EXPORT(GLOBAL_ACCELERATOR_LISTENER) GlobalAcceleratorListener {
 
   // The instance may be nullptr.
   static GlobalAcceleratorListener* GetInstance();
+
+  // enables media keys to work with Electron's globalShortcut module.
+  static void SetShouldUseInternalMediaKeyHandling(bool should_use);
 
   // Register an observer for when a certain `accelerator` is struck. Returns
   // true if register successfully, or false if the specified `accelerator`

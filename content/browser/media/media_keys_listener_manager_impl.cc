@@ -82,7 +82,11 @@ bool MediaKeysListenerManagerImpl::StartWatchingMediaKey(
       CanActiveMediaSessionControllerReceiveEvents();
 
   // Tell the underlying MediaKeysListener to listen for the key.
-  if (should_start_watching && media_keys_listener_ &&
+  if (
+#if BUILDFLAG(IS_MAC)
+      !media_key_handling_enabled_ &&
+#endif  // BUILDFLAG(IS_MAC)
+      should_start_watching && media_keys_listener_ &&
       !media_keys_listener_->StartWatchingMediaKey(key_code)) {
     return false;
   }
@@ -360,6 +364,20 @@ void MediaKeysListenerManagerImpl::StartListeningForMediaKeysIfNecessary() {
         this, ui::MediaKeysListener::Scope::kGlobal);
     CHECK(media_keys_listener_, base::NotFatalUntil::M160);
   }
+
+#if BUILDFLAG(IS_MAC)
+  // Chromium's implementation of SystemMediaControls falls
+  // down into MPRemoteCommandCenter, which makes it such that an app will not
+  // will not receive remote control events until it begins playing audio.
+  // If there's not already a MediaKeysListener instance, create one so
+  // that globalShortcuts work correctly.
+  if (!media_keys_listener_) {
+    media_keys_listener_ = ui::MediaKeysListener::Create(
+        this, ui::MediaKeysListener::Scope::kGlobal);
+    CHECK(media_keys_listener_, base::NotFatalUntil::M160);
+  }
+#endif
+
   EnsureAuxiliaryServices();
 }
 

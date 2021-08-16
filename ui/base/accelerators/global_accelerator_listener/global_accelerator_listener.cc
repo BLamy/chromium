@@ -62,6 +62,22 @@ void GlobalAcceleratorListener::UnregisterAccelerator(
   }
 }
 
+// static
+void GlobalAcceleratorListener::SetShouldUseInternalMediaKeyHandling(bool should_use) {
+  if (content::MediaKeysListenerManager::
+            IsMediaKeysListenerManagerEnabled()) {
+    content::MediaKeysListenerManager* media_keys_listener_manager =
+        content::MediaKeysListenerManager::GetInstance();
+    DCHECK(media_keys_listener_manager);
+
+    if (should_use) {
+      media_keys_listener_manager->EnableInternalMediaKeyHandling();
+    } else {
+      media_keys_listener_manager->DisableInternalMediaKeyHandling();
+    }
+  }
+}
+
 void GlobalAcceleratorListener::UnregisterAccelerators(Observer* observer) {
   auto it = accelerator_map_.begin();
   while (it != accelerator_map_.end()) {
