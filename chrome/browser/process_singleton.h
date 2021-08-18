@@ -104,12 +104,19 @@ class ProcessSingleton {
       base::RepeatingCallback<bool(base::CommandLine command_line,
                                    const base::FilePath& current_directory)>;
 
+#if BUILDFLAG(IS_WIN)
+  ProcessSingleton(const std::string& program_name,
+                   const base::FilePath& user_data_dir,
+                   bool is_sandboxed,
+                   const NotificationCallback& notification_callback);
+#else
   ProcessSingleton(const base::FilePath& user_data_dir,
                    const NotificationCallback& notification_callback);
 
   ProcessSingleton(const ProcessSingleton&) = delete;
   ProcessSingleton& operator=(const ProcessSingleton&) = delete;
 
+#endif
   ~ProcessSingleton();
 
   // Notify another process, if available. Otherwise sets ourselves as the
@@ -189,6 +196,8 @@ class ProcessSingleton {
 #if BUILDFLAG(IS_WIN)
   bool EscapeVirtualization(const base::FilePath& user_data_dir);
 
+  std::string program_name_; // Used for mutexName.
+  bool is_app_sandboxed_; // Whether the Electron app is sandboxed.
   HWND remote_window_;  // The HWND_MESSAGE of another browser.
   bool is_virtualized_;  // Stuck inside Microsoft Softricity VM environment.
 

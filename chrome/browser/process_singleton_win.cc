@@ -30,7 +30,9 @@
 #include "base/win/wmi.h"
 #include "chrome/browser/process_singleton_internal.h"
 #include "chrome/browser/shell_integration.h"
+#if 0
 #include "chrome/browser/ui/simple_message_box.h"
+#endif
 #include "chrome/browser/win/chrome_process_finder.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
@@ -166,6 +168,7 @@ bool ProcessLaunchNotification(
 }
 
 bool DisplayShouldKillMessageBox() {
+#if 0
   TRACE_EVENT0("startup", "ProcessSingleton:DisplayShouldKillMessageBox");
 
   // Ensure there is an instance of ResourceBundle that is initialized for
@@ -176,6 +179,10 @@ bool DisplayShouldKillMessageBox() {
              NULL, l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
              l10n_util::GetStringUTF16(IDS_BROWSER_HUNGBROWSER_MESSAGE)) !=
          chrome::MESSAGE_BOX_RESULT_NO;
+#endif
+  // This is called when the secondary process can't ping the primary
+  // process.
+  return false;
 }
 
 // Function was copied from Process::Terminate.
@@ -330,11 +337,14 @@ bool ProcessSingleton::EscapeVirtualization(
 }
 
 ProcessSingleton::ProcessSingleton(
+    const std::string& program_name,
     const base::FilePath& user_data_dir,
+    bool is_app_sandboxed,
     const NotificationCallback& notification_callback)
     : notification_callback_(notification_callback),
+      program_name_(program_name),
+      is_app_sandboxed_(is_app_sandboxed),
       is_virtualized_(false),
-      lock_file_(INVALID_HANDLE_VALUE),
       user_data_dir_(user_data_dir),
       should_kill_remote_process_callback_(
           base::BindRepeating(&DisplayShouldKillMessageBox)) {}
@@ -448,7 +458,7 @@ ProcessSingleton::NotifyOtherProcessOrCreate() {
 bool ProcessSingleton::Create() {
   TRACE_EVENT0("startup", "ProcessSingleton::Create");
 
-  static const wchar_t kMutexName[] = L"Local\\ChromeProcessSingletonStartup!";
+  std::wstring mutexName = base::UTF8ToWide("Local\\" + program_name_ + "ProcessSingletonStartup");
 
   remote_window_ = FindRunningChromeWindow(user_data_dir_);
   if (!remote_window_ && !EscapeVirtualization(user_data_dir_)) {
@@ -457,7 +467,7 @@ bool ProcessSingleton::Create() {
     // access. As documented, it's clearer to NOT request ownership on creation
     // since it isn't guaranteed we will get it. It is better to create it
     // without ownership and explicitly get the ownership afterward.
-    base::win::ScopedHandle only_me(::CreateMutex(NULL, FALSE, kMutexName));
+    base::win::ScopedHandle only_me(::CreateMutex(NULL, FALSE, mutexName.c_str()));
     if (!only_me.is_valid()) {
       DPLOG(FATAL) << "CreateMutex failed";
       return false;
@@ -488,6 +498,17 @@ bool ProcessSingleton::Create() {
             window_.CreateNamed(base::BindRepeating(&ProcessLaunchNotification,
                                                     notification_callback_),
                                 user_data_dir_.value());
+
+        // When the app is sandboxed, firstly, the app should not be in
+        // admin mode, and even if it somehow is, messages from an unelevated
+        // instance should not be able to be sent to it.
+        if (!is_app_sandboxed_) {
+          // NB: Ensure that if the primary app gets started as elevated
+          // admin inadvertently, secondary windows running not as elevated
+          // will still be able to send messages.
+          ::ChangeWindowMessageFilterEx(window_.hwnd(), WM_COPYDATA, MSGFLT_ALLOW,
+                                        NULL);
+        }
         CHECK(result && window_.hwnd());
       }
     }
