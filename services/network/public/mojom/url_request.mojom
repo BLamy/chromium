@@ -111,6 +111,9 @@ struct TrustedUrlRequestParams {
   // client which should not be able to see them.
   bool include_request_cookies_with_response = false;
 
+  // [Electron] Whether to provide unfiltered response headers.
+  bool report_raw_headers;
+
   // Enabled Client Hints to be evaluated quickly within the network layer
   // when it receives the AcceptCHFrame.
   EnabledClientHints? enabled_client_hints;

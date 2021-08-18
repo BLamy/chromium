@@ -372,6 +372,9 @@ URLLoader::URLLoader(
                                   mojo::SimpleWatcher::ArmingPolicy::MANUAL,
                                   TaskRunner(request.priority)),
       per_factory_orb_state_(context.GetMutableOrbState()),
+      report_raw_headers_(
+        request.trusted_params &&
+        request.trusted_params->report_raw_headers),
       devtools_request_id_(request.devtools_request_id),
       options_(PopulateOptions(options,
                                factory_params_->is_orb_enabled,
@@ -571,7 +574,7 @@ void URLLoader::SetUpUrlRequestCallbacks(
         &URLLoader::IsSharedDictionaryReadAllowed, base::Unretained(this)));
   }
 
-  if (devtools_request_id()) {
+  if (devtools_request_id() || report_raw_headers_) {
     url_request_->SetResponseHeadersCallback(base::BindRepeating(
         &URLLoader::SetRawResponseHeaders, base::Unretained(this)));
   }
@@ -1185,6 +1188,19 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
   }
 
   response_ = BuildResponseHead();
+  if (raw_response_headers_ && report_raw_headers_) {
+    std::vector<network::mojom::HttpRawHeaderPairPtr> header_array;
+    size_t iterator = 0;
+    std::string name, value;
+    while (raw_response_headers_->EnumerateHeaderLines(&iterator, &name, &value)) {
+      network::mojom::HttpRawHeaderPairPtr pair =
+          network::mojom::HttpRawHeaderPair::New();
+      pair->key = name;
+      pair->value = value;
+      header_array.push_back(std::move(pair));
+    }
+    response_->raw_response_headers = std::move(header_array);
+  }
   DispatchOnRawResponse();
 
   if (expected_response_headers_for_synthetic_response &&

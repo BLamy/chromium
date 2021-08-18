@@ -107,6 +107,10 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
       const network::ResourceRequest::TrustedParams& trusted_params) {
     return trusted_params.include_request_cookies_with_response;
   }
+  static bool report_raw_headers(
+      const network::ResourceRequest::TrustedParams& trusted_params) {
+    return trusted_params.report_raw_headers;
+  }
   static const std::optional<
       network::ResourceRequest::TrustedParams::EnabledClientHints>&
   enabled_client_hints(
