@@ -20,7 +20,8 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/process/process.h"
-
+#include "base/containers/span.h"
+#include "base/memory/raw_span.h"
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID)
 #include "base/files/scoped_temp_dir.h"
 #endif
@@ -102,21 +103,24 @@ class ProcessSingleton {
   // should handle it (i.e., because the current process is shutting down).
   using NotificationCallback =
       base::RepeatingCallback<bool(base::CommandLine command_line,
-                                   const base::FilePath& current_directory)>;
+                                   const base::FilePath& current_directory,
+                                   const std::vector<uint8_t> additional_data)>;
 
 #if BUILDFLAG(IS_WIN)
   ProcessSingleton(const std::string& program_name,
                    const base::FilePath& user_data_dir,
+                   const base::raw_span<const uint8_t> additional_data,
                    bool is_sandboxed,
                    const NotificationCallback& notification_callback);
 #else
   ProcessSingleton(const base::FilePath& user_data_dir,
+                   const base::raw_span<const uint8_t> additional_data,
                    const NotificationCallback& notification_callback);
+#endif
 
   ProcessSingleton(const ProcessSingleton&) = delete;
   ProcessSingleton& operator=(const ProcessSingleton&) = delete;
 
-#endif
   ~ProcessSingleton();
 
   // Notify another process, if available. Otherwise sets ourselves as the
@@ -191,7 +195,10 @@ class ProcessSingleton {
 #endif
 
  private:
+  // A callback to run when the first instance receives data from the second.
   NotificationCallback notification_callback_;  // Handler for notifications.
+  // Custom data to pass to the other instance during notify.
+  base::raw_span<const uint8_t> additional_data_;
 
 #if BUILDFLAG(IS_WIN)
   bool EscapeVirtualization(const base::FilePath& user_data_dir);

@@ -41,6 +41,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stddef.h>
 #include <string.h>
@@ -144,7 +145,9 @@ constexpr std::string_view kStartToken = "START";
 constexpr std::string_view kACKToken = "ACK";
 constexpr std::string_view kShutdownToken = "SHUTDOWN";
 const char kTokenDelimiter = '\0';
-const int kMaxMessageLength = 32 * 1024;
+// The maximum length of a message the browser will buffer. Longer messages
+// are drained from the socket and dropped.
+const size_t kMaxMessageLength = 32 * 1024 * 1024;
 
 bool g_disable_prompt = false;
 bool g_skip_is_chrome_process_check = false;
@@ -167,15 +170,32 @@ void CloseSocket(int fd) {
   DPCHECK(rv == 0) << "Error closing socket";
 }
 
-// Write a message to a socket fd.
-bool WriteToSocket(int fd, std::string_view message) {
+// Wait for a socket to become writable, for up to |timeout|.
+// Returns -1 if error occurred, 0 if timeout reached, > 0 if the socket is
+// ready for write.
+int WaitSocketForWrite(int fd, const base::TimeDelta& timeout) {
+  struct pollfd pfd = {};
+  pfd.fd = fd;
+  pfd.events = POLLOUT;
+  return HANDLE_EINTR(poll(
+      &pfd, 1, base::saturated_cast<int>(timeout.InMillisecondsRoundedUp())));
+}
+
+// Write a message to a socket fd. Whenever the socket would block, wait for it
+// to become writable again; |timeout| bounds the total time spent waiting.
+bool WriteToSocket(int fd,
+                   std::string_view message,
+                   const base::TimeDelta& timeout = base::TimeDelta()) {
   CHECK(!message.empty(), base::NotFatalUntil::M162);
+  const base::TimeTicks deadline = base::TimeTicks::Now() + timeout;
   while (!message.empty()) {
     ssize_t rv = HANDLE_EINTR(write(fd, message.data(), message.size()));
     if (rv < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
-        // The socket shouldn't block, we're sending so little data.  Just give
-        // up here, since NotifyOtherProcess() doesn't have an asynchronous api.
+        const base::TimeDelta remaining = deadline - base::TimeTicks::Now();
+        if (remaining.is_positive() && WaitSocketForWrite(fd, remaining) > 0) {
+          continue;
+        }
         LOG(ERROR) << "ProcessSingleton would block on write(), so it gave up.";
         return false;
       }
@@ -550,10 +570,7 @@ class ProcessSingleton::LinuxWatcher
     SocketReader(ProcessSingleton::LinuxWatcher* parent,
                  scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner,
                  int fd)
-        : parent_(parent),
-          ui_task_runner_(ui_task_runner),
-          fd_(fd),
-          bytes_read_(0) {
+        : parent_(parent), ui_task_runner_(ui_task_runner), fd_(fd) {
       CHECK_CURRENTLY_ON(BrowserThread::IO, base::NotFatalUntil::M162);
       // Wait for reads.
       fd_watch_controller_ = base::FileDescriptorWatcher::WatchReadable(
@@ -597,11 +614,10 @@ class ProcessSingleton::LinuxWatcher
     const int fd_;
 
     // Store the message in this buffer.
-    std::array<char, kMaxMessageLength> buf_;
+    std::string buf_;
 
-    // Tracks the number of bytes we've read in case we're getting partial
-    // reads.
-    size_t bytes_read_;
+    // Whether the message exceeded kMaxMessageLength and is being dropped.
+    bool message_too_long_ = false;
 
     base::OneShotTimer timer_;
   };
@@ -623,6 +639,7 @@ class ProcessSingleton::LinuxWatcher
   // |reader| is for sending back ACK message.
   void HandleMessage(const std::string& current_dir,
                      const std::vector<std::string>& argv,
+                     const std::vector<uint8_t> additional_data,
                      SocketReader* reader);
 
   // Called when the ProcessSingleton that owns this class is about to be
@@ -683,13 +700,17 @@ void ProcessSingleton::LinuxWatcher::StartListening(int socket) {
 }
 
 void ProcessSingleton::LinuxWatcher::HandleMessage(
-    const std::string& current_dir, const std::vector<std::string>& argv,
+    const std::string& current_dir,
+    const std::vector<std::string>& argv,
+    const std::vector<uint8_t> additional_data,
     SocketReader* reader) {
   CHECK(ui_task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M162);
   CHECK(reader, base::NotFatalUntil::M162);
 
   if (parent_ && parent_->notification_callback_.Run(
-                     base::CommandLine(argv), base::FilePath(current_dir))) {
+                     base::CommandLine(argv),
+                     base::FilePath(current_dir),
+                     std::move(additional_data))) {
     // Send back "ACK" message to prevent the client process from starting up.
     reader->FinishWithACK(kACKToken);
   } else {
@@ -716,23 +737,58 @@ void ProcessSingleton::LinuxWatcher::RemoveSocketReader(SocketReader* reader) {
 void ProcessSingleton::LinuxWatcher::SocketReader::
     OnSocketCanReadWithoutBlocking() {
   CHECK_CURRENTLY_ON(BrowserThread::IO, base::NotFatalUntil::M162);
-  bytes_read_ += ReadFromSocketWithTimeout(
-      fd_, base::span(buf_).subspan(bytes_read_), base::Seconds(0));
 
-  // Validate the message.  The shortest message is kStartToken\0x\0x
-  const size_t kMinMessageLength = kStartToken.length() + 4;
-  if (bytes_read_ < kMinMessageLength) {
-    buf_[bytes_read_] = 0;
-    LOG(ERROR) << "Invalid socket message (wrong length):" << buf_.data();
+  // The client shuts down its writing end after sending the message, so read
+  // until EOF to get the whole message.
+  std::array<char, 64 * 1024> chunk;
+  while (true) {
+    ssize_t rv = HANDLE_EINTR(read(fd_, chunk.data(), chunk.size()));
+    if (rv > 0) {
+      const size_t bytes_read = base::checked_cast<size_t>(rv);
+      if (message_too_long_) {
+        continue;
+      }
+      if (buf_.size() + bytes_read > kMaxMessageLength) {
+        LOG(ERROR) << "Socket message too long, dropping it";
+        message_too_long_ = true;
+        buf_.clear();
+        continue;
+      }
+      buf_.append(base::as_string_view(base::span(chunk).first(bytes_read)));
+      continue;
+    }
+    if (rv == 0) {  // The client has finished sending.
+      break;
+    }
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      return;  // Wait for the rest of the message.
+    }
+    PLOG(ERROR) << "read() failed";
     CleanupAndDeleteSelf();
     return;
   }
 
-  std::string_view str =
-      base::as_string_view(base::span(buf_).first(bytes_read_));
+  if (message_too_long_) {
+    // Reply so the client exits instead of treating this process as hung.
+    fd_watch_controller_.reset();
+    timer_.Stop();
+    FinishWithACK(kACKToken);
+    return;
+  }
+
+  // Validate the message.  The shortest message kStartToken\0\00
+  // The shortest message with additional data is kStartToken\0\00\00\0.
+  const size_t kMinMessageLength = kStartToken.length() + 4;
+  if (buf_.size() < kMinMessageLength) {
+    LOG(ERROR) << "Invalid socket message (wrong length):" << buf_;
+    CleanupAndDeleteSelf();
+    return;
+  }
+
+  std::string_view str = buf_;
   std::vector<std::string> tokens =
       base::SplitString(str, std::string(1, kTokenDelimiter),
-                        base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
+                        base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
 
   if (tokens.size() < 3 || tokens[0] != kStartToken) {
     LOG(ERROR) << "Wrong message format: " << str;
@@ -750,10 +806,45 @@ void ProcessSingleton::LinuxWatcher::SocketReader::
   tokens.erase(tokens.begin());
   tokens.erase(tokens.begin());
 
+  size_t num_args;
+  if (!base::StringToSizeT(tokens[0], &num_args) ||
+      num_args > tokens.size() - 1) {
+    LOG(ERROR) << "Invalid num_args in socket message";
+    CleanupAndDeleteSelf();
+    return;
+  }
+  std::vector<std::string> command_line(tokens.begin() + 1,
+                                        tokens.begin() + 1 + num_args);
+
+  std::vector<uint8_t> additional_data;
+  // After consuming [num_args, argv...], two more tokens are needed for
+  // additional data: [size, payload]. Subtract to avoid overflow when
+  // num_args is large.
+  if (tokens.size() - 1 - num_args >= 2) {
+    size_t additional_data_size;
+    if (!base::StringToSizeT(tokens[1 + num_args], &additional_data_size)) {
+      LOG(ERROR) << "Invalid additional_data_size in socket message";
+      CleanupAndDeleteSelf();
+      return;
+    }
+    std::string remaining_args = base::JoinString(
+        base::span(tokens).subspan(2 + num_args),
+        std::string(1, kTokenDelimiter));
+    if (additional_data_size > remaining_args.size()) {
+      LOG(ERROR) << "additional_data_size exceeds payload length";
+      CleanupAndDeleteSelf();
+      return;
+    }
+    const auto adspan =
+        base::as_byte_span(remaining_args).first(additional_data_size);
+    additional_data.assign(adspan.begin(), adspan.end());
+  }
+
   // Return to the UI thread to handle opening a new browser tab.
   ui_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&ProcessSingleton::LinuxWatcher::HandleMessage,
-                                parent_, current_dir, tokens, this));
+                                parent_, current_dir, command_line,
+                                std::move(additional_data), this));
   fd_watch_controller_.reset();
 
   // LinuxWatcher::HandleMessage() is in charge of destroying this SocketReader
@@ -782,8 +873,10 @@ void ProcessSingleton::LinuxWatcher::SocketReader::FinishWithACK(
 //
 ProcessSingleton::ProcessSingleton(
     const base::FilePath& user_data_dir,
+    const base::raw_span<const uint8_t> additional_data,
     const NotificationCallback& notification_callback)
     : notification_callback_(notification_callback),
+      additional_data_(additional_data),
       current_pid_(base::GetCurrentProcId()) {
   socket_path_ = user_data_dir.Append(chrome::kSingletonSocketFilename);
   lock_path_ = user_data_dir.Append(chrome::kSingletonLockFilename);
@@ -904,7 +997,8 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessWithTimeout(
              sizeof(socket_timeout));
 
   // Found another process, prepare our command line
-  // format is "START\0<current dir>\0<argv[0]>\0...\0<argv[n]>".
+  // format is "START\0<current-dir>\0<n-args>\0<argv[0]>\0...\0<argv[n]>
+  // \0<additional-data-length>\0<additional-data>".
   std::string to_send(kStartToken);
   to_send.push_back(kTokenDelimiter);
 
@@ -914,13 +1008,23 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessWithTimeout(
   to_send.append(current_dir.value());
 
   const std::vector<std::string>& argv = cmd_line.argv();
+  to_send.push_back(kTokenDelimiter);
+  to_send.append(base::NumberToString(argv.size()));
   for (auto it = argv.begin(); it != argv.end(); ++it) {
     to_send.push_back(kTokenDelimiter);
     to_send.append(*it);
   }
 
+  size_t data_to_send_size = additional_data_.size_bytes();
+  if (data_to_send_size) {
+    to_send.push_back(kTokenDelimiter);
+    to_send.append(base::NumberToString(data_to_send_size));
+    to_send.push_back(kTokenDelimiter);
+    to_send.append(reinterpret_cast<const char*>(additional_data_.data()), data_to_send_size);
+  }
+
   // Send the message
-  if (!WriteToSocket(socket.fd(), to_send)) {
+  if (!WriteToSocket(socket.fd(), to_send, timeout)) {
     // Try to kill the other process, because it might have been dead.
     if (!kill_unresponsive || !KillProcessByLockPath(true))
       return PROFILE_IN_USE;

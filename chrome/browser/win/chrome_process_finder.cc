@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 
+#include "base/base64.h"
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -39,7 +40,9 @@ HWND FindRunningChromeWindow(const base::FilePath& user_data_dir) {
   return base::win::MessageWindow::FindWindow(user_data_dir.value());
 }
 
-NotifyChromeResult AttemptToNotifyRunningChrome(HWND remote_window) {
+NotifyChromeResult AttemptToNotifyRunningChrome(
+    HWND remote_window,
+    const base::raw_span<const uint8_t> additional_data) {
   TRACE_EVENT0("startup", "AttemptToNotifyRunningChrome");
 
   DCHECK(remote_window);
@@ -70,11 +73,21 @@ NotifyChromeResult AttemptToNotifyRunningChrome(HWND remote_window) {
     new_command_line.AppendSwitch(switches::kSourceAppId);
   }
   // Send the command line to the remote chrome window.
-  // Format is "START\0<<<current directory>>>\0<<<commandline>>>".
+  // Format is
+  // "START\0<current-directory>\0<command-line>\0<additional-data>".
   std::wstring to_send = base::StrCat(
       {std::wstring_view{L"START\0", 6}, cur_dir.value(),
        std::wstring_view{L"\0", 1}, new_command_line.GetCommandLineString(),
        std::wstring_view{L"\0", 1}});
+
+  if (!additional_data.empty()) {
+    // Base64-encode so the payload survives the null-delimited wchar_t
+    // framing; raw serialized bytes can contain 0x0000 sequences which
+    // would otherwise terminate the field early.
+    std::string encoded = base::Base64Encode(additional_data);
+    to_send.append(base::ASCIIToWide(encoded));
+    to_send.append(L"\0", 1);  // Null separator.
+  }
 
   // Allow the current running browser window to make itself the foreground
   // window (otherwise it will just flash in the taskbar).

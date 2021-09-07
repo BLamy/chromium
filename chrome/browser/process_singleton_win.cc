@@ -9,6 +9,7 @@
 #include <shellapi.h>
 #include <stddef.h>
 
+#include "base/base64.h"
 #include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -83,10 +84,12 @@ BOOL CALLBACK BrowserWindowEnumeration(HWND window, LPARAM param) {
 
 bool ParseCommandLine(const COPYDATASTRUCT* cds,
                       base::CommandLine* parsed_command_line,
-                      base::FilePath* current_directory) {
+                      base::FilePath* current_directory,
+                      std::vector<uint8_t>* parsed_additional_data) {
   // We should have enough room for the shortest command (min_message_size)
   // and also be a multiple of wchar_t bytes. The shortest command
-  // possible is L"START\0\0" (empty current directory and command line).
+  // possible is L"START\0\0" (empty command line, current directory,
+  // and additional data).
   static const int min_message_size = 7;
   if (cds->cbData < min_message_size * sizeof(wchar_t) ||
       cds->cbData % sizeof(wchar_t) != 0) {
@@ -136,6 +139,25 @@ bool ParseCommandLine(const COPYDATASTRUCT* cds,
     const std::wstring cmd_line =
         msg.substr(second_null + 1, third_null - second_null);
     *parsed_command_line = base::CommandLine::FromString(cmd_line);
+
+    const std::wstring::size_type fourth_null =
+        msg.find_first_of(L'\0', third_null + 1);
+    if (fourth_null == std::wstring::npos ||
+        fourth_null == msg.length()) {
+      // No additional data was provided.
+      return true;
+    }
+
+    // Get the actual additional data. It is base64-encoded so it can
+    // safely traverse the null-delimited wchar_t buffer.
+    const std::wstring encoded_w =
+        msg.substr(third_null + 1, fourth_null - third_null - 1);
+    std::string encoded = base::WideToASCII(encoded_w);
+    std::optional<std::vector<uint8_t>> decoded = base::Base64Decode(encoded);
+    if (decoded) {
+      *parsed_additional_data = std::move(*decoded);
+    }
+
     return true;
   }
   return false;
@@ -157,13 +179,14 @@ bool ProcessLaunchNotification(
 
   base::CommandLine parsed_command_line(base::CommandLine::NO_PROGRAM);
   base::FilePath current_directory;
-  if (!ParseCommandLine(cds, &parsed_command_line, &current_directory)) {
+  std::vector<uint8_t> additional_data;
+  if (!ParseCommandLine(cds, &parsed_command_line, &current_directory, &additional_data)) {
     *result = TRUE;
     return true;
   }
 
-  *result = notification_callback.Run(parsed_command_line, current_directory) ?
-      TRUE : FALSE;
+  *result = notification_callback.Run(parsed_command_line,
+      current_directory, std::move(additional_data)) ? TRUE : FALSE;
   return true;
 }
 
@@ -339,9 +362,11 @@ bool ProcessSingleton::EscapeVirtualization(
 ProcessSingleton::ProcessSingleton(
     const std::string& program_name,
     const base::FilePath& user_data_dir,
+    const base::raw_span<const uint8_t> additional_data,
     bool is_app_sandboxed,
     const NotificationCallback& notification_callback)
     : notification_callback_(notification_callback),
+      additional_data_(additional_data),
       program_name_(program_name),
       is_app_sandboxed_(is_app_sandboxed),
       is_virtualized_(false),
@@ -365,7 +390,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
     return PROCESS_NONE;
   }
 
-  switch (AttemptToNotifyRunningChrome(remote_window_)) {
+  switch (AttemptToNotifyRunningChrome(remote_window_, additional_data_)) {
     case NotifyChromeResult::kSuccess:
       return PROCESS_NOTIFIED;
     case NotifyChromeResult::kFailed:
