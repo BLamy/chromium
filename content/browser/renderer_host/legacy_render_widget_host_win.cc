@@ -462,12 +462,12 @@ LRESULT LegacyRenderWidgetHostHWND::OnKeyboardRange(UINT message,
 LRESULT LegacyRenderWidgetHostHWND::OnMouseRange(UINT message,
                                                  WPARAM w_param,
                                                  LPARAM l_param) {
-  if (message == WM_MOUSEMOVE) {
+  if (message == WM_MOUSEMOVE || message == WM_NCMOUSEMOVE) {
     if (!mouse_tracking_enabled_) {
       mouse_tracking_enabled_ = true;
       TRACKMOUSEEVENT tme;
       tme.cbSize = sizeof(tme);
-      tme.dwFlags = TME_LEAVE;
+      tme.dwFlags = message == WM_NCMOUSEMOVE ? TME_NONCLIENT | TME_LEAVE : TME_LEAVE;
       tme.hwndTrack = hwnd();
       tme.dwHoverTime = 0;
       TrackMouseEvent(&tme);
@@ -506,7 +506,10 @@ LRESULT LegacyRenderWidgetHostHWND::OnMouseRange(UINT message,
   // the picture.
   if (!msg_handled &&
       (message >= WM_NCMOUSEMOVE && message <= WM_NCXBUTTONDBLCLK)) {
-    ret = ::DefWindowProc(GetParent(), message, w_param, l_param);
+    // Send WM_NCMOUSEMOVE messages using the LegacyRenderWidgetHostHWND's
+    // handle so mouse tracking on non-client areas doesn't break.
+    HWND target = message == WM_NCMOUSEMOVE ? hwnd() : GetParent();
+    ret = ::DefWindowProc(target, message, w_param, l_param);
     // DefWindowProc() may result in |this| being deleted (e.g. if a nested
     // modal loop is entered and the tab is closed). See crbug.com/503793153.
     if (ref) {
