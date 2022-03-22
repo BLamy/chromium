@@ -31,6 +31,14 @@ ValueCounter::ValueCounter() {
 ValueCounter::~ValueCounter() {
 }
 
+bool ValueCounter::is_empty() const {
+  return entries_.empty();
+}
+
+size_t ValueCounter::distinct_count() const {
+  return entries_.size();
+}
+
 bool ValueCounter::Add(const base::Value& value) {
   ++total_count_;
   for (auto& entry : entries_) {

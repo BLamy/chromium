@@ -41,13 +41,13 @@ class ValueCounter {
   bool Remove(const base::Value& value);
 
   // Returns true if there are no values of any type being counted.
-  bool is_empty() const { return entries_.empty(); }
+  bool is_empty() const;
 
   // Returns the number of values being counted, including duplicates.
   size_t total_count() const { return total_count_; }
 
   // Returns the number of distinct values being counted.
-  size_t distinct_count() const { return entries_.size(); }
+  size_t distinct_count() const;
 
  private:
   struct Entry;
