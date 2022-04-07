@@ -43,6 +43,12 @@ using SkColor = uint32_t;
 
 namespace gtk {
 
+// Get handle to the currently loaded gdk_pixbuf library in the process.
+void* GetLibGdkPixbuf();
+
+// Get handle to the currently loaded gdk library in the process.
+void* GetLibGdk();
+
 // Loads libgtk and related libraries and returns true on success.
 COMPONENT_EXPORT(GTK) bool LoadGtk(ui::LinuxUiBackend backend);
 
