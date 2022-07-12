@@ -58,7 +58,8 @@ bool PermissionIsRequested(blink::PermissionType permission,
 void MediaStreamDevicesController::RequestPermissions(
     const content::MediaStreamRequest& request,
     MediaStreamDeviceEnumerator* enumerator,
-    ResultCallback callback) {
+    ResultCallback callback,
+    bool previously_approved) {
   content::RenderFrameHost* rfh = content::RenderFrameHost::FromID(
       request.render_process_id, request.render_frame_id);
   // The RFH may have been destroyed by the time the request is processed.
@@ -86,7 +87,7 @@ void MediaStreamDevicesController::RequestPermissions(
                                        std::move(callback)));
 
   std::vector<blink::mojom::PermissionDescriptorPtr> permission_types;
-
+#if 0
   content::PermissionController* permission_controller =
       web_contents->GetBrowserContext()->GetPermissionController();
 
@@ -179,19 +180,31 @@ void MediaStreamDevicesController::RequestPermissions(
       requested_audio_capture_device_ids;
   permission_request_description.requested_video_capture_device_ids =
       requested_video_capture_device_ids;
-
+#endif
   // It is OK to ignore `request.security_origin` because it will be calculated
   // from `render_frame_host` and we always ignore `requesting_origin` for
   // `AUDIO_CAPTURE` and `VIDEO_CAPTURE`.
   // `render_frame_host->GetMainFrame()->GetLastCommittedOrigin()` will be used
   // instead.
-  rfh->GetBrowserContext()
-      ->GetPermissionController()
-      ->RequestPermissionsFromCurrentDocument(
-          rfh, permission_request_description,
-          base::BindOnce(
-              &MediaStreamDevicesController::PromptAnsweredGroupedRequest,
-              std::move(controller)));
+  if (previously_approved) {
+    controller->PromptAnsweredGroupedRequest(
+        {content::PermissionResult(
+            content::PermissionStatus::GRANTED /*audio*/,
+            content::PermissionStatusSource::UNSPECIFIED),
+         content::PermissionResult(
+              content::PermissionStatus::GRANTED /*video*/,
+              content::PermissionStatusSource::UNSPECIFIED)});
+  } else {
+    rfh->GetBrowserContext()
+        ->GetPermissionController()
+        ->RequestPermissionsFromCurrentDocument(
+            rfh,
+            content::PermissionRequestDescription(std::move(permission_types),
+                                                  request.user_gesture),
+            base::BindOnce(
+                &MediaStreamDevicesController::PromptAnsweredGroupedRequest,
+                std::move(controller)));
+  }
 }
 
 MediaStreamDevicesController::~MediaStreamDevicesController() {
@@ -476,6 +489,7 @@ bool MediaStreamDevicesController::PermissionIsBlockedForReason(
     return false;
   }
 
+#if 0
   // TODO(raymes): This function wouldn't be needed if
   // PermissionManager::RequestPermissions returned a denial reason.
   content::PermissionResult result =
@@ -489,6 +503,7 @@ bool MediaStreamDevicesController::PermissionIsBlockedForReason(
     DCHECK_EQ(blink::mojom::PermissionStatus::DENIED, result.status);
     return true;
   }
+#endif
   return false;
 }
 

@@ -52,7 +52,8 @@ class MediaStreamDevicesController {
   // synchronously or asynchronously returned via |callback|.
   static void RequestPermissions(const content::MediaStreamRequest& request,
                                  MediaStreamDeviceEnumerator* enumerator,
-                                 ResultCallback callback);
+                                 ResultCallback callback,
+                                 bool previously_approved = false);
 
   ~MediaStreamDevicesController();
 
