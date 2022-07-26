@@ -230,6 +230,7 @@ vs-chromium-project.txt
 /data
 /delegate_execute
 /device/serial/device_serial_mojo.xml
+/electron
 /GEMINI.md
 /google_apis/gcm/gcm.xml
 /googleurl
