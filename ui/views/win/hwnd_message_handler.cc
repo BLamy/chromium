@@ -3362,15 +3362,19 @@ LRESULT HWNDMessageHandler::HandleMouseEventInternal(UINT message,
     }
     // We must let Windows handle the caption buttons if it's drawing them, or
     // they won't work.
+    bool simulate_mouse_event_for_caption = false;
     if (delegate_->GetFrameMode() == FrameMode::SYSTEM_DRAWN &&
         (hittest == HTCLOSE || hittest == HTMINBUTTON ||
          hittest == HTMAXBUTTON)) {
-      SetMsgHandled(FALSE);
+      simulate_mouse_event_for_caption =
+          delegate_->HandleMouseEventForCaption(message);
+      if (!simulate_mouse_event_for_caption)
+        SetMsgHandled(FALSE);
     }
     // Let resize events fall through. Ignore everything else, as we're either
     // letting Windows handle it above or we've already handled the equivalent
     // touch message.
-    if (!IsHitTestOnResizeHandle(hittest)) {
+    if (!IsHitTestOnResizeHandle(hittest) && !simulate_mouse_event_for_caption) {
       return 0;
     }
   }
@@ -3393,6 +3397,7 @@ LRESULT HWNDMessageHandler::HandleMouseEventInternal(UINT message,
     // handle alt-space, or in the frame itself.
     is_right_mouse_pressed_on_caption_ = false;
     ::ReleaseCapture();
+
     // |point| is in window coordinates, but WM_NCHITTEST and TrackPopupMenu()
     // expect screen coordinates.
     POINT screen_point = CR_POINT_INITIALIZER_FROM_LPARAM(l_param);
@@ -3401,7 +3406,17 @@ LRESULT HWNDMessageHandler::HandleMouseEventInternal(UINT message,
         hwnd(), WM_NCHITTEST, 0, MAKELPARAM(screen_point.x, screen_point.y)));
     if (w_param == HTCAPTION || w_param == HTSYSMENU) {
       if (delegate_->UsesNativeSystemMenu()) {
-        ShowSystemMenuAtScreenPixelLocation(hwnd(), gfx::Point(screen_point));
+        LONG message_time = GetMessageTime();
+        CHROME_MSG msg = {hwnd(),
+                          message,
+                          w_param,
+                          l_param,
+                          static_cast<DWORD>(message_time),
+                          {CR_GET_X_LPARAM(l_param), CR_GET_Y_LPARAM(l_param)}};
+        ui::MouseEvent event(msg);
+        event.set_is_system_menu(true);
+        if (!delegate_->HandleMouseEvent(&event))
+          ShowSystemMenuAtScreenPixelLocation(hwnd(), gfx::Point(screen_point));
       } else {
         delegate_->ShowCustomSystemMenu(gfx::Point(screen_point));
       }

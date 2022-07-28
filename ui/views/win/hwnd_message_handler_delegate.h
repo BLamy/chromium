@@ -264,6 +264,10 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // if the default should be used.
   virtual HBRUSH GetBackgroundPaintBrush() = 0;
 
+  // Called when synthetic mouse event is generated for touch event on
+  // caption buttons.
+  virtual bool HandleMouseEventForCaption(UINT message) const = 0;
+
  protected:
   virtual ~HWNDMessageHandlerDelegate() = default;
 };

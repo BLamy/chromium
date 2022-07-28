@@ -588,6 +588,9 @@ class EVENTS_EXPORT MouseEvent : public LocatedEvent {
 
   const PointerDetails& pointer_details() const { return pointer_details_; }
 
+  bool is_system_menu() const { return is_system_menu_; }
+  void set_is_system_menu(bool is_menu) { is_system_menu_ = is_menu; }
+
   // Event:
   std::string ToString() const override;
   std::unique_ptr<Event> Clone() const override;
@@ -617,6 +620,8 @@ class EVENTS_EXPORT MouseEvent : public LocatedEvent {
 
   // Structure for holding pointer details for implementing PointerEvents API.
   PointerDetails pointer_details_;
+
+  bool is_system_menu_ = false;
 };
 
 class ScrollEvent;

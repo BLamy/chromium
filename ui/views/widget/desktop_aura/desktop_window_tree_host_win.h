@@ -290,6 +290,7 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   void HandleWindowScaleFactorChanged(float window_scale_factor) override;
   void HandleHeadlessWindowBoundsChanged(const gfx::Rect& bounds) override;
   HBRUSH GetBackgroundPaintBrush() override;
+  bool HandleMouseEventForCaption(UINT message) const override;
 
   Widget* GetWidget();
   const Widget* GetWidget() const;
