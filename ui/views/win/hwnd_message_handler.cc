@@ -1969,7 +1969,23 @@ LRESULT HWNDMessageHandler::OnCreate(CREATESTRUCT* create_struct) {
   ::SendMessage(hwnd(), WM_CHANGEUISTATE, MAKELPARAM(UIS_CLEAR, UISF_HIDEFOCUS),
                 0);
 
-  if (!delegate_->HasFrame()) {
+  LONG is_popup =
+      ::GetWindowLong(hwnd(), GWL_STYLE) & static_cast<LONG>(WS_POPUP);
+
+  // For transparent windows, Electron removes the WS_CAPTION style,
+  // so we continue to remove it here. If we didn't, an opaque rectangle
+  // would show up.
+  // For non-transparent windows, Electron keeps the WS_CAPTION style,
+  // so we don't remove it in that case. If we did, a Windows 7 frame
+  // would show up.
+  // We also need this block for frameless popup windows. When the user opens
+  // a dropdown in an Electron app, the internal popup menu from
+  // third_party/blink/renderer/core/html/forms/internal_popup_menu.h
+  // is rendered. That menu is actually an HTML page inside of a frameless popup window.
+  // A new popup window is created every time the user opens the dropdown,
+  // and this code path is run. The code block below runs SendFrameChanged,
+  // which gives the dropdown options the proper layout.
+  if (!delegate_->HasFrame() && (is_translucent_ || is_popup)) {
     ::SetWindowLong(hwnd(), GWL_STYLE,
                     ::GetWindowLong(hwnd(), GWL_STYLE) & ~WS_CAPTION);
     SendFrameChanged();
