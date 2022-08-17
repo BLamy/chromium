@@ -111,7 +111,8 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
       'mojo', base::MachRendezvousPort(endpoint.TakeMachReceiveRight())));
 
   options->environment = delegate_->GetEnvironment();
-
+  options->clear_environment = !delegate_->ShouldInheritEnvironment();
+  options->current_directory = delegate_->GetCurrentDirectory();
   options->disclaim_responsibility = delegate_->DisclaimResponsibility();
   options->enable_cpu_security_mitigations =
       delegate_->EnableCpuSecurityMitigations();
@@ -177,6 +178,11 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
     // communication FD to the helper executable.
     command_line_->AppendArg(
         base::StringPrintf("%s%d", sandbox::switches::kSeatbeltClient, pipe));
+  }
+
+  for (const auto& remapped_fd : file_data_->additional_remapped_fds) {
+    options->fds_to_remap.emplace_back(remapped_fd.second.get(),
+                                       remapped_fd.first);
   }
 
   return true;

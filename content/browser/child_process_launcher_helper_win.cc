@@ -26,6 +26,8 @@
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "sandbox/policy/win/sandbox_win.h"
 
+#include <windows.h>
+
 namespace {
 
 // Helper to avoid marking the log file as non-executable every time we launch a
@@ -136,6 +138,31 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
     mojo_channel_->PrepareToPassRemoteEndpoint(&options->handles_to_inherit,
                                                command_line());
   }
+
+  if (file_data_->stdout_handle.is_valid() || file_data_->stderr_handle.is_valid()) {
+    // base::LaunchProcess requires that if any of the stdio handle is customized then
+    // the other two handles should also be set.
+    // https://source.chromium.org/chromium/chromium/src/+/main:base/process/launch_win.cc;l=341-350
+    options->stdin_handle = INVALID_HANDLE_VALUE;
+    if (file_data_->stdout_handle.is_valid()) {
+      options->stdout_handle = file_data_->stdout_handle.get();
+    } else {
+      options->stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    }
+
+    if (file_data_->stderr_handle.is_valid()) {
+      options->stderr_handle = file_data_->stderr_handle.get();
+    } else {
+      options->stderr_handle = GetStdHandle(STD_ERROR_HANDLE);
+    }
+    options->handles_to_inherit.push_back(options->stdout_handle);
+    options->handles_to_inherit.push_back(options->stderr_handle);
+  }
+
+  options->current_directory = delegate_->GetCurrentDirectory();
+  options->environment = delegate_->GetEnvironment();
+  options->clear_environment = !delegate_->ShouldInheritEnvironment();
+  options->feedback_cursor_off = !delegate_->ShouldShowFeedbackCursor();
   return true;
 }
 
@@ -168,7 +195,7 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
                  "tag", delegate_->GetSandboxTag());
 
     *launch_result = sandbox::policy::SandboxWin::StartSandboxedProcess(
-        *command_line(), options->handles_to_inherit, delegate_.get(),
+        *command_line(), options, delegate_.get(),
         base::BindOnce(&ChildProcessLauncherHelper::
                            FinishStartSandboxedProcessOnLauncherThread,
                        this));

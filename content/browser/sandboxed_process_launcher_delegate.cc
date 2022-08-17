@@ -87,11 +87,23 @@ ZygoteCommunication* SandboxedProcessLauncherDelegate::GetZygote() {
 }
 #endif  // BUILDFLAG(USE_ZYGOTE)
 
-#if BUILDFLAG(IS_POSIX)
 base::EnvironmentMap SandboxedProcessLauncherDelegate::GetEnvironment() {
   return base::EnvironmentMap();
 }
-#endif  // BUILDFLAG(IS_POSIX)
+
+bool SandboxedProcessLauncherDelegate::ShouldInheritEnvironment() {
+  return true;
+}
+
+base::FilePath SandboxedProcessLauncherDelegate::GetCurrentDirectory() {
+  return base::FilePath();
+}
+
+#if BUILDFLAG(IS_WIN)
+bool SandboxedProcessLauncherDelegate::ShouldShowFeedbackCursor() {
+  return true;
+}
+#endif  // #if BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
 

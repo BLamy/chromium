@@ -94,7 +94,7 @@ class SANDBOX_POLICY_EXPORT SandboxWin {
   // any other error.
   static ResultCode StartSandboxedProcess(
       const base::CommandLine& cmd_line,
-      const base::HandlesToInheritVector& handles_to_inherit,
+      const base::LaunchOptions* options,
       SandboxDelegate* delegate,
       StartSandboxedProcessCallback result_callback);
 
@@ -107,7 +107,7 @@ class SANDBOX_POLICY_EXPORT SandboxWin {
   // of sandbox::ResultCode for any other error while constructing the policy.
   static ResultCode GeneratePolicyForSandboxedProcess(
       const base::CommandLine& cmd_line,
-      const base::HandlesToInheritVector& handles_to_inherit,
+      const base::LaunchOptions* options,
       SandboxDelegate* delegate,
       TargetPolicy* policy);
 

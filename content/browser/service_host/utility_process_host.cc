@@ -255,13 +255,13 @@ UtilityProcessHost::Options& UtilityProcessHost::Options::WithFileToPreload(
 }
 #endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
 
-#if BUILDFLAG(IS_POSIX)
 UtilityProcessHost::Options& UtilityProcessHost::Options::WithEnvironment(
-    const base::EnvironmentMap& env) {
+    const base::EnvironmentMap& env,
+    bool new_environment) {
   env_ = env;
+  inherit_environment_ = !new_environment;
   return *this;
 }
-#endif
 
 #if BUILDFLAG(USE_ZYGOTE)
 UtilityProcessHost::Options& UtilityProcessHost::Options::WithZygoteForTesting(
@@ -270,6 +270,45 @@ UtilityProcessHost::Options& UtilityProcessHost::Options::WithZygoteForTesting(
   return *this;
 }
 #endif  // BUILDFLAG(USE_ZYGOTE)
+
+#if BUILDFLAG(IS_WIN)
+UtilityProcessHost::Options& UtilityProcessHost::Options::WithStdioHandles(
+    base::win::ScopedHandle stdout_handle,
+    base::win::ScopedHandle stderr_handle) {
+  stdout_handle_ = std::move(stdout_handle);
+  stderr_handle_ = std::move(stderr_handle);
+  return *this;
+}
+#elif BUILDFLAG(IS_POSIX)
+UtilityProcessHost::Options& UtilityProcessHost::Options::WithAdditionalFds(
+    base::FileHandleMappingVector mapping) {
+  fds_to_remap_ = std::move(mapping);
+  return *this;
+}
+#endif
+
+UtilityProcessHost::Options& UtilityProcessHost::Options::WithCurrentDirectory(
+    const base::FilePath& cwd) {
+  current_directory_ = cwd;
+  return *this;
+}
+
+#if BUILDFLAG(IS_WIN)
+UtilityProcessHost::Options& UtilityProcessHost::Options::WithFeedbackCursorOff(
+    bool feedback_cursor_off) {
+  feedback_cursor_off_ = feedback_cursor_off;
+  return *this;
+}
+#endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_MAC)
+UtilityProcessHost::Options&
+UtilityProcessHost::Options::WithDisclaimResponsibility(
+    bool disclaim_responsibility) {
+  disclaim_responsibility_ = disclaim_responsibility;
+  return *this;
+}
+#endif  // BUILDFLAG(IS_MAC)
 
 UtilityProcessHost::Options&
 UtilityProcessHost::Options::WithBoundReceiverOnChildProcessForTesting(
@@ -574,9 +613,30 @@ bool UtilityProcessHost::StartProcess() {
   }
 #endif  // BUILDFLAG(ENABLE_GPU_CHANNEL_MEDIA_CAPTURE) && !BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_WIN)
+  options_.file_data_->stdout_handle = std::move(options_.stdout_handle_);
+  options_.file_data_->stderr_handle = std::move(options_.stderr_handle_);
+#elif BUILDFLAG(IS_POSIX)
+  if (!options_.fds_to_remap_.empty()) {
+    for (const auto& remapped_fd : options_.fds_to_remap_) {
+      options_.file_data_->additional_remapped_fds.emplace(remapped_fd.second,
+                                                           remapped_fd.first);
+    }
+  }
+#endif
+
   std::unique_ptr<UtilitySandboxedProcessLauncherDelegate> delegate =
       std::make_unique<UtilitySandboxedProcessLauncherDelegate>(
-          options_.sandbox_type_, options_.env_, *cmd_line);
+          options_.sandbox_type_, options_.env_, options_.current_directory_,
+          *cmd_line, options_.inherit_environment_);
+
+#if BUILDFLAG(IS_WIN)
+  delegate->SetFeedbackCursorOff(options_.feedback_cursor_off_);
+#endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_MAC)
+  delegate->SetDisclaimResponsibility(options_.disclaim_responsibility_);
+#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
   if (!options_.preload_libraries_.empty()) {

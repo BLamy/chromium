@@ -80,6 +80,21 @@ void LaunchServiceProcess(mojo::GenericPendingReceiver receiver,
     utility_options.WithPriority(*service_options.priority);
   }
 
+#if BUILDFLAG(IS_WIN)
+  utility_options.WithStdioHandles(std::move(service_options.stdout_handle),
+                                   std::move(service_options.stderr_handle));
+  utility_options.WithFeedbackCursorOff(service_options.feedback_cursor_off);
+#elif BUILDFLAG(IS_POSIX)
+  utility_options.WithAdditionalFds(std::move(service_options.fds_to_remap));
+#endif
+#if BUILDFLAG(IS_MAC)
+  utility_options.WithDisclaimResponsibility(
+      service_options.disclaim_responsibility);
+#endif
+  utility_options.WithCurrentDirectory(service_options.current_directory);
+  utility_options.WithEnvironment(service_options.environment,
+                                  service_options.clear_environment);
+
   utility_options.WithBoundServiceInterfaceOnChildProcess(std::move(receiver));
 
   UtilityProcessHost::Start(std::move(utility_options),

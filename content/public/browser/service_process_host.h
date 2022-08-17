@@ -15,6 +15,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list_types.h"
+#include "base/process/launch.h"
 #include "base/process/process.h"
 #include "base/process/process_handle.h"
 #include "content/common/content_export.h"
@@ -29,6 +30,10 @@
 #include "base/files/file_path.h"
 #include "base/types/pass_key.h"
 #endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_WIN)
+#include "base/win/scoped_handle.h"
+#endif
 
 namespace base {
 class Process;
@@ -105,6 +110,16 @@ class CONTENT_EXPORT ServiceProcessHost {
     Options& WithExtraCommandLineSwitchKeyValues(
         std::vector<std::pair<std::string, std::string>> switch_key_values);
 
+#if BUILDFLAG(IS_WIN)
+    // Specifies the handles for redirection of stdout and stderr.
+    Options& WithStdoutHandle(base::win::ScopedHandle stdout_handle);
+    Options& WithStderrHandle(base::win::ScopedHandle stderr_handle);
+#elif BUILDFLAG(IS_POSIX)
+    // Specifies file descriptors to propagate into the child process
+    // based on the mapping.
+    Options& WithAdditionalFds(base::FileHandleMappingVector mapping);
+#endif
+
     // Specifies a callback to be invoked with service process once it's
     // launched. Will be on UI thread.
     Options& WithProcessCallback(
@@ -118,6 +133,24 @@ class CONTENT_EXPORT ServiceProcessHost {
     // the service process terminates, notifications are silently skipped.
     // Will be called on the UI thread.
     Options& WithObserver(base::WeakPtr<Observer> observer);
+    // Specifies the working directory for the launched process.
+    Options& WithCurrentDirectory(const base::FilePath& cwd);
+
+    // Specifies the environment that should be applied to the process.
+    // |new_environment| controls whether the process should inherit
+    // environment from the parent process.
+    Options& WithEnvironment(const base::EnvironmentMap& environment,
+                             bool new_environment);
+
+#if BUILDFLAG(IS_WIN)
+    // Specifies if the process should trigger mouse cursor feedback.
+    Options& WithFeedbackCursorOff(bool feedback_cursor_off);
+#endif  // #if BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_MAC)
+    // Specifies if the process should disclaim TCC responsibility.
+    Options& WithDisclaimResponsibility(bool disclaim_responsibility);
+#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
     // Specifies libraries to preload before the sandbox is locked down. Paths
@@ -151,6 +184,12 @@ class CONTENT_EXPORT ServiceProcessHost {
     std::optional<int> child_flags;
     std::vector<std::string> extra_switches;
     std::vector<std::pair<std::string, std::string>> extra_switch_key_values;
+#if BUILDFLAG(IS_WIN)
+    base::win::ScopedHandle stdout_handle;
+    base::win::ScopedHandle stderr_handle;
+#elif BUILDFLAG(IS_POSIX)
+    base::FileHandleMappingVector fds_to_remap;
+#endif
     base::OnceCallback<void(const base::Process&)> process_callback;
     base::WeakPtr<Observer> observer;
 #if BUILDFLAG(IS_WIN)
@@ -158,6 +197,15 @@ class CONTENT_EXPORT ServiceProcessHost {
 #endif  // BUILDFLAG(IS_WIN)
     std::optional<bool> allow_gpu_client;
     std::optional<base::Process::Priority> priority;
+    base::FilePath current_directory;
+    base::EnvironmentMap environment;
+    bool clear_environment = false;
+#if BUILDFLAG(IS_WIN)
+    bool feedback_cursor_off = false;
+#endif  // BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC)
+    bool disclaim_responsibility = false;
+#endif  // BUILDFLAG(IS_MAC)
   };
 
   // An interface which can be implemented and used with
