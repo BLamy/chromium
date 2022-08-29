@@ -2540,6 +2540,7 @@ Frame* DocumentLoader::CalculateOwnerFrame() {
 scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
     Document* owner_document) {
   scoped_refptr<SecurityOrigin> origin;
+  bool is_standard = url::IsStandard(url_.Protocol().Ascii().data());
   // Whether the origin is newly created within this call, instead of copied
   // from an existing document's origin or from `origin_to_commit_`. If this is
   // true, we won't try to compare the nonce of this origin (if it's opaque) to
@@ -2576,6 +2577,9 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
     // non-renderer only origin bits will be the same, which will be asserted at
     // the end of this function.
     origin = origin_to_commit_;
+  } else if (!SecurityOrigin::ShouldUseInnerURL(url_) && !is_standard &&
+             !url_.ProtocolIsData()) {
+    origin = SecurityOrigin::Create(url_);
   } else {
     // Otherwise, create an origin that propagates precursor information
     // as needed. For non-opaque origins, this creates a standard tuple

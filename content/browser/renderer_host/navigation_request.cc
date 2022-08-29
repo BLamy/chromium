@@ -13217,6 +13217,12 @@ url::Origin NavigationRequest::GetOriginForURLLoaderFactoryUnchecked() {
             target_rph_id);
   }
 
+  if (!common_params().url.IsStandard() &&
+      !common_params().url.IsAboutBlank() &&
+      !common_params().url.SchemeIs(url::kDataScheme)) {
+    return url::Origin::Resolve(common_params().url, url::Origin());
+  }
+
   // In cases not covered above, URLLoaderFactory should be associated with the
   // origin of |common_params.url| and/or |common_params.initiator_origin|.
   url::Origin resolved_origin = url::Origin::Resolve(
