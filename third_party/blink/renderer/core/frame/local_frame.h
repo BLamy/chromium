@@ -871,6 +871,7 @@ class CORE_EXPORT LocalFrame final
                             mojom::blink::EvaluationTiming,
                             mojom::blink::LoadEventBlockingOption,
                             WebScriptExecutionCallback,
+                            WebScriptExecutionCallbackUnmodified,
                             BackForwardCacheAware back_forward_cache_aware,
                             mojom::blink::WantResultOption,
                             mojom::blink::PromiseResultOption,

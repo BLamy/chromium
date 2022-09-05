@@ -48,6 +48,7 @@ class CORE_EXPORT PausableScriptExecutor final
                            mojom::blink::WantResultOption,
                            mojom::blink::PromiseResultOption,
                            WebScriptExecutionCallback,
+                           WebScriptExecutionCallbackUnmodified,
                            const String& script_injector_id);
 
   class Executor : public GarbageCollected<Executor> {
@@ -65,6 +66,7 @@ class CORE_EXPORT PausableScriptExecutor final
                          mojom::blink::WantResultOption,
                          mojom::blink::PromiseResultOption,
                          WebScriptExecutionCallback,
+                         WebScriptExecutionCallbackUnmodified,
                          Executor*,
                          const String& script_injector_id);
   ~PausableScriptExecutor() override;
@@ -80,10 +82,12 @@ class CORE_EXPORT PausableScriptExecutor final
   void ExecuteAndDestroySelf();
   void Dispose();
 
-  void HandleResults(const v8::LocalVector<v8::Value>& results);
+  void HandleResults(const v8::LocalVector<v8::Value>& results,
+                     const v8::LocalVector<v8::Value>& rejections);
 
   Member<ScriptState> script_state_;
   WebScriptExecutionCallback callback_;
+  WebScriptExecutionCallbackUnmodified raw_callback_;
   base::TimeTicks start_time_;
   const mojom::blink::UserActivationOption user_activation_option_;
   const mojom::blink::LoadEventBlockingOption blocking_option_;

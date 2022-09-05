@@ -14,6 +14,12 @@ class TimeTicks;
 class Value;
 }
 
+namespace v8 {
+class Value;
+template <class T>
+class Local;
+}
+
 namespace blink {
 
 // Non-nullopt `base::Value` is passed to the callback if
@@ -42,6 +48,14 @@ namespace blink {
 // representing the arguments and invariants.
 using WebScriptExecutionCallback =
     base::OnceCallback<void(std::optional<base::Value>, base::TimeTicks)>;
+
+// Receives the scripts' v8 completion values without conversion. When
+// promise results are awaited, a script whose promise was rejected has an
+// empty value in `results` and the rejection reason at the same index of
+// `rejections`; otherwise `rejections` holds empty values.
+using WebScriptExecutionCallbackUnmodified = base::OnceCallback<void(
+    const std::vector<v8::Local<v8::Value>>& results,
+    const std::vector<v8::Local<v8::Value>>& rejections)>;
 
 }  // namespace blink
 

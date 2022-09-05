@@ -1216,6 +1216,7 @@ void WebLocalFrameImpl::RequestExecuteScript(
     mojom::blink::EvaluationTiming evaluation_timing,
     mojom::blink::LoadEventBlockingOption blocking_option,
     WebScriptExecutionCallback callback,
+    WebScriptExecutionCallbackUnmodified raw_callback,
     BackForwardCacheAware back_forward_cache_aware,
     mojom::blink::WantResultOption want_result_option,
     mojom::blink::PromiseResultOption promise_behavior,
@@ -1223,8 +1224,8 @@ void WebLocalFrameImpl::RequestExecuteScript(
   DCHECK(GetFrame());
   GetFrame()->RequestExecuteScript(
       world_id, sources, user_gesture, evaluation_timing, blocking_option,
-      std::move(callback), back_forward_cache_aware, want_result_option,
-      promise_behavior, script_injector_id);
+      std::move(callback), std::move(raw_callback), back_forward_cache_aware,
+      want_result_option, promise_behavior, script_injector_id);
 }
 
 bool WebLocalFrameImpl::IsInspectorConnected() {
