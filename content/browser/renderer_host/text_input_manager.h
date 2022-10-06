@@ -70,6 +70,10 @@ class CONTENT_EXPORT TextInputManager {
     virtual void OnTextSelectionChanged(
         TextInputManager* text_input_manager,
         RenderWidgetHostViewBase* updated_view) {}
+    // Called when focused input element has changed
+    virtual void OnFocusedInputElementChanged(
+        TextInputManager* text_input_manager,
+        RenderWidgetHostViewBase* updated_view) {}
   };
 
   // Text selection bounds.
@@ -340,6 +344,7 @@ class CONTENT_EXPORT TextInputManager {
 
   void NotifyObserversAboutInputStateUpdate(RenderWidgetHostViewBase* view,
                                             bool did_update_state);
+  void NotifyFocusedInputElementChanged(RenderWidgetHostViewBase* view);
 
   // The view with active text input state, i.e., a focused <input> element.
   // It will be nullptr if no such view exists. Note that the active view

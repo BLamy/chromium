@@ -3861,6 +3861,12 @@ void RenderWidgetHostViewAura::OnTextSelectionChanged(
   }
 }
 
+void RenderWidgetHostViewAura::OnFocusedInputElementChanged(
+    TextInputManager* text_input_manager,
+    RenderWidgetHostViewBase* view) {
+  FocusedNodeChanged(false, {});
+}
+
 void RenderWidgetHostViewAura::SetPopupChild(
     RenderWidgetHostViewAura* popup_child_host_view) {
   popup_child_host_view_ = popup_child_host_view;

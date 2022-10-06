@@ -11296,7 +11296,7 @@ void WebContentsImpl::OnFocusedElementChangedInFrame(
     return;
   }
   RenderWidgetHostViewBase* root_view =
-      static_cast<RenderWidgetHostViewBase*>(GetRenderWidgetHostView());
+      static_cast<RenderWidgetHostViewBase*>(GetTopLevelRenderWidgetHostView());
   if (!root_view || !frame->GetView()) {
     return;
   }

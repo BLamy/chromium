@@ -266,6 +266,7 @@ void TextInputManager::UpdateTextInputState(
 
   if (text_input_state.type == ui::TEXT_INPUT_TYPE_NONE &&
       active_view_ != view) {
+    NotifyFocusedInputElementChanged(active_view_);
     // We reached here because an IPC is received to reset the TextInputState
     // for |view|. But |view| != |active_view_|, which suggests that at least
     // one other view has become active and we have received the corresponding
@@ -641,6 +642,12 @@ void TextInputManager::NotifyObserversAboutInputStateUpdate(
     bool did_update_state) {
   for (auto& observer : observer_list_)
     observer.OnUpdateTextInputStateCalled(this, updated_view, did_update_state);
+}
+
+void TextInputManager::NotifyFocusedInputElementChanged(
+    RenderWidgetHostViewBase* view) {
+  for (auto& observer : observer_list_)
+    observer.OnFocusedInputElementChanged(this, view);
 }
 
 TextInputManager::ViewState::ViewState() = default;

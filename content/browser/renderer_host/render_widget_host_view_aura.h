@@ -687,6 +687,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
       RenderWidgetHostViewBase* updated_view) override;
   void OnTextSelectionChanged(TextInputManager* text_input_mangager,
                               RenderWidgetHostViewBase* updated_view) override;
+  void OnFocusedInputElementChanged(TextInputManager* text_input_manager,
+                                    RenderWidgetHostViewBase* view) override;
 
   // Detaches |this| from the input method object.
   // is_removed flag is true if this is called while the window is
