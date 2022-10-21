@@ -464,6 +464,31 @@ exec_script_allowlist =
       # script. exec_script only happens when the checkout_mesa gclient arg is
       # set. If/when a 'proper' GN build for Mesa exists, this can be removed.
       "//third_party/dawn/third_party/meson/meson_target.gni",
+
+      "//electron/BUILD.gn",
+      "//electron/build/args/all.gn",
+      "//third_party/electron_node/deps/ada/unofficial.gni",
+      "//third_party/electron_node/deps/base64/BUILD.gn",
+      "//third_party/electron_node/deps/base64/unofficial.gni",
+      "//third_party/electron_node/node.gni",
+      "//third_party/electron_node/unofficial.gni",
+      "//third_party/electron_node/deps/brotli/unofficial.gni",
+      "//third_party/electron_node/deps/cares/unofficial.gni",
+      "//third_party/electron_node/deps/googletest/unofficial.gni",
+      "//third_party/electron_node/deps/histogram/unofficial.gni",
+      "//third_party/electron_node/deps/llhttp/unofficial.gni",
+      "//third_party/electron_node/deps/merve/unofficial.gni",
+      "//third_party/electron_node/deps/nbytes/unofficial.gni",
+      "//third_party/electron_node/deps/ncrypto/unofficial.gni",
+      "//third_party/electron_node/deps/nghttp2/unofficial.gni",
+      "//third_party/electron_node/deps/ngtcp2/unofficial.gni",
+      "//third_party/electron_node/deps/openssl/unofficial.gni",
+      "//third_party/electron_node/deps/simdjson/unofficial.gni",
+      "//third_party/electron_node/deps/sqlite/unofficial.gni",
+      "//third_party/electron_node/deps/uv/unofficial.gni",
+      "//third_party/electron_node/deps/uvwasi/unofficial.gni",
+      "//third_party/electron_node/deps/zstd/unofficial.gni",
+      "//third_party/electron_node/src/inspector/unofficial.gni",
     ]
 
 expand_directory_allowlist =
