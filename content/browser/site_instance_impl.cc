@@ -228,7 +228,7 @@ scoped_refptr<SiteInstanceImpl> SiteInstanceImpl::CreateForGuest(
     BrowserContext* browser_context,
     const StoragePartitionConfig& partition_config) {
   CHECK(browser_context, base::NotFatalUntil::M158);
-  CHECK(!partition_config.is_default(), base::NotFatalUntil::M158);
+  // CHECK(!partition_config.is_default(), base::NotFatalUntil::M158);
 
   auto guest_site_info =
       SiteInfo::CreateForGuest(browser_context, partition_config);
