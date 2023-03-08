@@ -732,8 +732,9 @@ bool WasmCustomDescriptorsEnabledCallback(v8::Local<v8::Context> context) {
   return RuntimeEnabledFeatures::WebAssemblyCustomDescriptorsV2Enabled(
       execution_context);
 }
+}  // namespace
 
-v8::MaybeLocal<v8::Promise> HostImportModuleWithPhaseDynamically(
+v8::MaybeLocal<v8::Promise> V8Initializer::HostImportModuleWithPhaseDynamically(
     v8::Local<v8::Context> context,
     v8::Local<v8::Data> v8_host_defined_options,
     v8::Local<v8::Value> v8_referrer_resource_url,
@@ -811,20 +812,23 @@ v8::MaybeLocal<v8::Promise> HostImportModuleWithPhaseDynamically(
 
   return resolver->Promise().V8Promise();
 }
+// namespace
 
+namespace {
 v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
     v8::Local<v8::Context> context,
     v8::Local<v8::Data> v8_host_defined_options,
     v8::Local<v8::Value> v8_referrer_resource_url,
     v8::Local<v8::String> v8_specifier,
     v8::Local<v8::FixedArray> v8_import_attributes) {
-  return HostImportModuleWithPhaseDynamically(
+  return V8Initializer::HostImportModuleWithPhaseDynamically(
       context, v8_host_defined_options, v8_referrer_resource_url, v8_specifier,
       v8::ModuleImportPhase::kEvaluation, v8_import_attributes);
 }
+}  // namespace
 
 // https://html.spec.whatwg.org/C/#hostgetimportmetaproperties
-void HostGetImportMetaProperties(v8::Local<v8::Context> context,
+void V8Initializer::HostGetImportMetaProperties(v8::Local<v8::Context> context,
                                  v8::Local<v8::Module> module,
                                  v8::Local<v8::Object> meta) {
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
@@ -851,6 +855,7 @@ void HostGetImportMetaProperties(v8::Local<v8::Context> context,
   meta->CreateDataProperty(context, resolve_key, resolve_value).ToChecked();
 }
 
+namespace {
 bool IsDOMExceptionWrapper(v8::Isolate* isolate, v8::Local<v8::Object> object) {
   return V8DOMException::HasInstance(isolate, object);
 }
@@ -887,7 +892,6 @@ int64_t CoarseTemporalHostSystemUTCEpochNanosecondsCallback(
 
 }  // namespace
 
-// static
 void V8Initializer::InitializeV8Common(v8::Isolate* isolate) {
   // Set up garbage collection before setting up anything else as V8 may trigger
   // GCs during Blink setup.
@@ -903,9 +907,9 @@ void V8Initializer::InitializeV8Common(v8::Isolate* isolate) {
       SharedArrayBufferConstructorEnabledCallback);
   isolate->SetHostImportModuleDynamicallyCallback(HostImportModuleDynamically);
   isolate->SetHostImportModuleWithPhaseDynamicallyCallback(
-      HostImportModuleWithPhaseDynamically);
+     V8Initializer::HostImportModuleWithPhaseDynamically);
   isolate->SetHostInitializeImportMetaObjectCallback(
-      HostGetImportMetaProperties);
+     V8Initializer::HostGetImportMetaProperties);
   isolate->SetIsJSApiWrapperNativeErrorCallback(IsDOMExceptionWrapper);
   isolate->SetDynamicScriptCompiledFromEmbedderCallback(
       DynamicScriptCompiledFromEmbedderCallback);

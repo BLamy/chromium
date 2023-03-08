@@ -88,6 +88,18 @@ class CORE_EXPORT V8Initializer {
   static void PromiseRejectHandlerInMainThread(v8::PromiseRejectMessage data);
   static void ExceptionPropagationCallback(v8::ExceptionPropagationMessage);
 
+  static v8::MaybeLocal<v8::Promise> HostImportModuleWithPhaseDynamically(
+    v8::Local<v8::Context> context,
+    v8::Local<v8::Data> v8_host_defined_options,
+    v8::Local<v8::Value> v8_referrer_resource_url,
+    v8::Local<v8::String> v8_specifier,
+    v8::ModuleImportPhase import_phase,
+    v8::Local<v8::FixedArray> v8_import_assertions);
+
+  static void HostGetImportMetaProperties(v8::Local<v8::Context> context,
+                                          v8::Local<v8::Module> module,
+                                          v8::Local<v8::Object> meta);
+
   static void WasmAsyncResolvePromiseCallback(
       v8::Isolate* isolate,
       v8::Local<v8::Context> context,
