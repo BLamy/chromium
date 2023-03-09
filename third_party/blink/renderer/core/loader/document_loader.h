@@ -329,7 +329,7 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
       std::optional<scheduler::TaskAttributionId> task_state_id,
       bool should_skip_screenshot);
 
-  void SetDefersLoading(LoaderFreezeMode);
+  void SetDefersLoading(LoaderFreezeMode) override;
 
   DocumentLoadTiming& GetTiming() { return document_load_timing_; }
 

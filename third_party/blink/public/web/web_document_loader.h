@@ -38,6 +38,8 @@
 #include "third_party/blink/public/platform/cross_variant_mojo_util.h"
 #include "third_party/blink/public/platform/web_archive_info.h"
 #include "third_party/blink/public/platform/web_common.h"
+#include "third_party/blink/public/platform/web_loader_freeze_mode.h"
+#include "third_party/blink/public/platform/web_source_location.h"
 #include "third_party/blink/public/web/web_navigation_type.h"
 
 namespace blink {
@@ -61,6 +63,8 @@ class BLINK_EXPORT WebDocumentLoader {
     virtual ~ExtraData() = default;
     virtual std::unique_ptr<ExtraData> Clone() = 0;
   };
+
+  virtual void SetDefersLoading(WebLoaderFreezeMode) = 0;
 
   static bool WillLoadUrlAsEmpty(const WebURL&);
 
