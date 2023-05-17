@@ -16,7 +16,6 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/api/pdf_viewer_private.h"
 #include "chrome/common/url_constants.h"
@@ -287,10 +286,13 @@ bool IsPrintingEnabled(content::BrowserContext* context) {
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
 bool IsPdfAnnotationsEnabledByPolicy(content::BrowserContext* context) {
+# if 0
   PrefService* prefs =
       context ? Profile::FromBrowserContext(context)->GetPrefs() : nullptr;
   return !prefs || !prefs->IsManagedPreference(prefs::kPdfAnnotationsEnabled) ||
          prefs->GetBoolean(prefs::kPdfAnnotationsEnabled);
+#endif
+  return true;
 }
 
 bool IsPdfInk2AnnotationsEnabled(content::BrowserContext* context) {
@@ -547,11 +549,13 @@ bool ShouldShowGlicSummarizeButton(content::WebContents* web_contents) {
     }
   }
 
+#if 0
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   if (!glic::GlicEnabling::IsEnabledForProfile(profile)) {
     return false;
   }
+#endif
 
   auto* tab_interface = tabs::TabInterface::MaybeGetFromContents(web_contents);
   if (tab_interface && !tab_interface->IsInNormalWindow()) {

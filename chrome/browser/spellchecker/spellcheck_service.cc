@@ -25,8 +25,10 @@
 #include "base/timer/elapsed_timer.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#if 0
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#endif
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_hunspell_dictionary.h"
@@ -75,7 +77,10 @@ SpellcheckService::SpellCheckerBinder& GetSpellCheckerBinderOverride() {
 // Only record spelling-configuration metrics for profiles in which the user
 // can configure spelling.
 bool RecordSpellingConfigurationMetrics(content::BrowserContext* context) {
+#if 0
   return profiles::IsRegularUserProfile(Profile::FromBrowserContext(context));
+#endif
+  return true;
 }
 
 }  // namespace
@@ -504,11 +509,13 @@ void SpellcheckService::InitForRenderer(content::RenderProcessHost* host) {
       features::kInitialWebUIWithoutSpellCheck.Get()) {
     return;
   }
+#if 0
   if (base::FeatureList::IsEnabled(
           features::kInitialWebUIWithoutSpellCheckForNtp) &&
       host->GetUserData(search::kIsNTPProcessKey)) {
     return;
   }
+#endif
 
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
