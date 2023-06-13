@@ -67,6 +67,7 @@ class BLINK_EXPORT WebBlob {
   void Reset();
   void Assign(const WebBlob&);
   WebString Uuid();
+  std::string Path();
 
   bool IsNull() const { return private_.IsNull(); }
 
