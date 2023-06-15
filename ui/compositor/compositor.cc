@@ -357,9 +357,11 @@ void Compositor::SetLayerTreeFrameSink(
   // to match the Compositor's.
   if (display_private_) {
     display_private_->Resize(size());
+    // Invisible display is throttling itself.
     display_private_->SetDisplayVisible(
-        host_->IsVisible() ? viz::mojom::DisplayVisibility::kVisible
-                           : viz::mojom::DisplayVisibility::kInvisible);
+        host_->IsVisible() || !background_throttling_
+            ? viz::mojom::DisplayVisibility::kVisible
+            : viz::mojom::DisplayVisibility::kInvisible);
     display_private_->SetDisplayColorSpaces(display_color_spaces_);
     display_private_->SetDisplayColorMatrix(
         gfx::SkM44ToTransform(display_color_matrix_));
@@ -599,9 +601,11 @@ void Compositor::SetVisible(bool visible) {
   // updated then. We need to call this even if the visibility hasn't changed,
   // for the same reason.
   if (display_private_) {
+    // Invisible display is throttling itself.
     display_private_->SetDisplayVisible(
-        visible ? viz::mojom::DisplayVisibility::kVisible
-                : viz::mojom::DisplayVisibility::kInvisible);
+        visible || !background_throttling_
+            ? viz::mojom::DisplayVisibility::kVisible
+            : viz::mojom::DisplayVisibility::kInvisible);
   }
 
   if (changed) {
@@ -1068,6 +1072,17 @@ void Compositor::MaybeUpdateObserveBeginFrame() {
       simple_begin_frame_observers_, task_runner_);
   display_private_->SetStandaloneBeginFrameObserver(
       host_begin_frame_observer_->GetBoundRemote());
+}
+
+void Compositor::SetBackgroundThrottling(bool background_throttling_enabled) {
+  background_throttling_ = background_throttling_enabled;
+  if (display_private_) {
+    // Invisible display is throttling itself.
+    display_private_->SetDisplayVisible(
+        host_->IsVisible() || !background_throttling_
+            ? viz::mojom::DisplayVisibility::kVisible
+            : viz::mojom::DisplayVisibility::kInvisible);
+  }
 }
 
 #if BUILDFLAG(IS_CHROMEOS)

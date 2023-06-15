@@ -496,6 +496,10 @@ class COMPOSITOR_EXPORT Compositor
 
   const cc::LayerTreeSettings& GetLayerTreeSettings() const;
 
+  // Sets |background_throttling_| responsible for suspending drawing
+  // and switching frames.
+  void SetBackgroundThrottling(bool background_throttling_enabled);
+
   size_t saved_events_metrics_count_for_testing() const {
     return host_->saved_events_metrics_count_for_testing();
   }
@@ -708,6 +712,12 @@ class COMPOSITOR_EXPORT Compositor
   // Cleared in BeginMainFrame when there are no animation observers.
   // See go/report-ux-metrics-at-painting for details.
   bool animation_started_ = false;
+
+  // Background throttling is a default Chromium behaviour. It occurs
+  // when the |display_private_| is not visible by prevent drawing and swapping
+  // frames. When it is disabled we are keeping |display_private_| always
+  // visible in order to keep generating frames.
+  bool background_throttling_ = true;
 
   TrackerId next_compositor_metrics_tracker_id_ = 1u;
   struct TrackerState {
