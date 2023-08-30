@@ -10,7 +10,10 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
+#include "build/branding_buildflags.h"
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "chrome/browser/picture_in_picture/auto_pip_setting_overlay_view.h"
+#endif
 #include "chrome/browser/picture_in_picture/picture_in_picture_widget_fade_animator.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window.h"
 #include "components/global_media_controls/public/views/media_progress_view.h"
@@ -20,7 +23,9 @@
 #include "ui/display/display.h"
 #include "ui/display/display_observer.h"
 #include "ui/gfx/geometry/size.h"
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "ui/views/view_observer.h"
+#endif
 #include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -58,12 +63,16 @@ class ToggleMuteButton;
 class VideoOverlayWindowViews : public content::VideoOverlayWindow,
                                 public views::Widget,
                                 public display::DisplayObserver,
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
                                 public views::ViewObserver,
-                                public PictureInPictureWindow,
-                                public AutoPipSettingOverlayView::Delegate {
+                                public AutoPipSettingOverlayView::Delegate,
+#endif
+                                public PictureInPictureWindow {
  public:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   using GetOverlayViewCb =
       base::RepeatingCallback<std::unique_ptr<AutoPipSettingOverlayView>()>;
+#endif
 
   static std::unique_ptr<VideoOverlayWindowViews> Create(
       content::VideoPictureInPictureWindowController* controller);
@@ -132,10 +141,12 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   void OnDisplayMetricsChanged(const display::Display& display,
                                uint32_t changed_metrics) override;
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // views::ViewObserver:
   void OnViewVisibilityChanged(views::View* observed_view,
                                views::View* starting_view,
                                bool visible) override;
+#endif
 
   // PictureInPictureWindow:
   void SetForcedTucking(bool tuck) override;
@@ -143,8 +154,10 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   void OnAnyBrowserEnteredFullscreen() override;
 #endif  // BUILDFLAG(IS_MAC)
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // AutoPipSettingOverlayView::Delegate:
   void OnAutoPipSettingOverlayViewHidden() override;
+#endif
 
   bool ControlsHitTestContainsPoint(const gfx::Point& point);
 #if BUILDFLAG(IS_CHROMEOS)
@@ -249,6 +262,7 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
 
   void FireEnableControlsAfterMoveTimerForTesting();
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   void set_overlay_view_cb_for_testing(GetOverlayViewCb get_overlay_view_cb) {
     get_overlay_view_cb_ = std::move(get_overlay_view_cb);
   }
@@ -256,6 +270,7 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   AutoPipSettingOverlayView* get_overlay_view_for_testing() {
     return overlay_view_;
   }
+#endif
 
   PictureInPictureWidgetFadeAnimator* get_fade_animator_for_testing() {
     return fade_animator_.get();
@@ -500,7 +515,9 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   raw_ptr<views::Label> live_status_ = nullptr;
   raw_ptr<OverlayWindowLiveCaptionButton> live_caption_button_ = nullptr;
   raw_ptr<OverlayWindowLiveCaptionDialog> live_caption_dialog_ = nullptr;
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   raw_ptr<AutoPipSettingOverlayView> overlay_view_ = nullptr;
+#endif
   raw_ptr<views::View> title_view_ = nullptr;
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -566,9 +583,11 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   std::unique_ptr<OverlayControlsFadeAnimation>
       title_and_top_scrim_fade_animation_;
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // Callback to get / create an overlay view.  This is a callback to let tests
   // provide alternate implementations.
   GetOverlayViewCb get_overlay_view_cb_;
+#endif
 
   // Used to animate the Picture-in-Picture window creation.
   std::unique_ptr<PictureInPictureWidgetFadeAnimator> fade_animator_;

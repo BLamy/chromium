@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "third_party/blink/public/mojom/picture_in_picture_window_options/picture_in_picture_window_options.mojom.h"
 #include "ui/display/display.h"
@@ -221,6 +222,7 @@ class PictureInPictureWindowManager {
   void NotifyObserversOnExitPictureInPicture();
 
 #if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // Shows a standalone Document Picture-in-Picture window using a
   // `DocumentPipHost` instead of a `Browser`. Used when the
   // `kDocumentPipStandaloneWindow` feature is enabled. Takes ownership of the
@@ -233,6 +235,7 @@ class PictureInPictureWindowManager {
       std::unique_ptr<content::WebContents> child_web_contents,
       blink::mojom::PictureInPictureWindowOptions pip_options,
       bool focus_contents);
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   std::unique_ptr<AutoPipSettingOverlayView> GetOverlayView(
       views::View* anchor_view,
@@ -431,10 +434,12 @@ class PictureInPictureWindowManager {
 
   std::unique_ptr<PictureInPictureWindowManagerUmaHelper> uma_helper_;
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // The standalone Document PiP host for the current window, if the
   // `kDocumentPipStandaloneWindow` path is active. Non-owning: the host is
   // owned by the opener WebContents as user data.
   base::WeakPtr<DocumentPipHost> document_pip_host_;
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #endif  //! BUILDFLAG(IS_ANDROID)
 
   // The display of the opener window, cached during

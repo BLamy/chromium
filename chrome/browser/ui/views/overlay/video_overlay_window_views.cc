@@ -116,8 +116,10 @@ constexpr gfx::Size kMinWindowSize(284, 160);
 
 constexpr int kOverlayBorderThickness = 10;
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // Minimum padding between the overlay view, if shown, and the window.
 constexpr gfx::Size kOverlayViewPadding(64, 46);
+#endif
 
 // Size for action buttons.
 constexpr gfx::Size kActionButtonSize(28, 28);
@@ -417,11 +419,13 @@ std::unique_ptr<VideoOverlayWindowViews> VideoOverlayWindowViews::Create(
 
 #endif  // BUILDFLAG(IS_WIN)
 
+#if 0
   PictureInPictureOcclusionTracker* tracker =
       PictureInPictureWindowManager::GetInstance()->GetOcclusionTracker();
   if (tracker) {
     tracker->OnPictureInPictureWidgetOpened(overlay_window.get());
   }
+#endif
 
   return overlay_window;
 }
@@ -454,9 +458,11 @@ VideoOverlayWindowViews::VideoOverlayWindowViews(
 }
 
 VideoOverlayWindowViews::~VideoOverlayWindowViews() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (overlay_view_) {
     overlay_view_->RemoveObserver(this);
   }
+#endif
   display::Screen::Get()->RemoveObserver(this);
   PictureInPictureWindowManager::GetInstance()->OnPictureInPictureWindowHidden(
       this);
@@ -554,6 +560,7 @@ void VideoOverlayWindowViews::OnNativeBlur() {
 }
 
 gfx::Size VideoOverlayWindowViews::GetMinimumSize() const {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (IsOverlayViewShown()) {
     // Make sure that our minimum is sufficiently large to enclose the bubble,
     // plus some margin to make it look nicer.
@@ -562,6 +569,7 @@ gfx::Size VideoOverlayWindowViews::GetMinimumSize() const {
     overlay_size.SetToMax(min_size_);
     return overlay_size;
   }
+#endif
   return min_size_;
 }
 
@@ -920,6 +928,7 @@ void VideoOverlayWindowViews::OnDisplayMetricsChanged(
   }
 }
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 void VideoOverlayWindowViews::OnViewVisibilityChanged(
     views::View* observed_view,
     views::View* starting_view,
@@ -933,6 +942,7 @@ void VideoOverlayWindowViews::OnViewVisibilityChanged(
   // The visibility of `overlay_view_` affects our minimum size.
   OnSizeConstraintsChanged();
 }
+#endif
 
 void VideoOverlayWindowViews::SetForcedTucking(bool tuck) {
   if (!tucker_) {
@@ -952,10 +962,12 @@ void VideoOverlayWindowViews::OnAnyBrowserEnteredFullscreen() {
 }
 #endif  // BUILDFLAG(IS_MAC)
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 void VideoOverlayWindowViews::OnAutoPipSettingOverlayViewHidden() {
   // If there is an existing overlay view, remove it now.
   RemoveOverlayViewIfExists();
 }
+#endif
 
 gfx::Rect VideoOverlayWindowViews::GetWorkAreaForWindow() const {
   return display::Screen::Get()
@@ -1009,6 +1021,7 @@ void VideoOverlayWindowViews::UpdateMaxSize(const gfx::Rect& work_area) {
 
 bool VideoOverlayWindowViews::ControlsHitTestContainsPoint(
     const gfx::Point& point) {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (overlay_view_) {
     // Let the overlay view consume this event if it wants to.  If not, then
     // ignore any of our controls as well.  This will still permit dragging the
@@ -1017,6 +1030,7 @@ bool VideoOverlayWindowViews::ControlsHitTestContainsPoint(
         views::View::ConvertPointToScreen(non_client_view(), point);
     return overlay_view_->WantsEvent(point_in_screen);
   }
+#endif
 
   if (!AreControlsVisible()) {
     return false;
@@ -1485,9 +1499,11 @@ void VideoOverlayWindowViews::UpdateLayerBoundsWithLetterboxing(
   video_view_->SetBoundsRect(video_bounds);
   video_view_->layer()->AsSurface()->SetSurfaceSize(video_bounds.size());
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (IsOverlayViewShown()) {
     overlay_view_->SetBoundsRect(gfx::Rect(GetBounds().size()));
   }
+#endif
 
   // Notify the controller that the bounds have changed.
   controller_->UpdateLayerBounds();
@@ -1760,6 +1776,7 @@ void VideoOverlayWindowViews::ShowInactive() {
   non_client_view()->frame_view()->UpdateWindowRoundedCorners();
 #endif
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // If there is an existing overlay view, remove it now.
   RemoveOverlayViewIfExists();
 
@@ -1781,6 +1798,7 @@ void VideoOverlayWindowViews::ShowInactive() {
     overlay_view_->ShowBubble(GetNativeView());
     SetBounds(CalculateAndUpdateWindowBounds());
   }
+#endif
 
   // When the window is first shown, make the title and top controls
   // visible for a few seconds.
@@ -2374,10 +2392,15 @@ void VideoOverlayWindowViews::MaybeUnregisterFrameSinkHierarchy() {
 }
 
 bool VideoOverlayWindowViews::IsOverlayViewShown() const {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   return overlay_view_ && overlay_view_->GetVisible();
+#else
+  return false;
+#endif
 }
 
 void VideoOverlayWindowViews::RemoveOverlayViewIfExists() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (overlay_view_) {
     // Remove and delete the outgoing view.  Note the trailing `T` on the method
     // name -- this removes `overlay_view_` and returns a unique_ptr to it which
@@ -2386,6 +2409,7 @@ void VideoOverlayWindowViews::RemoveOverlayViewIfExists() {
     GetContentsView()->RemoveChildViewT(overlay_view_.ExtractAsDangling());
     OnSizeConstraintsChanged();
   }
+#endif
 }
 
 void VideoOverlayWindowViews::OnProgressDragStateChanged(
