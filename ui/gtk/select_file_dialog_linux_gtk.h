@@ -142,6 +142,12 @@ class COMPONENT_EXPORT(GTK) SelectFileDialogLinuxGtk
                               gint response_id,
                               bool allow_folder);
 
+  // Common function for OnSelectMultiFileDialogResponse and
+  // OnSelectMultiFolderDialogResponse.
+  void SelectMultiFileHelper(GtkWidget* dialog,
+                             gint response_id,
+                             bool allow_folder);
+
   // Common function for CreateFileOpenDialog and CreateMultiFileOpenDialog.
   GtkWidget* CreateFileOpenHelper(const std::string& title,
                                   const base::FilePath& default_path,
@@ -155,6 +161,9 @@ class COMPONENT_EXPORT(GTK) SelectFileDialogLinuxGtk
 
   // Callback for when the user responds to a Open Multiple Files dialog.
   void OnSelectMultiFileDialogResponse(GtkWidget* dialog, int response_id);
+
+  // Callback for when the user responds to a Select Multiple Folders dialog.
+  void OnSelectMultiFolderDialogResponse(GtkWidget* dialog, int response_id);
 
   // Callback for when the file chooser gets destroyed.
   void OnFileChooserDestroy(GtkWidget* dialog);

@@ -4,6 +4,7 @@
 
 #include "ui/shell_dialogs/select_file_dialog_linux_portal.h"
 
+#include <algorithm>
 #include <string_view>
 
 #include "base/check.h"
@@ -43,7 +44,8 @@ namespace {
 constexpr char kXdgPortalService[] = "org.freedesktop.portal.Desktop";
 constexpr char kXdgPortalObject[] = "/org/freedesktop/portal/desktop";
 
-constexpr int kXdgPortalRequiredVersion = 3;
+constexpr uint32_t kXdgPortalRequiredVersion = 3;
+uint32_t g_required_portal_version = kXdgPortalRequiredVersion;
 
 constexpr char kFileChooserMethodOpenFile[] = "OpenFile";
 constexpr char kFileChooserMethodSaveFile[] = "SaveFile";
@@ -159,13 +161,18 @@ void SelectFileDialogLinuxPortal::SelectFileImpl(
                      default_extension, std::move(caller_copy)));
 }
 
+// static
+void SelectFileDialogLinuxPortal::SetRequiredPortalVersion(uint32_t version) {
+  g_required_portal_version = std::max(version, kXdgPortalRequiredVersion);
+}
+
 void SelectFileDialogLinuxPortal::OnPortalAvailable(
     std::u16string title,
     base::FilePath default_path,
     base::FilePath::StringType default_extension,
     std::optional<GURL> caller,
     uint32_t version) {
-  if (version < kXdgPortalRequiredVersion) {
+  if (version < g_required_portal_version) {
     gfx::NativeWindow owning_window = host_ ? host_->window() : nullptr;
     if (auto* linux_ui = ui::LinuxUi::instance()) {
       fallback_dialog_ = linux_ui->CreateSelectFileDialog(listener_, nullptr);
@@ -352,11 +359,14 @@ dbus_xdg::Dictionary SelectFileDialogLinuxPortal::BuildOptionsDictionary(
     const PortalFilterSet& filter_set) {
   dbus_xdg::Dictionary dict;
 
+  std::string accept_label = button_label().empty() ? "" : button_label();
+
   switch (type()) {
     case SelectFileDialog::SELECT_UPLOAD_FOLDER:
-      dict[kFileChooserOptionAcceptLabel] =
-          dbus_utils::Variant::Wrap<"s">(l10n_util::GetStringUTF8(
-              IDS_SELECT_UPLOAD_FOLDER_DIALOG_UPLOAD_BUTTON));
+      if (accept_label.empty()) {
+        accept_label = l10n_util::GetStringUTF8(
+            IDS_SELECT_UPLOAD_FOLDER_DIALOG_UPLOAD_BUTTON);
+      }
       [[fallthrough]];
     case SelectFileDialog::SELECT_FOLDER:
     case SelectFileDialog::Type::SELECT_EXISTING_FOLDER:
@@ -367,6 +377,11 @@ dbus_xdg::Dictionary SelectFileDialogLinuxPortal::BuildOptionsDictionary(
       break;
     default:
       break;
+  }
+
+  if (!accept_label.empty()) {
+    dict[kFileChooserOptionAcceptLabel] =
+        dbus_utils::Variant::Wrap<"s">(accept_label);
   }
 
   if (!default_path.empty() && base::IsStringUTF8(default_path.value())) {

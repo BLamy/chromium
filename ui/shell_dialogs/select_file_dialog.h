@@ -224,6 +224,20 @@ class SHELL_DIALOGS_EXPORT SelectFileDialog
                   const GURL* caller = nullptr);
   bool HasMultipleFileTypeChoices();
 
+#if BUILDFLAG(IS_LINUX)
+  // Set the label used for the file select button.
+  virtual void SetButtonLabel(const std::string& label) = 0;
+
+  // Set whether a confirmation should be shown when attempting to overwrite an
+  // existing file.
+  virtual void SetOverwriteConfirmationShown(bool is_shown) = 0;
+
+  // Set whether hidden files should be shown.
+
+  // Set whether multiple file/directory selections are allowed
+  virtual void SetMultipleSelectionsAllowed(bool is_allowed) = 0;
+#endif
+
  protected:
   friend class base::RefCountedThreadSafe<SelectFileDialog>;
 

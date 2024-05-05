@@ -33,6 +33,11 @@ class SHELL_DIALOGS_EXPORT SelectFileDialogLinux : public SelectFileDialog {
   // BaseShellDialog implementation.
   void ListenerDestroyed() override;
 
+  // SelectFileDialog:
+  void SetButtonLabel(const std::string& label) override;
+  void SetOverwriteConfirmationShown(bool is_shown) override;
+  void SetMultipleSelectionsAllowed(bool is_allowed) override;
+
  protected:
   explicit SelectFileDialogLinux(Listener* listener,
                                  std::unique_ptr<ui::SelectFilePolicy> policy);
@@ -77,6 +82,10 @@ class SHELL_DIALOGS_EXPORT SelectFileDialogLinux : public SelectFileDialog {
     *last_opened_path_ = last_opened_path;
   }
 
+  const std::string& button_label() { return button_label_; }
+  bool show_overwrite_confirmation() { return show_overwrite_confirmation_; }
+  bool allow_multiple_selection() { return allow_multiple_selection_; }
+
  private:
   // The file filters.
   FileTypeInfo file_types_;
@@ -92,6 +101,10 @@ class SHELL_DIALOGS_EXPORT SelectFileDialogLinux : public SelectFileDialog {
   // file so that we can display future dialogs with the same starting path.
   static base::FilePath* last_saved_path_;
   static base::FilePath* last_opened_path_;
+
+  std::string button_label_;
+  bool show_overwrite_confirmation_ = true;
+  bool allow_multiple_selection_ = false;
 };
 
 }  // namespace ui

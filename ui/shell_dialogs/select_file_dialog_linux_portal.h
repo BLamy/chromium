@@ -41,6 +41,11 @@ class SHELL_DIALOGS_EXPORT SelectFileDialogLinuxPortal
   SelectFileDialogLinuxPortal& operator=(
       const SelectFileDialogLinuxPortal& other) = delete;
 
+  // Lets the embedder raise the minimum org.freedesktop.portal.FileChooser
+  // version below which the toolkit dialog is used instead. Values below the
+  // built-in minimum are ignored.
+  static void SetRequiredPortalVersion(uint32_t version);
+
  protected:
   ~SelectFileDialogLinuxPortal() override;
 

@@ -37,4 +37,14 @@ bool SelectFileDialogLinux::CallDirectoryExistsOnUIThread(
   return base::DirectoryExists(path);
 }
 
+void SelectFileDialogLinux::SetButtonLabel(const std::string& label) {
+  button_label_ = label;
+}
+void SelectFileDialogLinux::SetOverwriteConfirmationShown(bool is_shown) {
+  show_overwrite_confirmation_ = is_shown;
+}
+void SelectFileDialogLinux::SetMultipleSelectionsAllowed(bool is_allowed) {
+  allow_multiple_selection_ = is_allowed;
+}
+
 }  // namespace ui
