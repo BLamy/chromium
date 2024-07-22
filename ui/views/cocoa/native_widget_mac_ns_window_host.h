@@ -588,6 +588,7 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
   bool is_miniaturized_ = false;
   bool is_window_key_ = false;
   bool is_mouse_capture_active_ = false;
+  bool is_headless_mode_window_ = false;
   bool is_zoomed_ = false;
   bool is_visible_on_all_workspaces_ = false;
   gfx::Rect window_bounds_before_fullscreen_;

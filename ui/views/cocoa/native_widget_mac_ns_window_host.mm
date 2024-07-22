@@ -481,6 +481,7 @@ void NativeWidgetMacNSWindowHost::InitWindow(
   if (!is_tooltip) {
     tooltip_manager_ = std::make_unique<TooltipManagerMac>(GetNSWindowMojo());
   }
+  is_headless_mode_window_ = params.ShouldInitAsHeadless();
 
   if (params.workspace.length()) {
     if (std::optional<std::vector<uint8_t>> restoration_data =
@@ -498,6 +499,7 @@ void NativeWidgetMacNSWindowHost::InitWindow(
     window_params->modal_type = widget->widget_delegate()->GetModalType();
     window_params->is_translucent =
         params.opacity == Widget::InitParams::WindowOpacity::kTranslucent;
+    window_params->is_headless_mode_window = is_headless_mode_window_;
     window_params->is_tooltip = is_tooltip;
 
     // macOS likes to put shadows on most things. However, frameless windows
@@ -691,10 +693,11 @@ void NativeWidgetMacNSWindowHost::CreateCompositor(
   // case it will never become visible but we want its compositor to produce
   // frames for screenshooting and screencasting.
   UpdateCompositorProperties();
-  layer()->SetVisible(is_visible_ || video_capture_count_ > 0);
-  if (is_visible_ || display::Screen::Get()->IsHeadless() ||
-      video_capture_count_ > 0) {
+  layer()->SetVisible(is_visible_ || is_headless_mode_window_ ||
+                      video_capture_count_ > 0);
+  if (is_visible_ || is_headless_mode_window_ || video_capture_count_ > 0) {
     compositor_->Unsuspend();
+    layer()->SchedulePaint(layer()->bounds());
   }
 
   // Register the CGWindowID (used to identify this window for video capture)

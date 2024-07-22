@@ -98,6 +98,9 @@ struct NativeWidgetNSWindowInitParams {
   // default for NSWindows with NSWindowStyleMaskBorderless).
   bool force_into_collection_cycle;
 
+  // If true, the window was created in headless mode.
+  bool is_headless_mode_window;
+
   // Optional data to restore as the window's UI state.
   StateRestorationData? state_restoration_data;
 

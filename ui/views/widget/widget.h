@@ -331,6 +331,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // case where |activatable| is |kDefault|.
     bool CanActivate() const;
 
+    // Returns whether the widget should be initialized as headless by checking
+    // if |headless_mode| or the associated top level widget's |is_headless_|
+    // are set.
+    bool ShouldInitAsHeadless() const;
+
     // Returns the z-order level, based on the overriding |z_order| but also
     // taking into account special levels due to |type|.
     ui::ZOrderLevel EffectiveZOrderLevel() const;
@@ -512,6 +517,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // with the launch event that created it. Used for both X11 and Wayland.
     std::string startup_id;
 #endif  // BUILDFLAG(IS_LINUX)
+
+    // If set, the widget was created in headless mode.
+    bool headless_mode = false;
 
     // If set, the window size will follow the content preferred size.
     bool autosize = false;
@@ -1320,6 +1328,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // with it. TYPE_CONTROL and TYPE_TOOLTIP is not considered top level.
   bool is_top_level() const { return is_top_level_; }
 
+  // True if widget was created in headless mode.
+  bool is_headless() const { return is_headless_; }
+
+  void DisableHeadlessMode() { is_headless_ = false; }
+
   // True if the window size will follow the content preferred size.
   bool is_autosized() const { return is_autosized_; }
 
@@ -1821,6 +1834,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // TODO(beng): Remove NativeWidgetGtk's dependence on these:
   // If true, the mouse is currently down.
   bool is_mouse_button_pressed_ = false;
+
+  // If set, the widget was created in headless mode.
+  bool is_headless_ = false;
 
   // If set, the window size will follow the content preferred size.
   bool is_autosized_ = false;

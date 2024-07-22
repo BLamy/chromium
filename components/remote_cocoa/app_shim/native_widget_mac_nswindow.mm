@@ -250,6 +250,7 @@ struct NSEdgeAndCornerThicknesses {
   BOOL _isEnforcingNeverMadeVisible;
   BOOL _activationIndependence;
   BOOL _isTooltip;
+  BOOL _isHeadless;
   BOOL _isShufflingForOrdering;
   BOOL _miniaturizationInProgress;
   BOOL _inSetFrameFromAdjustment;
@@ -258,6 +259,7 @@ struct NSEdgeAndCornerThicknesses {
 @synthesize bridgedNativeWidgetId = _bridgedNativeWidgetId;
 @synthesize bridge = _bridge;
 @synthesize isTooltip = _isTooltip;
+@synthesize isHeadless = _isHeadless;
 @synthesize isShufflingForOrdering = _isShufflingForOrdering;
 @synthesize preventKeyWindow = _preventKeyWindow;
 @synthesize childWindowAddedHandler = _childWindowAddedHandler;
@@ -280,23 +282,6 @@ struct NSEdgeAndCornerThicknesses {
     self.releasedWhenClosed = NO;
   }
   return self;
-}
-
-- (BOOL)isHeadless {
-  return _headless_info != nullptr;
-}
-
-- (void)setIsHeadless:(BOOL)isHeadless {
-  // NativeWidgetMacNSWindowHeadlessInfo constructor overrides certain NSWindow
-  // methods in order to implement headless mode behavior. This affects all
-  // NativeWidgetMacNSWindow instances, however, the overrides will fallback to
-  // the original implementations if there is no headless info associated with
-  // the window.
-  if (isHeadless) {
-    _headless_info = std::make_unique<NativeWidgetMacNSWindowHeadlessInfo>();
-  } else {
-    _headless_info.reset();
-  }
 }
 
 - (NativeWidgetMacNSWindowHeadlessInfo*)headlessInfo {
