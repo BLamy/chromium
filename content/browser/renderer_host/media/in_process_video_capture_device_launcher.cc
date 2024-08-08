@@ -320,8 +320,16 @@ void InProcessVideoCaptureDeviceLauncher::LaunchDeviceAsync(
         break;
       }
 
+#if defined(USE_AURA)
+      bool allow_window_id = false;
+#elif BUILDFLAG(IS_MAC)
+      bool allow_window_id =
+        desktop_id.id == DesktopMediaID::kMacOsNativePickerId;
+#endif
+
 #if defined(USE_AURA) || BUILDFLAG(IS_MAC)
-      if (desktop_id.window_id != DesktopMediaID::kNullId) {
+      if (!allow_window_id &&
+          desktop_id.window_id != DesktopMediaID::kNullId) {
         // For the other capturers, when a bug reports the type of capture it's
         // easy enough to determine which capturer was used, but it's a little
         // fuzzier with window capture.
@@ -337,6 +345,8 @@ void InProcessVideoCaptureDeviceLauncher::LaunchDeviceAsync(
       }
 #endif  // defined(USE_AURA) || BUILDFLAG(IS_MAC)
 
+      media::VideoCaptureParams updated_params = params;
+      updated_params.use_native_picker = stream_type != blink::mojom::MediaStreamType::GUM_DESKTOP_VIDEO_CAPTURE;
       // All cases other than tab capture or Aura desktop/window capture.
       TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("video_and_image_capture"),
                           "UsingDesktopCapturer");
@@ -359,7 +369,7 @@ void InProcessVideoCaptureDeviceLauncher::LaunchDeviceAsync(
       start_capture_closure = base::BindOnce(
           &InProcessVideoCaptureDeviceLauncher::
               DoStartDesktopCaptureOnDeviceThread,
-          native_screen_capture_picker_, desktop_id, params,
+          native_screen_capture_picker_, desktop_id, updated_params,
           CreateDeviceClient(buffer_type, max_buffer_count, std::move(receiver),
                              std::move(receiver_on_io_thread)),
           std::move(after_start_capture_callback));

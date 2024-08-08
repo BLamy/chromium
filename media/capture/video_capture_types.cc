@@ -66,6 +66,14 @@ VideoCaptureParams::VideoCaptureParams()
       resolution_change_policy(ResolutionChangePolicy::FIXED_RESOLUTION),
       power_line_frequency(PowerLineFrequency::kDefault) {}
 
+VideoCaptureParams::VideoCaptureParams(const VideoCaptureParams& other) =
+    default;
+VideoCaptureParams::VideoCaptureParams(VideoCaptureParams&& other) = default;
+VideoCaptureParams& VideoCaptureParams::operator=(
+    const VideoCaptureParams& other) = default;
+VideoCaptureParams& VideoCaptureParams::operator=(VideoCaptureParams&& other) =
+    default;
+
 bool VideoCaptureParams::IsValid() const {
   return requested_format.IsValid() &&
          resolution_change_policy >= ResolutionChangePolicy::FIXED_RESOLUTION &&

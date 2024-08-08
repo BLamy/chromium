@@ -25,7 +25,7 @@ class CONTENT_EXPORT IOSurfaceCaptureDeviceBase
   ~IOSurfaceCaptureDeviceBase() override;
 
   // OnStart is called by AllocateAndStart.
-  virtual void OnStart() = 0;
+  virtual void OnStart(std::optional<bool> use_native_picker) = 0;
 
   // OnStop is called by StopAndDeAllocate.
   virtual void OnStop() = 0;

@@ -28,7 +28,7 @@ class DesktopCaptureDeviceMac : public IOSurfaceCaptureDeviceBase {
   ~DesktopCaptureDeviceMac() override = default;
 
   // IOSurfaceCaptureDeviceBase:
-  void OnStart() override {
+  void OnStart(std::optional<bool> use_native_picker) override {
     requested_format_ = capture_params().requested_format;
     requested_format_.pixel_format = media::PIXEL_FORMAT_NV12;
     CHECK_GT(requested_format_.frame_size.GetArea(), 0,

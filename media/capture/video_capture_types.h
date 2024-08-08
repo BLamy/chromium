@@ -331,6 +331,10 @@ struct CAPTURE_EXPORT VideoCaptureParams {
   };
 
   VideoCaptureParams();
+  VideoCaptureParams(const VideoCaptureParams& other);
+  VideoCaptureParams(VideoCaptureParams&& other);
+  VideoCaptureParams& operator=(const VideoCaptureParams& other);
+  VideoCaptureParams& operator=(VideoCaptureParams&& other);
 
   // Returns true if requested_format.IsValid() and all other values are within
   // their expected ranges.
@@ -384,6 +388,8 @@ struct CAPTURE_EXPORT VideoCaptureParams {
   // streamed out of the device. Used for capture prevention, e.g. for protected
   // content or by enterprise policy.
   bool is_secure = false;
+
+  std::optional<bool> use_native_picker;
 };
 
 CAPTURE_EXPORT std::ostream& operator<<(

@@ -20,7 +20,7 @@ void IOSurfaceCaptureDeviceBase::AllocateAndStart(
   client_ = std::move(client);
   capture_params_ = params;
 
-  OnStart();
+  OnStart(params.use_native_picker);
 }
 
 void IOSurfaceCaptureDeviceBase::StopAndDeAllocate() {

@@ -35,6 +35,8 @@ struct CONTENT_EXPORT DesktopMediaID {
   static constexpr Id kNullId = 0;
   // Represents a fake id to create a dummy capturer for autotests.
   static constexpr Id kFakeId = -3;
+  // Represents an id to use native macOS picker for screenshare
+  static constexpr Id kMacOsNativePickerId = -4;
 
 #if defined(USE_AURA) || BUILDFLAG(IS_MAC)
   // Assigns integer identifier to the |window| and returns its DesktopMediaID.
