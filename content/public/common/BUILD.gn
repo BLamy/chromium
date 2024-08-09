@@ -367,6 +367,8 @@ mojom("interfaces") {
     "//content/common/*",
     "//extensions/common:mojom",
     "//extensions/common:mojom_blink",
+    "//electron/shell/common:plugin",
+    "//electron/shell/common:web_contents_utility",
   ]
 
   sources = [
