@@ -4231,6 +4231,15 @@ PositionTryFallback StyleBuilderConverter::ConvertSinglePositionTryFallback(
   return PositionTryFallback(scoped_name, tactic_list);
 }
 
+Length StyleBuilderConverter::ConvertCornerSmoothing(StyleResolverState& state,
+                                                     const CSSValue& value) {
+  auto* ident = DynamicTo<CSSIdentifierValue>(value);
+  if (ident && ident->GetValueID() == CSSValueID::kSystemUi) {
+    return Length::Auto();
+  }
+  return ConvertLength(state, value);
+}
+
 TextFit StyleBuilderConverter::ConvertTextFit(StyleResolverState& state,
                                               const CSSValue& value) {
   const auto& list = To<CSSValueList>(value);

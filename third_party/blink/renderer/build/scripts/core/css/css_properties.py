@@ -417,7 +417,7 @@ class CSSProperties(object):
                 name_without_leading_dash = name_without_leading_dash[1:]
             internal_visited_order = 1
             if name_without_leading_dash.startswith(
-                'internal-visited-'
+                'internal-'
             ) or name_without_leading_dash.startswith(
                 'internal-forced-visited-'
             ):

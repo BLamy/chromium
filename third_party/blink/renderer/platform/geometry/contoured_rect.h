@@ -52,19 +52,29 @@ class PLATFORM_EXPORT ContouredRect {
     constexpr CornerCurvature(float top_left,
                               float top_right,
                               float bottom_right,
-                              float bottom_left)
+                              float bottom_left,
+                              float smoothness)
         : top_left_(top_left),
           top_right_(top_right),
           bottom_right_(bottom_right),
-          bottom_left_(bottom_left) {
+          bottom_left_(bottom_left),
+          smoothness_(smoothness) {
       DCHECK_GE(top_left, 0);
       DCHECK_GE(top_right, 0);
       DCHECK_GE(bottom_right, 0);
       DCHECK_GE(bottom_left, 0);
+      DCHECK_GE(smoothness, 0);
     }
+    constexpr CornerCurvature(float top_left,
+                              float top_right,
+                              float bottom_right,
+                              float bottom_left)
+        : CornerCurvature(top_left, top_right, bottom_right, bottom_left, 0) {}
+
+    constexpr bool IsSmooth() const { return smoothness_ > 0.0f; }
 
     constexpr bool IsRound() const {
-      return (top_left_ == kRound) && IsUniform();
+      return (top_left_ == kRound) && IsUniform() && !IsSmooth();
     }
 
     constexpr bool IsConvex() const {
@@ -86,6 +96,7 @@ class PLATFORM_EXPORT ContouredRect {
     constexpr float TopRight() const { return top_right_; }
     constexpr float BottomRight() const { return bottom_right_; }
     constexpr float BottomLeft() const { return bottom_left_; }
+    constexpr float Smoothness() const { return smoothness_; }
 
     constexpr bool operator==(const CornerCurvature&) const = default;
 
@@ -96,6 +107,7 @@ class PLATFORM_EXPORT ContouredRect {
     float top_right_ = kRound;
     float bottom_right_ = kRound;
     float bottom_left_ = kRound;
+    float smoothness_ = 0.0f;
   };
 
   // A Corner is a axis-aligned quad, with the points ordered (start, outer,

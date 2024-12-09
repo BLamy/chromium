@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/numerics/angle_conversions.h"
+#include "electron/shell/renderer/electron_smooth_round_rect.h"
 #include "third_party/blink/renderer/platform/geometry/contoured_rect.h"
 #include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/geometry/path_types.h"
@@ -375,6 +376,32 @@ PathBuilder& PathBuilder::AddContouredRect(
     AddRoundedRect(target_rect);
     return *this;
   }
+
+  // TODO(clavin): decompose `electron::DrawSmoothRoundRect` into corners
+  if (contoured_rect.GetCornerCurvature().IsSmooth()) {
+    const gfx::RectF& box = contoured_rect.Rect();
+
+    // Constrain the radii (on a copy) to ensure they do not exceed the box.
+    FloatRoundedRect round_rect_copy = contoured_rect.AsRoundedRect();
+    round_rect_copy.ConstrainRadii();
+    const FloatRoundedRect::Radii& radii = round_rect_copy.GetRadii();
+    float smoothness = std::clamp(
+        contoured_rect.GetCornerCurvature().Smoothness(), 0.0f, 1.0f);
+
+    // Since the Electron implementation of DrawSmoothRoundRect uses one radius
+    // for both dimensions, we need to use the minimum of the two supplied.
+    auto min_radius = [](const gfx::SizeF& radius) -> float {
+      return std::min(radius.width(), radius.height());
+    };
+
+    builder_.addPath(electron::DrawSmoothRoundRect(
+        box.x(), box.y(), box.width(), box.height(), smoothness,
+        min_radius(radii.TopLeft()), min_radius(radii.TopRight()),
+        min_radius(radii.BottomRight()), min_radius(radii.BottomLeft())));
+
+    return *this;
+  }
+
   const FloatRoundedRect& origin_rect = contoured_rect.GetOriginRect();
 
   auto draw_as_single_path = [&]() {

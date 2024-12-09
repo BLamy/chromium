@@ -10397,6 +10397,27 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
     },
 
+    {
+      name: "-electron-corner-smoothing",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      interpolable: true,
+      field_group: "*",
+      field_template: "external",
+      // To keep this patch small, Length is used instead of a more descriptive
+      // custom type.
+      // - `system-ui` = `Length::Auto()`
+      // - percent     = `Length::Percent`
+      type_name: "Length",
+      default_value: "Length::None()",
+      keywords: ["system-ui"],
+      percentages_depend_on_used_value: false,
+      converter: "ConvertCornerSmoothing",
+      runtime_flag: "ElectronCSSCornerSmoothing",
+      valid_for_permission_element: true,
+      valid_for_page_context: true,
+      invalidate: ["border-radius", "paint", "corner-shape"],
+    },
+
     // Visited properties.
     {
       name: "-internal-visited-color",

@@ -1744,6 +1744,8 @@ component("platform") {
     "widget/widget_base.h",
     "widget/widget_base_client.h",
     "windows_keyboard_codes.h",
+    "//electron/shell/renderer/electron_smooth_round_rect.h",
+    "//electron/shell/renderer/electron_smooth_round_rect.cc",
   ]
 
   sources -= blink_platform_avx_files
