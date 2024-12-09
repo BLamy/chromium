@@ -8,9 +8,14 @@ source_set("header") {
   sources = [ "simdutf.h" ]
 }
 
+config("simdutf_config") {
+  include_dirs = [ "." ]
+}
+
 source_set("simdutf") {
   sources = [ "simdutf.cpp" ]
   public_deps = [ ":header" ]
+  public_configs = [ ":simdutf_config" ]
   cflags_cc = [
     "-Wno-unused-const-variable",
     "-Wno-unused-function",
