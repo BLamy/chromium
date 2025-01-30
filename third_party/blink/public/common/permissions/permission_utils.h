@@ -69,7 +69,7 @@ enum class PermissionType {
   LOCAL_NETWORK = 44,
   LOOPBACK_NETWORK = 45,
   GEOLOCATION_APPROXIMATE = 46,
-
+  DEPRECATED_SYNC_CLIPBOARD_READ = 47,
   // Always keep this at the end.
   NUM,
   MIN_VALUE = MIDI_SYSEX,

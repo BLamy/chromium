@@ -110,7 +110,10 @@ std::string GetPermissionString(PermissionType permission) {
       return "LocalNetwork";
     case PermissionType::LOOPBACK_NETWORK:
       return "LoopbackNetwork";
-    case PermissionType::NUM:
+    case PermissionType::GEOLOCATION_APPROXIMATE:
+      return "GeolocationApproximate";
+    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:
+      return "DeprecatedSyncClipboardRead";    case PermissionType::NUM:
       NOTREACHED();
   }
   NOTREACHED();
@@ -191,6 +194,7 @@ PermissionTypeToPermissionsPolicyFeature(PermissionType permission) {
     case PermissionType::NOTIFICATIONS:
     case PermissionType::KEYBOARD_LOCK:
     case PermissionType::POINTER_LOCK:
+    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:
       return std::nullopt;
 
     case PermissionType::NUM:

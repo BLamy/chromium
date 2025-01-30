@@ -589,7 +589,8 @@ ContentSettingsType PermissionUtil::PermissionTypeToContentSettingsTypeSafe(
       return ContentSettingsType::LOCAL_NETWORK;
     case PermissionType::LOOPBACK_NETWORK:
       return ContentSettingsType::LOOPBACK_NETWORK;
-    case PermissionType::NUM:
+    case PermissionType::GEOLOCATION_APPROXIMATE:
+    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:    case PermissionType::NUM:
       break;
   }
 

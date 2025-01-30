@@ -100,7 +100,8 @@ PermissionToSchedulingFeature(PermissionType permission_name) {
     case PermissionType::LOCAL_NETWORK_ACCESS:
     case PermissionType::LOCAL_NETWORK:
     case PermissionType::LOOPBACK_NETWORK:
-      return std::nullopt;
+    case PermissionType::GEOLOCATION_APPROXIMATE:
+    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:      return std::nullopt;
   }
 }
 

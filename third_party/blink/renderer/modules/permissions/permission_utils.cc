@@ -164,6 +164,8 @@ String PermissionNameToString(PermissionName name) {
       return "web-printing";
     case PermissionName::SMART_CARD:
       return "smart-card";
+    case PermissionName::DEPRECATED_SYNC_CLIPBOARD_READ:
+      return "deprecated-sync-clipboard-read";
   }
 }
 

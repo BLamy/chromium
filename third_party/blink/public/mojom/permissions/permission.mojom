@@ -47,7 +47,7 @@ enum PermissionName {
   WEB_PRINTING,
   SMART_CARD,
   GEOLOCATION_APPROXIMATE,
-};
+  DEPRECATED_SYNC_CLIPBOARD_READ};
 
 struct MidiPermissionDescriptor {
   bool sysex;

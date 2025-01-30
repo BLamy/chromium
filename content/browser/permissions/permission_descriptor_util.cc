@@ -180,7 +180,12 @@ content::PermissionDescriptorUtil::CreatePermissionDescriptorForPermissionType(
     case blink::PermissionType::LOOPBACK_NETWORK:
       return CreatePermissionDescriptor(
           blink::mojom::PermissionName::LOOPBACK_NETWORK);
-    case blink::PermissionType::NUM:
+    case blink::PermissionType::GEOLOCATION_APPROXIMATE:
+      return CreatePermissionDescriptor(
+          blink::mojom::PermissionName::GEOLOCATION_APPROXIMATE);
+    case blink::PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:
+      return CreatePermissionDescriptor(
+          blink::mojom::PermissionName::DEPRECATED_SYNC_CLIPBOARD_READ);    case blink::PermissionType::NUM:
       NOTREACHED();
   }
   NOTREACHED();

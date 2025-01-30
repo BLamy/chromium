@@ -54,6 +54,9 @@ class WebContentSettingsClient {
   // Controls whether access to write the clipboard is allowed for this frame.
   virtual bool AllowWriteToClipboard() { return false; }
 
+  // Controls whether synchronous access to read the clipboard is allowed for this frame.
+  virtual bool AllowReadFromClipboardSync() { return false; }
+
   // Reports that passive mixed content was found at the provided URL.
   virtual void PassiveInsecureContentFound(const WebURL&) {}
 
