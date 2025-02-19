@@ -241,6 +241,11 @@ std::vector<SpellCheckResult> BackgroundHelper::RequestTextCheckForAllLanguages(
             (action == CORRECTIVE_ACTION_GET_SUGGESTIONS ||
              action == CORRECTIVE_ACTION_REPLACE)) {
           std::vector<std::u16string> suggestions;
+          // TODO (vertedinde): Perform the synchronous operation of retrieving
+          // suggestions for all misspelled words while performing a text check.
+          FillSuggestionList(it->first,
+            text.substr(start_index, error_length),
+            &suggestions);
           result_map[std::tuple<ULONG, ULONG>(start_index, error_length)]
               .push_back(suggestions);
         }
