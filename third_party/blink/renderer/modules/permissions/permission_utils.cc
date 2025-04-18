@@ -164,8 +164,22 @@ String PermissionNameToString(PermissionName name) {
       return "web-printing";
     case PermissionName::SMART_CARD:
       return "smart-card";
+
+    // Permissions added by Electron
     case PermissionName::DEPRECATED_SYNC_CLIPBOARD_READ:
       return "deprecated-sync-clipboard-read";
+    case PermissionName::FILE_SYSTEM:
+      return "file-system";
+    case PermissionName::ELECTRON_FULLSCREEN:
+      return "electron-fullscreen";
+    case PermissionName::HID:
+      return "hid";
+    case PermissionName::OPEN_EXTERNAL:
+      return "open-external";
+    case PermissionName::SERIAL:
+      return "serial";
+    case PermissionName::USB:
+      return "usb";
   }
 }
 

@@ -110,11 +110,21 @@ std::string GetPermissionString(PermissionType permission) {
       return "LocalNetwork";
     case PermissionType::LOOPBACK_NETWORK:
       return "LoopbackNetwork";
-    case PermissionType::GEOLOCATION_APPROXIMATE:
-      return "GeolocationApproximate";
     case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:
-      return "DeprecatedSyncClipboardRead";    case PermissionType::NUM:
-      NOTREACHED();
+      return "DeprecatedSyncClipboardRead";
+    case PermissionType::FILE_SYSTEM:
+      return "FileSystem";
+    case PermissionType::ELECTRON_FULLSCREEN:
+      return "Fullscreen";
+    case PermissionType::HID:
+      return "HID";
+    case PermissionType::OPEN_EXTERNAL:
+      return "OpenExternal";
+    case PermissionType::SERIAL:
+      return "Serial";
+    case PermissionType::USB:
+      return "USB";
+    case PermissionType::NUM:      NOTREACHED();
   }
   NOTREACHED();
 }
@@ -194,7 +204,15 @@ PermissionTypeToPermissionsPolicyFeature(PermissionType permission) {
     case PermissionType::NOTIFICATIONS:
     case PermissionType::KEYBOARD_LOCK:
     case PermissionType::POINTER_LOCK:
+
+    // Permissions added by Electron
     case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:
+    case PermissionType::ELECTRON_FULLSCREEN:
+    case PermissionType::FILE_SYSTEM:
+    case PermissionType::HID:
+    case PermissionType::OPEN_EXTERNAL:
+    case PermissionType::SERIAL:
+    case PermissionType::USB:
       return std::nullopt;
 
     case PermissionType::NUM:
@@ -372,6 +390,21 @@ std::optional<PermissionType> PermissionDescriptorInfoToPermissionType(
       return PermissionType::WEB_PRINTING;
     case PermissionName::SMART_CARD:
       return PermissionType::SMART_CARD;
+    // Permissions added by Electron
+    case PermissionName::DEPRECATED_SYNC_CLIPBOARD_READ:
+      return PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ;
+    case PermissionName::FILE_SYSTEM:
+      return PermissionType::FILE_SYSTEM;
+    case PermissionName::ELECTRON_FULLSCREEN:
+      return PermissionType::ELECTRON_FULLSCREEN;
+    case PermissionName::HID:
+      return PermissionType::HID;
+    case PermissionName::OPEN_EXTERNAL:
+      return PermissionType::OPEN_EXTERNAL;
+    case PermissionName::SERIAL:
+      return PermissionType::SERIAL;
+    case PermissionName::USB:
+      return PermissionType::USB;
   }
 }
 

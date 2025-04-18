@@ -589,9 +589,17 @@ ContentSettingsType PermissionUtil::PermissionTypeToContentSettingsTypeSafe(
       return ContentSettingsType::LOCAL_NETWORK;
     case PermissionType::LOOPBACK_NETWORK:
       return ContentSettingsType::LOOPBACK_NETWORK;
-    case PermissionType::GEOLOCATION_APPROXIMATE:
-    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:    case PermissionType::NUM:
+    // Permissions added by Electron
+    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:
+    case PermissionType::ELECTRON_FULLSCREEN:
+    case PermissionType::FILE_SYSTEM:
+    case PermissionType::HID:
+    case PermissionType::OPEN_EXTERNAL:
+    case PermissionType::SERIAL:
+    case PermissionType::USB:
       break;
+
+    case PermissionType::NUM:      break;
   }
 
   return ContentSettingsType::DEFAULT;

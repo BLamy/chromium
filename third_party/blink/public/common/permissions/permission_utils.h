@@ -69,8 +69,17 @@ enum class PermissionType {
   LOCAL_NETWORK = 44,
   LOOPBACK_NETWORK = 45,
   GEOLOCATION_APPROXIMATE = 46,
-  DEPRECATED_SYNC_CLIPBOARD_READ = 47,
-  // Always keep this at the end.
+
+  // Permissions added by Electron
+  ELECTRON_FIRST = 47,
+  DEPRECATED_SYNC_CLIPBOARD_READ = ELECTRON_FIRST,
+  FILE_SYSTEM,
+  ELECTRON_FULLSCREEN,
+  HID,
+  OPEN_EXTERNAL,
+  SERIAL,
+  USB,
+  ELECTRON_LAST = USB,  // Always keep this at the end.
   NUM,
   MIN_VALUE = MIDI_SYSEX,
 };

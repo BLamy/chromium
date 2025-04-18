@@ -100,9 +100,15 @@ PermissionToSchedulingFeature(PermissionType permission_name) {
     case PermissionType::LOCAL_NETWORK_ACCESS:
     case PermissionType::LOCAL_NETWORK:
     case PermissionType::LOOPBACK_NETWORK:
-    case PermissionType::GEOLOCATION_APPROXIMATE:
-    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:      return std::nullopt;
-  }
+    // Permissions added by Electron
+    case PermissionType::DEPRECATED_SYNC_CLIPBOARD_READ:
+    case PermissionType::FILE_SYSTEM:
+    case PermissionType::ELECTRON_FULLSCREEN:
+    case PermissionType::HID:
+    case PermissionType::OPEN_EXTERNAL:
+    case PermissionType::SERIAL:
+    case PermissionType::USB:
+      return std::nullopt;  }
 }
 
 #if !BUILDFLAG(IS_ANDROID)
