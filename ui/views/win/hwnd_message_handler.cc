@@ -1064,13 +1064,13 @@ void HWNDMessageHandler::FrameTypeChanged() {
 
 void HWNDMessageHandler::PaintAsActiveChanged() {
   if (!delegate_->HasNonClientView() || !delegate_->CanActivate() ||
-      !delegate_->HasFrame() ||
+      (!delegate_->HasFrame() && !is_translucent_) ||
       (delegate_->GetFrameMode() == FrameMode::CUSTOM_DRAWN)) {
     return;
   }
 
   DefWindowProcWithRedrawLock(WM_NCACTIVATE, delegate_->ShouldPaintAsActive(),
-                              0);
+                              delegate_->HasFrame() ? 0 : -1);
 }
 
 void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
@@ -1150,7 +1150,14 @@ void HWNDMessageHandler::SizeConstraintsChanged() {
   //   allowing ui::GetResizableFrameThickness() to be used consistently when
   //   removing the visible system frame.
   const bool had_caption_on_init = window_style() & WS_CAPTION;
-  const bool can_resize = !is_translucent_ && delegate_->CanResize();
+
+  // In Chromium, the !is_translucent_ check was introduced for Glic-specific
+  // behavior. Since Electron does not use Glic, this restriction can be safely
+  // removed. Keeping the is_translucent_ check disables maximization for
+  // translucent framed windows. Original code: !is_translucent_ &&
+  // delegate_->CanResize() See:
+  // https://chromium-review.googlesource.com/c/chromium/src/+/6372329
+  const bool can_resize = delegate_->CanResize();
   const bool can_maximize = can_resize && delegate_->CanMaximize();
 
   auto set_style_func = [&style](LONG bit, bool should_set) {
@@ -1794,11 +1801,16 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
   // through, but that isn't the case when using Direct3D to draw transparent
   // windows. So we route translucent windows throught to the delegate to
   // allow for a custom hit mask.
-  if (!is_translucent_ && !custom_window_region_.is_valid() &&
+  // patch: fix_resolve_dynamic_background_material_update_issue_on_windows_11
+  // Our translucent windows use the native frame by default, and we should not
+  // set a custom region when the window is maximized; otherwise, it will cause
+  // a white title bar to appear under Windows 11.
+  if (!custom_window_region_.is_valid() &&
       (IsFrameSystemDrawn() || !delegate_->HasNonClientView())) {
     if (force) {
       SetWindowRgn(hwnd(), nullptr, redraw);
     }
+
     return;
   }
 
@@ -2527,17 +2539,18 @@ LRESULT HWNDMessageHandler::OnNCActivate(UINT message,
     delegate_->SchedulePaint();
   }
 
-  // Calling DefWindowProc is only necessary if there's a system frame being
-  // drawn. Otherwise it can draw an incorrect title bar and cause visual
-  // corruption.
-  if (!delegate_->HasFrame() ||
+  // If the window is translucent, it may have the Mica background.
+  // In that case, it's necessary to call |DefWindowProc|, but we can
+  // pass -1 in the lParam to prevent any non-client area elements from
+  // being displayed.
+  if ((!delegate_->HasFrame() && !is_translucent_) ||
       delegate_->GetFrameMode() == FrameMode::CUSTOM_DRAWN) {
     SetMsgHandled(TRUE);
     return TRUE;
   }
 
   return DefWindowProcWithRedrawLock(WM_NCACTIVATE, paint_as_active || active,
-                                     0);
+                                     delegate_->HasFrame() ? 0 : -1);
 }
 
 LRESULT HWNDMessageHandler::OnNCCalcSize(BOOL mode, LPARAM l_param) {

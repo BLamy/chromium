@@ -107,6 +107,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   // Returns true if any window is in a move/resize loop.
   bool IsInNativeMoveResizeLoop() const;
 
+  void SetIsTranslucent(bool is_translucent);
+
  protected:
   // Overridden from DesktopWindowTreeHost:
   void Init(const Widget::InitParams& params) override;

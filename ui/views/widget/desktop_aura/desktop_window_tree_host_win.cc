@@ -267,6 +267,10 @@ bool DesktopWindowTreeHostWin::IsInNativeMoveResizeLoop() const {
                               message_handler_->IsInNativeMenuLoop());
 }
 
+void DesktopWindowTreeHostWin::SetIsTranslucent(bool is_translucent) {
+  message_handler_->set_is_translucent(is_translucent);
+}
+
 // DesktopWindowTreeHostWin, DesktopWindowTreeHost implementation:
 
 void DesktopWindowTreeHostWin::Init(const Widget::InitParams& params) {
