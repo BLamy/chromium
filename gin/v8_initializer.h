@@ -9,6 +9,7 @@
 
 #include "base/files/file.h"
 #include "base/files/memory_mapped_file.h"
+#include "base/functional/callback.h"
 #include "build/build_config.h"
 #include "gin/array_buffer.h"
 #include "gin/gin_export.h"
@@ -25,6 +26,8 @@ class StartupData;
 }
 
 namespace gin {
+
+void SetV8SnapshotValidator(const base::RepeatingCallback<void(v8::StartupData*)>& callback);
 
 class GIN_EXPORT V8Initializer {
  public:

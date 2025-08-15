@@ -76,11 +76,23 @@ bool GenerateEntropy(unsigned char* buffer, size_t amount) {
   return true;
 }
 
+static base::RepeatingCallback<void(v8::StartupData*)>& SnapshotValidator() {
+  static base::NoDestructor<base::RepeatingCallback<void(v8::StartupData*)>>
+      validator(
+          base::BindRepeating([](v8::StartupData* data) -> void { /* empty */ }));
+  return *validator;
+}
+
+void SetV8SnapshotValidatorInner(const base::RepeatingCallback<void(v8::StartupData*)>& callback) {
+  SnapshotValidator() = std::move(callback);
+}
+
 void GetMappedFileData(base::MemoryMappedFile* mapped_file,
                        v8::StartupData* data) {
   if (mapped_file) {
     data->data = reinterpret_cast<const char*>(mapped_file->bytes().data());
     data->raw_size = static_cast<int>(mapped_file->bytes().size());
+    SnapshotValidator().Run(data);
   } else {
     data->data = nullptr;
     data->raw_size = 0;
@@ -225,6 +237,10 @@ constexpr std::string_view kV8FlagFeaturePrefix = "V8Flag_";
 constexpr std::string_view kV8FlagParam = "V8FlagParam";
 
 }  // namespace
+
+void SetV8SnapshotValidator(const base::RepeatingCallback<void(v8::StartupData*)>& callback) {
+  SetV8SnapshotValidatorInner(std::move(callback));
+}
 
 class V8FeatureVisitor : public base::FeatureVisitor {
  public:
