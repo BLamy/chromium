@@ -140,7 +140,8 @@ class CONTENT_EXPORT RenderFrameObserver {
                                       int32_t world_id) {}
   virtual void DidInstallConditionalFeatures(v8::Local<v8::Context> context,
                                              int32_t world_id) {}
-  virtual void WillReleaseScriptContext(v8::Local<v8::Context> context,
+  virtual void WillReleaseScriptContext(v8::Isolate* const isolate,
+                                        v8::Local<v8::Context> context,
                                         int32_t world_id) {}
   virtual void DidClearWindowObject() {}
   virtual void DidChangeScrollOffset(blink::mojom::ScrollType) {}

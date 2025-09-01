@@ -184,6 +184,7 @@ void ServiceWorkerGlobalScopeProxy::WillEvaluateScript() {
   ScriptState::Scope scope(
       WorkerGlobalScope()->ScriptController()->GetScriptState());
   Client().WillEvaluateScript(
+      WorkerGlobalScope()->ScriptController()->GetScriptState()->GetIsolate(),
       WorkerGlobalScope()->ScriptController()->GetContext());
   top_level_script_evaluation_start_time_ = base::TimeTicks::Now();
 }

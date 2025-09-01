@@ -321,6 +321,7 @@ void ServiceWorkerContextClient::WorkerContextStarted(
 }
 
 void ServiceWorkerContextClient::WillEvaluateScript(
+    v8::Isolate* const v8_isolate,
     v8::Local<v8::Context> v8_context) {
   DCHECK(worker_task_runner_->RunsTasksInCurrentSequence());
   start_timing_->script_evaluation_start_time = base::TimeTicks::Now();
@@ -339,8 +340,8 @@ void ServiceWorkerContextClient::WillEvaluateScript(
 
   DCHECK(proxy_);
   GetContentClient()->renderer()->WillEvaluateServiceWorkerOnWorkerThread(
-      proxy_, v8_context, service_worker_version_id_, service_worker_scope_,
-      script_url_, service_worker_token_);
+      proxy_, v8_isolate, v8_context, service_worker_version_id_,
+      service_worker_scope_, script_url_, service_worker_token_);
 }
 
 void ServiceWorkerContextClient::DidEvaluateScript(bool success) {

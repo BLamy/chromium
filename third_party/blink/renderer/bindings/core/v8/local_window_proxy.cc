@@ -203,11 +203,12 @@ void LocalWindowProxy::DisposeContext(Lifecycle next_status,
 
   ScriptState::Scope scope(script_state_);
   v8::Local<v8::Context> context = script_state_->GetContext();
+  CHECK_EQ(GetIsolate(), script_state_->GetIsolate());
   // The embedder could run arbitrary code in response to the
   // willReleaseScriptContext callback, so all disposing should happen after
   // it returns.
-  GetFrame()->Client()->WillReleaseScriptContext(context, world_->GetWorldId());
-  CHECK_EQ(GetIsolate(), script_state_->GetIsolate());
+  GetFrame()->Client()->WillReleaseScriptContext(
+      GetIsolate(), context, world_->GetWorldId());
   MainThreadDebugger::Instance(GetIsolate())
       ->ContextWillBeDestroyed(script_state_);
   if (next_status == Lifecycle::kV8MemoryIsForciblyPurged ||

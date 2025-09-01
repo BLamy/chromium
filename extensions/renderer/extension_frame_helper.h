@@ -197,7 +197,8 @@ class ExtensionFrameHelper
       blink::WebDocumentLoader* document_loader) override;
   void DidCreateScriptContext(v8::Local<v8::Context>,
                               int32_t world_id) override;
-  void WillReleaseScriptContext(v8::Local<v8::Context>,
+  void WillReleaseScriptContext(v8::Isolate* const isolate,
+                                v8::Local<v8::Context>,
                                 int32_t world_id) override;
   void OnDestruct() override;
   void DidClearWindowObject() override;

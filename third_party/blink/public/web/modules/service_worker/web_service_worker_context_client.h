@@ -122,7 +122,8 @@ class WebServiceWorkerContextClient {
   //
   // |v8_context| is the V8 context of the worker and is used to support
   // service workers in Chrome extensions.
-  virtual void WillEvaluateScript(v8::Local<v8::Context> v8_context) {}
+  virtual void WillEvaluateScript(v8::Isolate* const isolate,
+                                  v8::Local<v8::Context> v8_context) {}
 
   // Called when initial script evaluation finished for the main script.
   // |success| is true if the evaluation completed with no uncaught exception.

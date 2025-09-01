@@ -310,10 +310,11 @@ void LocalFrameClientImpl::DidInstallConditionalFeatures(
 }
 
 void LocalFrameClientImpl::WillReleaseScriptContext(
+    v8::Isolate* const isolate,
     v8::Local<v8::Context> context,
     int32_t world_id) {
   if (web_frame_->Client()) {
-    web_frame_->Client()->WillReleaseScriptContext(context, world_id);
+    web_frame_->Client()->WillReleaseScriptContext(isolate, context, world_id);
   }
 }
 

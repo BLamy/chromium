@@ -163,7 +163,8 @@ class ServiceWorkerContextClient
   void WorkerContextStarted(
       blink::WebServiceWorkerContextProxy* proxy,
       scoped_refptr<base::SequencedTaskRunner> worker_task_runner) override;
-  void WillEvaluateScript(v8::Local<v8::Context> v8_context) override;
+  void WillEvaluateScript(v8::Isolate* const isolate,
+                          v8::Local<v8::Context> v8_context) override;
   void DidEvaluateScript(bool success) override;
   void WillInitializeWorkerContext() override;
   void WillDestroyWorkerContext(v8::Local<v8::Context> context) override;

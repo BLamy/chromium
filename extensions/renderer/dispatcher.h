@@ -146,6 +146,7 @@ class Dispatcher : public content::RenderThreadObserver,
   // variables.
   void WillEvaluateServiceWorkerOnWorkerThread(
       blink::WebServiceWorkerContextProxy* context_proxy,
+      v8::Isolate* const isolate,
       v8::Local<v8::Context> v8_context,
       int64_t service_worker_version_id,
       const GURL& service_worker_scope,

@@ -5040,10 +5040,11 @@ void RenderFrameImpl::DidInstallConditionalFeatures(
   }
 }
 
-void RenderFrameImpl::WillReleaseScriptContext(v8::Local<v8::Context> context,
+void RenderFrameImpl::WillReleaseScriptContext(v8::Isolate* const isolate,
+                                               v8::Local<v8::Context> context,
                                                int world_id) {
   for (auto& observer : observers_) {
-    observer.WillReleaseScriptContext(context, world_id);
+    observer.WillReleaseScriptContext(isolate, context, world_id);
   }
 }
 

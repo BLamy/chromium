@@ -317,7 +317,8 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
                                       int32_t world_id) = 0;
   virtual void DidInstallConditionalFeatures(v8::Local<v8::Context>,
                                              int32_t world_id) = 0;
-  virtual void WillReleaseScriptContext(v8::Local<v8::Context>,
+  virtual void WillReleaseScriptContext(v8::Isolate* const isolate,
+                                        v8::Local<v8::Context>,
                                         int32_t world_id) = 0;
 
   virtual void DidChangeScrollOffset(mojom::blink::ScrollType) {}

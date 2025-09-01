@@ -453,6 +453,7 @@ void ExtensionFrameHelper::DidCreateScriptContext(
 }
 
 void ExtensionFrameHelper::WillReleaseScriptContext(
+    v8::Isolate* const isolate,
     v8::Local<v8::Context> context,
     int32_t world_id) {
   extension_dispatcher_->WillReleaseScriptContext(
