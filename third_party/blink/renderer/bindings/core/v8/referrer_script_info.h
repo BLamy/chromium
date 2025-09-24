@@ -23,6 +23,15 @@ class CORE_EXPORT ReferrerScriptInfo {
   STACK_ALLOCATED();
 
  public:
+  enum HostDefinedOptionsIndex : size_t {
+    kBaseURL,
+    kCredentialsMode,
+    kNonce,
+    kParserState,
+    kReferrerPolicy,
+    kLength
+  };
+
   ReferrerScriptInfo() {}
   ReferrerScriptInfo(const KURL& base_url,
                      network::mojom::CredentialsMode credentials_mode,

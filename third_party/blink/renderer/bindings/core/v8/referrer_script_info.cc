@@ -12,15 +12,6 @@ namespace blink {
 
 namespace {
 
-enum HostDefinedOptionsIndex : size_t {
-  kBaseURL,
-  kCredentialsMode,
-  kNonce,
-  kParserState,
-  kReferrerPolicy,
-  kLength
-};
-
 // Omit storing base URL if it is same as ScriptOrigin::ResourceName().
 // Note: This improves chance of getting into a fast path in
 //       ReferrerScriptInfo::ToV8HostDefinedOptions.
