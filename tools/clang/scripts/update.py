@@ -217,10 +217,9 @@ def DownloadAndUnpack(url, output_dir, path_prefixes=None, is_known_zip=False):
       # The nicest way to do this would be by passing a filter to extractall,
       # but that functionality is not available in macOS system Python (3.9.6).
       for m in members:
-        # Confusingly, this checks if you're allowed to _not_ follow symlinks.
-        if os.utime in os.supports_follow_symlinks:
-          os.utime(os.path.join(output_dir, m.name), follow_symlinks=False)
-        else:
+        # check for broken links before setting the file's utime
+        member_path = os.path.join(output_dir, m.name)
+        if os.path.exists(member_path):
           os.utime(os.path.join(output_dir, m.name))
 
 
