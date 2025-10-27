@@ -38,8 +38,9 @@ class StatusIconLinuxDbus : public ui::StatusIconLinux,
                             public ui::SimpleMenuModel::Delegate,
                             public base::RefCounted<StatusIconLinuxDbus> {
  public:
-  StatusIconLinuxDbus();
-  explicit StatusIconLinuxDbus(scoped_refptr<dbus::Bus> bus);
+  StatusIconLinuxDbus(const std::string_view app_name = "chrome");
+  explicit StatusIconLinuxDbus(scoped_refptr<dbus::Bus> bus,
+                               const std::string_view app_name = "chrome");
 
   StatusIconLinuxDbus(const StatusIconLinuxDbus&) = delete;
   StatusIconLinuxDbus& operator=(const StatusIconLinuxDbus&) = delete;
@@ -161,6 +162,8 @@ class StatusIconLinuxDbus : public ui::StatusIconLinux,
   const scoped_refptr<base::SequencedTaskRunner> icon_task_runner_;
   size_t icon_file_id_ = 0;
   base::FilePath icon_file_;
+
+  std::string app_name_;
 
   base::WeakPtrFactory<StatusIconLinuxDbus> weak_factory_{this};
 };

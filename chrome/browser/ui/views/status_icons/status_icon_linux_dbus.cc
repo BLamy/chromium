@@ -138,8 +138,9 @@ int NextServiceId() {
   return ++status_icon_count;
 }
 
-std::string PropertyIdFromId(int service_id) {
-  return "chrome_status_icon_" + base::NumberToString(service_id);
+std::string PropertyIdFromId(int service_id, const std::string_view app_name) {
+  return base::StrCat(
+      {app_name, "_status_icon_", base::NumberToString(service_id)});
 }
 
 using DbusImage = std::tuple</*width=*/int32_t,
@@ -250,15 +251,17 @@ scoped_refptr<dbus::Bus> GetBusForNewStatusIcon() {
 
 }  // namespace
 
-StatusIconLinuxDbus::StatusIconLinuxDbus()
-    : StatusIconLinuxDbus(GetBusForNewStatusIcon()) {}
+StatusIconLinuxDbus::StatusIconLinuxDbus(const std::string_view app_name)
+    : StatusIconLinuxDbus(GetBusForNewStatusIcon(), app_name) {}
 
-StatusIconLinuxDbus::StatusIconLinuxDbus(scoped_refptr<dbus::Bus> bus)
+StatusIconLinuxDbus::StatusIconLinuxDbus(scoped_refptr<dbus::Bus> bus,
+                                         const std::string_view app_name)
     : bus_(std::move(bus)),
       should_write_icon_to_file_(ShouldWriteIconToFile()),
       icon_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-           base::TaskShutdownBehavior::BLOCK_SHUTDOWN})) {
+           base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
+      app_name_(app_name) {
   CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (bus_) {
     CheckStatusNotifierWatcherHasOwner();
@@ -464,7 +467,8 @@ void StatusIconLinuxDbus::OnHostRegisteredResponse(
   SetProperty<"s">(kPropertyAttentionIconName, "", false);
   SetProperty<"s">(kPropertyAttentionMovieName, "", false);
   SetProperty<"s">(kPropertyCategory, kPropertyValueCategory, false);
-  SetProperty<"s">(kPropertyId, PropertyIdFromId(service_id_), false);
+  SetProperty<"s">(kPropertyId, PropertyIdFromId(service_id_, app_name_),
+                   false);
   SetProperty<"s">(kPropertyOverlayIconName, "", false);
   SetProperty<"s">(kPropertyStatus, kPropertyValueStatus, false);
   SetProperty<"s">(kPropertyTitle, "", false);
