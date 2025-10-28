@@ -783,7 +783,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
 
   // Generates the most current set of ScreenInfos from the current set of
   // displays in the system for use in UpdateScreenInfo.
-  display::ScreenInfos GetNewScreenInfosForUpdate();
+  virtual display::ScreenInfos GetNewScreenInfosForUpdate();
 
   // Called when display properties that need to be synchronized with the
   // renderer process changes. This method is called before notifying
