@@ -53,6 +53,8 @@ class GtkUi : public ui::LinuxUiAndTheme {
 
   ~GtkUi() override;
 
+  GtkUiPlatform* GetPlatform() const { return platform_.get(); }
+
   // Setters used by SettingsProvider:
   void SetWindowButtonOrdering(
       const std::vector<views::FrameButton>& leading_buttons,
