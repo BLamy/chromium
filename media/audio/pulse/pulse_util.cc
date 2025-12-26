@@ -5,6 +5,7 @@
 #include "media/audio/pulse/pulse_util.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <memory>
@@ -40,6 +41,18 @@ constexpr char kBrowserDisplayName[] = "google-chrome";
 constexpr char kBrowserDisplayName[] = "chromium-browser";
 #define PRODUCT_STRING "Chromium"
 #endif
+
+// The embedder exports these before audio starts so PulseAudio clients and
+// streams carry the application's name and icon instead of the browser's.
+const char* ContextName(const char* fallback) {
+  const char* name = getenv("ELECTRON_PA_APP_NAME");
+  return name && *name ? name : fallback;
+}
+
+const char* IconName() {
+  const char* name = getenv("ELECTRON_PA_ICON_NAME");
+  return name && *name ? name : kBrowserDisplayName;
+}
 
 #if defined(DLOPEN_PULSEAUDIO)
 constexpr base::FilePath::CharType kPulseLib[] =
@@ -248,7 +261,7 @@ bool InitPulse(pa_threaded_mainloop** mainloop, pa_context** context) {
 
   pa_mainloop_api* pa_mainloop_api = pa_threaded_mainloop_get_api(pa_mainloop);
   pa_context* pa_context =
-      pa_context_new(pa_mainloop_api, PRODUCT_STRING " input");
+      pa_context_new(pa_mainloop_api, ContextName(PRODUCT_STRING " input"));
   if (!pa_context) {
     pa_threaded_mainloop_free(pa_mainloop);
     return false;
@@ -477,7 +490,7 @@ bool CreateInputStream(pa_threaded_mainloop* mainloop,
   // tells PulseAudio what the stream icon should be.
   ScopedPropertyList property_list;
   pa_proplist_sets(property_list.get(), PA_PROP_APPLICATION_ICON_NAME,
-                   kBrowserDisplayName);
+                   IconName());
   *stream = pa_stream_new_with_proplist(context, "RecordStream",
                                         &sample_specifications, map,
                                         property_list.get());
@@ -538,7 +551,8 @@ bool CreateOutputStream(raw_ptr<pa_threaded_mainloop>* mainloop,
 
   pa_mainloop_api* pa_mainloop_api = pa_threaded_mainloop_get_api(*mainloop);
   *context = pa_context_new(
-      pa_mainloop_api, app_name.empty() ? PRODUCT_STRING : app_name.c_str());
+      pa_mainloop_api,
+      ContextName(app_name.empty() ? PRODUCT_STRING : app_name.c_str()));
   RETURN_ON_FAILURE(*context, "Failed to create PulseAudio context.");
 
   // A state callback must be set before calling pa_threaded_mainloop_lock() or
@@ -587,7 +601,7 @@ bool CreateOutputStream(raw_ptr<pa_threaded_mainloop>* mainloop,
   // tell PulseAudio what the stream icon should be.
   ScopedPropertyList property_list;
   pa_proplist_sets(property_list.get(), PA_PROP_APPLICATION_ICON_NAME,
-                   kBrowserDisplayName);
+                   IconName());
   *stream = pa_stream_new_with_proplist(
       *context, "Playback", &sample_specifications, map, property_list.get());
   RETURN_ON_FAILURE(*stream, "failed to create PA playback stream");
