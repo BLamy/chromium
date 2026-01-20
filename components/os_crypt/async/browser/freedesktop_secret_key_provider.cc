@@ -35,6 +35,30 @@ namespace os_crypt_async {
 
 namespace {
 
+const char* GetDefaultAppName() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  return "chrome";
+#else
+  return "chromium";
+#endif
+}
+
+const char* GetDefaultKWalletFolder() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  return "Chrome Keys";
+#else
+  return "Chromium Keys";
+#endif
+}
+
+const char* GetDefaultKeyName() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  return "Chrome Safe Storage";
+#else
+  return "Chromium Safe Storage";
+#endif
+}
+
 constexpr char kUmaInitStatus[] =
     "OSCrypt.FreedesktopSecretKeyProvider.InitStatus";
 
@@ -46,6 +70,24 @@ constexpr size_t kEncryptionIterations = 1;
 constexpr size_t kSecretLengthBytes = 16;
 
 }  // namespace
+
+FreedesktopSecretKeyProvider::Config::Config()
+    : app_name(GetDefaultAppName()),
+      kwallet_folder(GetDefaultKWalletFolder()),
+      key_name(GetDefaultKeyName()) {}
+
+FreedesktopSecretKeyProvider::Config::~Config() = default;
+
+FreedesktopSecretKeyProvider::Config::Config(const Config&) = default;
+
+FreedesktopSecretKeyProvider::Config&
+FreedesktopSecretKeyProvider::Config::operator=(const Config&) = default;
+
+// static
+FreedesktopSecretKeyProvider::Config
+FreedesktopSecretKeyProvider::GetDefaultConfig() {
+  return Config();
+}
 
 // A helper class to handle a Secret Service prompt. It is templated on the
 // return type expected from the prompt.
@@ -173,8 +215,19 @@ FreedesktopSecretKeyProvider::FreedesktopSecretKeyProvider(
     const std::string& password_store,
     const std::string& product_name,
     scoped_refptr<dbus::Bus> bus)
+    : FreedesktopSecretKeyProvider(password_store,
+                                   product_name,
+                                   GetDefaultConfig(),
+                                   std::move(bus)) {}
+
+FreedesktopSecretKeyProvider::FreedesktopSecretKeyProvider(
+    const std::string& password_store,
+    const std::string& product_name,
+    const Config& config,
+    scoped_refptr<dbus::Bus> bus)
     : password_store_(password_store),
       product_name_(product_name),
+      config_(config),
       bus_(std::move(bus)) {
   if (!bus_) {
     bus_ = dbus_thread_linux::GetSharedSessionBus();
@@ -388,7 +441,7 @@ void FreedesktopSecretKeyProvider::OnOpenSession(
   session_opened_ = true;
 
   std::map<std::string, std::string> search_attrs{
-      {kApplicationAttributeKey, kAppName}};
+      {kApplicationAttributeKey, config_.app_name}};
 
   dbus_utils::CallMethod<"a{ss}", "ao">(
       default_collection_proxy_, kSecretCollectionInterface, kMethodSearchItems,
@@ -596,7 +649,7 @@ void FreedesktopSecretKeyProvider::OnKWalletOpen(int32_t handle) {
       kwallet_proxy_, kKWalletInterface, kKWalletMethodHasFolder,
       base::BindOnce(&FreedesktopSecretKeyProvider::OnKWalletHasFolder,
                      weak_ptr_factory_.GetWeakPtr()),
-      kwallet_handle_, kKWalletFolder, product_name_);
+      kwallet_handle_, config_.kwallet_folder, product_name_);
 }
 
 void FreedesktopSecretKeyProvider::OnKWalletHasFolder(
@@ -612,13 +665,13 @@ void FreedesktopSecretKeyProvider::OnKWalletHasFolder(
         kwallet_proxy_, kKWalletInterface, kKWalletMethodHasEntry,
         base::BindOnce(&FreedesktopSecretKeyProvider::OnKWalletHasEntry,
                        weak_ptr_factory_.GetWeakPtr()),
-        kwallet_handle_, kKWalletFolder, kKeyName, product_name_);
+        kwallet_handle_, config_.kwallet_folder, config_.key_name, product_name_);
   } else {
     dbus_utils::CallMethod<"iss", "b">(
         kwallet_proxy_, kKWalletInterface, kKWalletMethodCreateFolder,
         base::BindOnce(&FreedesktopSecretKeyProvider::OnKWalletCreateFolder,
                        weak_ptr_factory_.GetWeakPtr()),
-        kwallet_handle_, kKWalletFolder, product_name_);
+        kwallet_handle_, config_.kwallet_folder, product_name_);
   }
 }
 
@@ -645,7 +698,7 @@ void FreedesktopSecretKeyProvider::OnKWalletHasEntry(
         kwallet_proxy_, kKWalletInterface, kKWalletMethodReadPassword,
         base::BindOnce(&FreedesktopSecretKeyProvider::OnKWalletReadPassword,
                        weak_ptr_factory_.GetWeakPtr()),
-        kwallet_handle_, kKWalletFolder, kKeyName, product_name_);
+        kwallet_handle_, config_.kwallet_folder, config_.key_name, product_name_);
   } else {
     GenerateAndWriteKWalletPassword();
   }
@@ -680,7 +733,7 @@ void FreedesktopSecretKeyProvider::GenerateAndWriteKWalletPassword() {
       kwallet_proxy_, kKWalletInterface, kKWalletMethodWritePassword,
       base::BindOnce(&FreedesktopSecretKeyProvider::OnKWalletWritePassword,
                      weak_ptr_factory_.GetWeakPtr(), secret),
-      kwallet_handle_, kKWalletFolder, kKeyName, secret->as_string(),
+      kwallet_handle_, config_.kwallet_folder, config_.key_name, secret->as_string(),
       product_name_);
 }
 
@@ -706,14 +759,14 @@ void FreedesktopSecretKeyProvider::OnKWalletWritePassword(
 void FreedesktopSecretKeyProvider::CreateItem(
     scoped_refptr<base::RefCountedMemory> secret) {
   std::map<std::string, std::string> attributes{
-      {kApplicationAttributeKey, kAppName},
+      {kApplicationAttributeKey, config_.app_name},
       {kSchemaAttributeKey, kSchemaAttributeValue}};
 
   std::map<std::string, dbus_utils::Variant> props;
   props.emplace(kSecretItemAttributesProperty,
                 dbus_utils::Variant::Wrap<"a{ss}">(std::move(attributes)));
   props.emplace(kSecretItemLabelProperty,
-                dbus_utils::Variant::Wrap<"s">(kKeyName));
+                dbus_utils::Variant::Wrap<"s">(config_.key_name));
 
   std::vector<uint8_t> secret_bytes(secret->begin(), secret->end());
   auto secret_struct =

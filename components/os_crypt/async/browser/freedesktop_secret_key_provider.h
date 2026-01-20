@@ -62,10 +62,31 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
     kMaxValue = kKWalletWriteFailed,
   };
 
+  struct Config {
+    Config();
+    ~Config();
+    Config(const Config&);
+    Config& operator=(const Config&);
+
+    // The application name used for D-Bus attributes.
+    std::string app_name;
+    // The folder name used in KWallet.
+    std::string kwallet_folder;
+    // The key name used for storing the encryption key.
+    std::string key_name;
+  };
+
   FreedesktopSecretKeyProvider(const std::string& password_store,
                                const std::string& product_name,
                                scoped_refptr<dbus::Bus> bus);
+  FreedesktopSecretKeyProvider(const std::string& password_store,
+                               const std::string& product_name,
+                               const Config& config,
+                               scoped_refptr<dbus::Bus> bus);
   ~FreedesktopSecretKeyProvider() override;
+
+  // Returns the default configuration with platform-specific defaults.
+  static Config GetDefaultConfig();
 
   // KeyProvider:
   void GetKey(KeyCallback callback) override;
@@ -153,16 +174,6 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
   static constexpr int kKWalletInvalidHandle = -1;
   static constexpr int kKWalletInvalidTransactionId = -1;
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  static constexpr char kKWalletFolder[] = "Chrome Keys";
-  static constexpr char kKeyName[] = "Chrome Safe Storage";
-  static constexpr char kAppName[] = "chrome";
-#else
-  static constexpr char kKWalletFolder[] = "Chromium Keys";
-  static constexpr char kKeyName[] = "Chromium Safe Storage";
-  static constexpr char kAppName[] = "chromium";
-#endif
-
   void InitializeFreedesktopSecretService();
   void OnServiceStarted(std::optional<bool> service_started);
   void OnReadAliasDefault(dbus_utils::CallMethodResultSig<"o"> collection_path);
@@ -223,6 +234,7 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
 
   const std::string password_store_;
   const std::string product_name_;
+  const Config config_;
   scoped_refptr<dbus::Bus> bus_;
   KeyCallback key_callback_;
 
