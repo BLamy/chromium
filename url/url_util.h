@@ -115,6 +115,11 @@ COMPONENT_EXPORT(URL) const std::vector<std::string>& GetCSPBypassingSchemes();
 COMPONENT_EXPORT(URL) void AddEmptyDocumentScheme(std::string_view new_scheme);
 COMPONENT_EXPORT(URL) const std::vector<std::string>& GetEmptyDocumentSchemes();
 
+// Adds an application-defined scheme to the list of schemes on which Chrome
+// extensions can be used.
+COMPONENT_EXPORT(URL) void AddExtensionScheme(std::string_view new_scheme);
+COMPONENT_EXPORT(URL) const std::vector<std::string>& GetExtensionSchemes();
+
 // Adds a scheme with a predefined default handler.
 //
 // This pair of strings must be normalized protocol handler parameters as

@@ -132,6 +132,9 @@ struct SchemeRegistry {
       kMaterializedViewScheme,
   };
 
+  // Embedder schemes on which Chrome extensions can be used.
+  std::vector<std::string> extension_schemes = {};
+
   // Schemes with a predefined default custom handler.
   std::vector<SchemeWithHandler> predefined_handler_schemes;
 
@@ -665,6 +668,15 @@ void AddEmptyDocumentScheme(std::string_view new_scheme) {
 
 const std::vector<std::string>& GetEmptyDocumentSchemes() {
   return GetSchemeRegistry().empty_document_schemes;
+}
+
+void AddExtensionScheme(std::string_view new_scheme) {
+  DoAddScheme(new_scheme,
+              &GetSchemeRegistryWithoutLocking()->extension_schemes);
+}
+
+const std::vector<std::string>& GetExtensionSchemes() {
+  return GetSchemeRegistry().extension_schemes;
 }
 
 void AddPredefinedHandlerScheme(std::string_view new_scheme,

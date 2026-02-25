@@ -37,7 +37,7 @@ ContentSettingsPattern ParseExtensionPattern(std::string_view pattern_str,
                                              std::string* error) {
   const int kAllowedSchemes =
       URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS |
-      URLPattern::SCHEME_FILE;
+      URLPattern::SCHEME_FILE | URLPattern::SCHEME_ELECTRON_CUSTOM_PROTOCOLS;
   URLPattern url_pattern(kAllowedSchemes);
   URLPattern::ParseResult result = url_pattern.Parse(pattern_str);
   if (result != URLPattern::ParseResult::kSuccess) {

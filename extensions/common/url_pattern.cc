@@ -140,6 +140,11 @@ bool URLPattern::IsValidSchemeForExtensions(std::string_view scheme) {
       return true;
     }
   }
+  for (auto& extension_scheme : url::GetExtensionSchemes()) {
+    if (scheme == extension_scheme) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -398,6 +403,14 @@ bool URLPattern::IsValidScheme(std::string_view scheme) const {
   for (size_t i = 0; i < std::size(kValidSchemes); ++i) {
     if (scheme == kValidSchemes[i]) {
       return valid_schemes_ & kValidSchemeMasks[i];
+    }
+  }
+
+  if (valid_schemes_ & URLPattern::SCHEME_ELECTRON_CUSTOM_PROTOCOLS) {
+    for (auto& extension_scheme : url::GetExtensionSchemes()) {
+      if (scheme == extension_scheme) {
+        return true;
+      }
     }
   }
 

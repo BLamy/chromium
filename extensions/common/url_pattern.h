@@ -64,6 +64,9 @@ class URLPattern {
     SCHEME_DATA = 1 << 9,
     SCHEME_UUID_IN_PACKAGE = 1 << 10,
 
+    // Represents the schemes returned by url::GetExtensionSchemes().
+    SCHEME_ELECTRON_CUSTOM_PROTOCOLS = 1 << 11,
+
     // IMPORTANT!
     // SCHEME_ALL will match every scheme, including chrome://, chrome-
     // extension://, about:, etc. Because this has lots of security

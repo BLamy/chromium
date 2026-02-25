@@ -26,7 +26,8 @@ inline constexpr int kWebRequestFilterValidSchemes =
     URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS |
     URLPattern::SCHEME_FTP | URLPattern::SCHEME_FILE |
     URLPattern::SCHEME_EXTENSION | URLPattern::SCHEME_WS |
-    URLPattern::SCHEME_WSS | URLPattern::SCHEME_UUID_IN_PACKAGE;
+    URLPattern::SCHEME_WSS | URLPattern::SCHEME_UUID_IN_PACKAGE |
+    URLPattern::SCHEME_ELECTRON_CUSTOM_PROTOCOLS;
 
 // Keys of the webRequest.RequestFilter dictionary.
 inline constexpr char kRequestFilterUrlsKey[] = "urls";
