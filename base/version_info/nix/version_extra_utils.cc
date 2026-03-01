@@ -10,7 +10,28 @@
 #include "base/containers/fixed_flat_map.h"
 #include "base/environment.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "build/branding_buildflags.h"
+
+namespace {
+
+constexpr std::string_view kDesktopSuffix = ".desktop";
+std::optional<std::string> GetChromeDesktopBaseName(base::Environment& env) {
+  auto desktop = env.GetVar("CHROME_DESKTOP");
+  if (!desktop.has_value() || desktop->empty()) {
+    return std::nullopt;
+  }
+  std::string_view name = *desktop;
+  if (name.ends_with(kDesktopSuffix)) {
+    name.remove_suffix(kDesktopSuffix.size());
+  }
+  if (name.empty()) {
+    return std::nullopt;
+  }
+  return std::string(name);
+}
+
+}  // namespace
 
 namespace version_info::nix {
 
@@ -36,6 +57,10 @@ bool IsExtendedStable(base::Environment& env) {
 }
 
 std::string GetAppName(base::Environment& env) {
+  if (auto name = GetChromeDesktopBaseName(env)) {
+    return *name;
+  }
+
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   static constexpr std::string_view kAppName = "com.google.Chrome";
 #else
@@ -61,6 +86,16 @@ std::string GetAppName(base::Environment& env) {
 }
 
 std::string GetSessionNamePrefix(base::Environment& env) {
+  if (auto name = GetChromeDesktopBaseName(env)) {
+    // DBus object paths have stricter requirements than names.
+    for (char& c : *name) {
+      if (!base::IsAsciiAlphaNumeric(c) && c != '_') {
+        c = '_';
+      }
+    }
+    return base::ToLowerASCII(*name);
+  }
+
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   static constexpr std::string_view kSessionNamePrefix = "chrome";
 #else
