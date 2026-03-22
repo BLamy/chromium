@@ -533,15 +533,22 @@ std::optional<WakeUp> ThreadControllerWithMessagePumpImpl::DoWorkImpl(
     // `PendingTask` reference dangling.
     selected_task.reset();
 
-    LazyNow lazy_now_after_run_task(time_source_);
-    main_thread_only().task_source->DidRunTask(lazy_now_after_run_task);
+    {
+      LazyNow lazy_now_did_run_task(time_source_);
+      main_thread_only().task_source->DidRunTask(lazy_now_did_run_task);
+    }
     // End the work item scope after DidRunTask() as it can process microtasks
-    // (which are extensions of the RunTask).
+    // (which are extensions of the RunTask). Use a fresh LazyNow here because
+    // DidRunTask may cache the LazyNow (via RecordTaskEnd) before running task
+    // observers, and those observers may trigger nested pump activity that
+    // advances TimeKeeper's last_phase_end_ past the cached value, resulting
+    // in a negative delta in RecordTimeInPhase.
+    LazyNow lazy_now_after_run_task(time_source_);
     OnEndWorkItemImpl(lazy_now_after_run_task, run_depth);
 
-    // If DidRunTask() read the clock (lazy_now_after_run_task.has_value()) or
-    // if |batch_duration| > 0, store the clock value in `recent_time` so it can
-    // be reused by SelectNextTask() at the next loop iteration.
+    // If OnEndWorkItemImpl() read the clock (lazy_now_after_run_task.has_value())
+    // or if |batch_duration| > 0, store the clock value in `recent_time` so it
+    // can be reused by SelectNextTask() at the next loop iteration.
     if (lazy_now_after_run_task.has_value() || !batch_duration.is_zero()) {
       recent_time = lazy_now_after_run_task.Now();
     } else {
