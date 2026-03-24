@@ -807,6 +807,13 @@ NativeDesktopMediaList::NativeDesktopMediaList(
 #else
   base::MessagePumpType thread_type = base::MessagePumpType::DEFAULT;
 #endif
+#if BUILDFLAG(IS_WIN)
+  // On Windows, window enumeration via webrtc::DesktopCapturer may interact
+  // with UWP/Metro windows through twinapi.dll, which internally calls
+  // CoCreateInstance. Initialize COM on this thread to prevent crashes in
+  // Chromium's DCheckedCoCreateInstance hook.
+  thread_.init_com_with_mta(false);
+#endif
   thread_.StartWithOptions(base::Thread::Options(thread_type, 0));
 
   worker_ = std::make_unique<Worker>(
