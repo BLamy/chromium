@@ -536,7 +536,8 @@ gfx::PointF GetSanitizedFlippedPoint(NSPoint point, CGFloat height) {
   Visibility visibility = Visibility::kVisible;
   if ([self isHiddenOrHasHiddenAncestor] || ![self window])
     visibility = Visibility::kHidden;
-  else if ([[self window] isOccluded])
+  else if ([[self window] isOccluded] ||
+           !([[self window] occlusionState] & NSWindowOcclusionStateVisible))
     visibility = Visibility::kOccluded;
 
   [self updateWebContentsVisibility:visibility];
@@ -587,11 +588,12 @@ gfx::PointF GetSanitizedFlippedPoint(NSPoint point, CGFloat height) {
 }
 
 - (void)windowChangedOcclusionState:(NSNotification*)aNotification {
-  // Only respond to occlusion notifications sent by the occlusion checker.
-  NSDictionary* userInfo = [aNotification userInfo];
-  NSString* occlusionCheckerKey = [WebContentsOcclusionCheckerMac className];
-  if (userInfo[occlusionCheckerKey] != nil)
-    [self updateWebContentsVisibility];
+  // Respond to occlusion notifications from both macOS and the occlusion
+  // checker. Embedders (e.g. Electron) may attach a WebContentsViewCocoa to
+  // a window that has not yet been shown; macOS will notify us when the
+  // window's occlusion state changes, but the occlusion checker will not
+  // because -[NSWindow isOccluded] remains NO before and after show.
+  [self updateWebContentsVisibility];
 }
 
 - (void)viewDidMoveToWindow {
