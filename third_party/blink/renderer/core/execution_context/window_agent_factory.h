@@ -42,12 +42,15 @@ class CORE_EXPORT WindowAgentFactory final
   //   * --run-web-tests is set,
   //   * or, the Blink instance is running for Android WebView.
   WindowAgent* GetAgentForAgentClusterKey(
-      bool has_potential_universal_access_privilege,
+      bool is_web_security_disabled,
+      bool allow_universal_access_from_file_urls,
       const AgentClusterKey& agent_cluster_key);
 
   void Trace(Visitor*) const;
 
  private:
+  WindowAgent* GetOrCreateUniversalAccessAgent();
+
   // Use a shared instance of Agent for all frames if a frame may have the
   // universal access privilege.
   WeakMember<WindowAgent> universal_access_agent_;

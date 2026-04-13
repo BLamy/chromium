@@ -2786,22 +2786,16 @@ bool ShouldReuseDOMWindow(LocalDOMWindow* window,
   return *window_coi_key == *navigation_coi_key;
 }
 
-namespace {
-
-bool HasPotentialUniversalAccessPrivilege(LocalFrame* frame) {
-  return !frame->GetSettings()->GetWebSecurityEnabled() ||
-         frame->GetSettings()->GetAllowUniversalAccessFromFileURLs();
-}
-
-}  // namespace
-
 WindowAgent* GetWindowAgentForAgentClusterKey(
     LocalFrame* frame,
     const AgentClusterKey& agent_cluster_key) {
   // TODO(keishi): Also check if AllowUniversalAccessFromFileURLs might
   // dynamically change.
+  Settings* settings = frame->GetSettings();
   return frame->window_agent_factory().GetAgentForAgentClusterKey(
-      HasPotentialUniversalAccessPrivilege(frame), agent_cluster_key);
+      /*is_web_security_disabled=*/!settings->GetWebSecurityEnabled(),
+      /*allow_universal_access_from_file_urls=*/
+      settings->GetAllowUniversalAccessFromFileURLs(), agent_cluster_key);
 }
 
 // Inheriting cases use their agent's AgentClusterKey value, which is set
@@ -2902,7 +2896,7 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
     // WindowAgentFactory::GetAgentForOrigin(), as the two conditions below hand
     // out universal WindowAgent objects, and thus override the AgentClusterKey
     // provided by the browser process.
-  } else if (HasPotentialUniversalAccessPrivilege(frame_.Get()) ||
+  } else if (!frame_->GetSettings()->GetWebSecurityEnabled() ||
              security_origin->IsLocal()) {
     // In this case we either have AllowUniversalAccessFromFileURLs enabled, or
     // WebSecurity is disabled, or it's a local scheme such as file://; any of

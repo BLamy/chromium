@@ -22,19 +22,27 @@ WindowAgentFactory::WindowAgentFactory(
     AgentGroupScheduler& agent_group_scheduler)
     : agent_group_scheduler_(agent_group_scheduler) {}
 
+WindowAgent* WindowAgentFactory::GetOrCreateUniversalAccessAgent() {
+  if (!universal_access_agent_) {
+    universal_access_agent_ =
+        MakeGarbageCollected<WindowAgent>(*agent_group_scheduler_);
+  }
+  return universal_access_agent_.Get();
+}
+
 WindowAgent* WindowAgentFactory::GetAgentForAgentClusterKey(
-    bool has_potential_universal_access_privilege,
+    bool is_web_security_disabled,
+    bool allow_universal_access_from_file_urls,
     const AgentClusterKey& agent_cluster_key) {
-  if (has_potential_universal_access_privilege) {
-    if (!universal_access_agent_) {
-      universal_access_agent_ =
-          MakeGarbageCollected<WindowAgent>(*agent_group_scheduler_);
-    }
-    return universal_access_agent_.Get();
+  if (is_web_security_disabled) {
+    return GetOrCreateUniversalAccessAgent();
   }
 
   // For `file:` scheme origins.
   if (agent_cluster_key.IsUniversalFileAgent()) {
+    if (allow_universal_access_from_file_urls) {
+      return GetOrCreateUniversalAccessAgent();
+    }
     if (!file_url_agent_) {
       file_url_agent_ = MakeGarbageCollected<WindowAgent>(
           *agent_group_scheduler_, agent_cluster_key);
