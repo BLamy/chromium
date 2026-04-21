@@ -561,7 +561,8 @@ std::string DevToolsHttpHandler::GetFrontendURLInternal(
     const std::string& host) {
   std::string frontend_url;
   const std::string git_revision = CHROMIUM_GIT_REVISION;
-  if (git_revision == kMissingGitRevision &&
+  if ((git_revision == kMissingGitRevision ||
+       delegate_->ShouldUseBundledFrontendResources()) &&
       delegate_->HasBundledFrontendResources()) {
     frontend_url = "/devtools/inspector.html";
   } else {

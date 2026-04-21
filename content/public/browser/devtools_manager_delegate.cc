@@ -124,6 +124,10 @@ bool DevToolsManagerDelegate::HasBundledFrontendResources() {
   return false;
 }
 
+bool DevToolsManagerDelegate::ShouldUseBundledFrontendResources() {
+  return false;
+}
+
 bool DevToolsManagerDelegate::IsBrowserTargetDiscoverable() {
   return false;
 }

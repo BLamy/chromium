@@ -169,6 +169,13 @@ class CONTENT_EXPORT DevToolsManagerDelegate {
   // Returns whether frontend resources are bundled within the binary.
   virtual bool HasBundledFrontendResources();
 
+  // Returns whether the bundled frontend resources should be preferred over
+  // the remote frontend served from the CDN. Embedders that ship bundled
+  // frontend resources and whose Chromium revisions may not be available on
+  // the CDN (or may expire before their release cycle ends) should override
+  // this to return true.
+  virtual bool ShouldUseBundledFrontendResources();
+
   // Makes browser target easily discoverable for remote debugging.
   // This should only return true when remote debugging endpoint is not
   // accessible by the web (for example in Chrome for Android where it is
