@@ -568,6 +568,13 @@ static NSWindow* __weak _deferredResignKeyWindow;
   if (acceptedString == nil)
     return;
 
+  if (changeNumber != _availableTextChangeCounter) {
+    if (!_textSelectionRange.is_empty() ||
+        _textSelectionRange.start() <= NSMaxRange(correction.range)) {
+      return;
+    }
+  }
+
   NSRange availableTextRange =
       NSMakeRange(_availableTextOffset, _availableText.length());
 
