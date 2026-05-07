@@ -188,6 +188,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   DedicatedWorkerServiceImpl* GetDedicatedWorkerService() override;
   SharedWorkerService* GetSharedWorkerService() override;
   GeneratedCodeCacheContext* GetGeneratedCodeCacheContext() override;
+  void ReinitializeGeneratedCodeCacheContext(const base::FilePath& path,
+                                             int max_bytes);
   DevToolsBackgroundServicesContext* GetDevToolsBackgroundServicesContext()
       override;
   ContentIndexContextImpl* GetContentIndexContext() override;

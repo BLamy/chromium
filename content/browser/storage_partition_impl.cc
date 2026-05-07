@@ -1893,6 +1893,22 @@ StoragePartitionImpl::GetGeneratedCodeCacheContext() {
   return generated_code_cache_context_.get();
 }
 
+void StoragePartitionImpl::ReinitializeGeneratedCodeCacheContext(
+    const base::FilePath& path,
+    int max_bytes) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  // Do not create code cache for in-memory partitions.
+  if (is_in_memory()) {
+    return;
+  }
+  if (generated_code_cache_context_) {
+    generated_code_cache_context_->Shutdown();
+  }
+  generated_code_cache_context_ =
+      base::MakeRefCounted<GeneratedCodeCacheContext>();
+  generated_code_cache_context_->Initialize(path, max_bytes);
+}
+
 DevToolsBackgroundServicesContext*
 StoragePartitionImpl::GetDevToolsBackgroundServicesContext() {
   CHECK(initialized_, base::NotFatalUntil::M159);
