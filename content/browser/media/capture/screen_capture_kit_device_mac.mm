@@ -152,6 +152,32 @@ NSArray<SCWindow*>* GetWindowsToExclude(
   }
   return @[];
 }
+
+// Returns SCWindows from |content| that correspond to in-process NSWindows
+// whose sharingType is NSWindowSharingNone (content-protected via Electron's
+// win.setContentProtection(true)). Only captures windows protected before this
+// call; dynamically protected windows require a filter update.
+API_AVAILABLE(macos(12.3))
+NSArray<SCWindow*>* GetNonShareableWindows(SCShareableContent* content) {
+  NSArray<NSWindow*>* non_sharing_nswindows = [[[NSApplication sharedApplication]
+      windows]
+      filteredArrayUsingPredicate:
+          [NSPredicate predicateWithBlock:^BOOL(NSWindow* win,
+                                               NSDictionary* bindings) {
+            return [win sharingType] == NSWindowSharingNone;
+          }]];
+  return [[content windows]
+      filteredArrayUsingPredicate:
+          [NSPredicate predicateWithBlock:^BOOL(SCWindow* win,
+                                               NSDictionary* bindings) {
+            for (NSWindow* excluded : non_sharing_nswindows) {
+              if ((CGWindowID)[excluded windowNumber] == [win windowID]) {
+                return true;
+              }
+            }
+            return false;
+          }]];
+}
 }  // namespace
 
 @interface ScreenCaptureKitDeviceHelper
@@ -323,6 +349,9 @@ class ScreenCaptureKitDeviceMac
               source_.id == webrtc::kFullDesktopScreenId) {
             NSArray<SCWindow*>* excluded_windows = GetWindowsToExclude(
                 content, pip_screen_capture_coordinator_proxy_.get(), source_);
+            excluded_windows = [excluded_windows
+                arrayByAddingObjectsFromArray:GetNonShareableWindows(content)];
+
             filter = [[SCContentFilter alloc] initWithDisplay:display
                                              excludingWindows:excluded_windows];
             stream_config_content_size_ =
@@ -607,6 +636,8 @@ class ScreenCaptureKitDeviceMac
 
     NSArray<SCWindow*>* excluded_windows = GetWindowsToExclude(
         content, pip_screen_capture_coordinator_proxy_.get(), source_);
+    excluded_windows = [excluded_windows
+        arrayByAddingObjectsFromArray:GetNonShareableWindows(content)];
     SCContentFilter* filter =
         [[SCContentFilter alloc] initWithDisplay:display
                                 excludingWindows:excluded_windows];
