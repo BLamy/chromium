@@ -24,6 +24,7 @@
 #include "content/public/common/alternative_error_page_override_info.mojom.h"
 #include "content/public/common/content_client.h"
 #include "media/base/audio_parameters.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "media/base/key_system_info.h"
 #include "media/base/key_systems_support_registration.h"
 #include "media/base/supported_types.h"
@@ -113,6 +114,16 @@ class CONTENT_EXPORT ContentRendererClient {
 
   // Notifies that a new RenderFrame has been created.
   virtual void RenderFrameCreated(RenderFrame* render_frame) {}
+
+  // Called from RenderFrameImpl::CreateNewWindow() with the embedder startup
+  // data attached to the CreateNewWindowReply (see
+  // ContentBrowserClient::GetExtraCreateNewWindowReplyData), before the new
+  // window's RenderFrame is created. The new RenderFrame and its synchronous
+  // about:blank document are built on the same call stack, so the embedder can
+  // stash this data somewhere process-global and consume it from
+  // RenderFrameCreated() for the new frame.
+  virtual void SetPendingCreateNewWindowStartupData(mojo_base::BigBuffer data) {
+  }
 
   // Notifies that a new WebView has been created.
   // `outermost_origin` is only set if it is an extension scheme, otherwise

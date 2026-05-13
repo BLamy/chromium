@@ -7247,6 +7247,14 @@ WebView* RenderFrameImpl::CreateNewWindow(
     return nullptr;
   }
 
+  // Hand the embedder its startup data for the new window before the new
+  // RenderFrame is created — it will be consumed by RenderFrameCreated() on
+  // the same synchronous call stack. |reply| is null for kBlocked/kIgnore.
+  if (reply && reply->electron_startup_data) {
+    GetContentClient()->renderer()->SetPendingCreateNewWindowStartupData(
+        std::move(*reply->electron_startup_data));
+  }
+
   // If creation of the window was blocked (e.g. because this frame doesn't
   // have user activation), return before consuming user activation. A frame
   // that isn't allowed to open a window  shouldn't be able to consume the

@@ -11102,7 +11102,12 @@ void RenderFrameHostImpl::CreateNewWindow(
       new_main_rfh->GetSiteInstance()->browsing_instance_token(),
       delegate_->GetColorProviderColorMaps(),
       /*widget_screen_rect=*/std::nullopt,
-      /*window_screen_rect=*/std::nullopt);
+      /*window_screen_rect=*/std::nullopt,
+      /*electron_startup_data=*/std::nullopt);
+
+  reply->electron_startup_data =
+      GetContentClient()->browser()->GetExtraCreateNewWindowReplyData(
+          new_main_rfh, params->target_url);
 
   new_main_rfh->render_view_host()->RenderViewCreated(new_main_rfh);
 

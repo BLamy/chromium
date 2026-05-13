@@ -13,6 +13,7 @@ import "content/public/common/window_container_type.mojom";
 import "ipc/constants.mojom";
 import "mojo/public/mojom/base/file_path.mojom";
 import "mojo/public/mojom/base/time.mojom";
+import "mojo/public/mojom/base/big_buffer.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "skia/public/mojom/skcolor.mojom";
 import "services/network/public/mojom/content_security_policy.mojom";
@@ -704,6 +705,14 @@ struct CreateNewWindowReply {
   // Initial window geometry.
   gfx.mojom.Rect? widget_screen_rect;
   gfx.mojom.Rect? window_screen_rect;
+
+  // Extra field added by Electron. Carries the new window's preload startup
+  // data (an opaque embedder blob) so its synchronous about:blank document can
+  // run the preload that the embedder may have overridden — the about:blank's
+  // DidCreateScriptContext fires entirely renderer-side before any other
+  // browser-to-renderer transport can reach the new frame. Populated by
+  // ContentBrowserClient::GetExtraCreateNewWindowReplyData; may be null.
+  mojo_base.mojom.BigBuffer? electron_startup_data;
 };
 
 // A per-navigation interface passed along with the BeginNavigation call, used

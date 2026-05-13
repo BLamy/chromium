@@ -851,6 +851,13 @@ bool ContentBrowserClient::CanCreateWindow(
   return true;
 }
 
+std::optional<mojo_base::BigBuffer>
+ContentBrowserClient::GetExtraCreateNewWindowReplyData(
+    RenderFrameHost* new_window_main_frame,
+    const GURL& target_url) {
+  return std::nullopt;
+}
+
 SpeechRecognitionManagerDelegate*
 ContentBrowserClient::CreateSpeechRecognitionManagerDelegate() {
   return nullptr;

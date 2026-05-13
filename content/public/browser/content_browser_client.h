@@ -63,6 +63,7 @@
 #include "media/mojo/mojom/speech_recognizer.mojom-forward.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/message_pipe.h"
@@ -1314,6 +1315,17 @@ class CONTENT_EXPORT ContentBrowserClient {
       bool user_gesture,
       bool opener_suppressed,
       bool* no_javascript_access);
+
+  // Lets the embedder attach an opaque blob of startup data to the
+  // CreateNewWindowReply for a window.open() child window. The new window's
+  // synchronous about:blank document is created — and runs its embedder
+  // preload scripts — entirely inside the renderer's window.open() call, so
+  // there is no other browser-to-renderer transport that can reach it before
+  // it needs the data. |target_url| is the URL the new window will navigate
+  // to, if any (empty or about:blank otherwise). Returns nullopt for no data.
+  virtual std::optional<mojo_base::BigBuffer> GetExtraCreateNewWindowReplyData(
+      RenderFrameHost* new_window_main_frame,
+      const GURL& target_url);
 
   // Allows the embedder to return a delegate for the SpeechRecognitionManager.
   // The delegate will be owned by the manager. It's valid to return nullptr.
