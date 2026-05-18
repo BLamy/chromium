@@ -97,6 +97,7 @@ void EmbeddedWorkerInstanceClientImpl::StartWorker(
       ToWebPolicyContainer(std::move(params->policy_container));
 
   start_data->is_cross_origin_isolated = params->cross_origin_isolated;
+  start_data->electron_preload_data = std::move(params->electron_preload_data);
 
   // `cache_storage` may be null if COEP is not enabled, we cannot bind
   // eagerly in that case.

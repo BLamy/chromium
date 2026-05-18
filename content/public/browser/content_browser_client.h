@@ -1327,6 +1327,17 @@ class CONTENT_EXPORT ContentBrowserClient {
       RenderFrameHost* new_window_main_frame,
       const GURL& target_url);
 
+  // Lets the embedder attach an opaque blob of startup data to a service
+  // worker's EmbeddedWorkerStartParams. It travels with StartWorker and is
+  // marshalled to the worker thread with the rest of the start params, so the
+  // embedder can deliver per-worker startup data (e.g. preload scripts) that
+  // is ordered with worker creation, without a renderer-side cross-thread
+  // global. Called on the UI thread when a service worker is starting.
+  // Returns nullopt for no data.
+  virtual std::optional<mojo_base::BigBuffer> GetServiceWorkerStartupData(
+      BrowserContext* browser_context,
+      const GURL& scope);
+
   // Allows the embedder to return a delegate for the SpeechRecognitionManager.
   // The delegate will be owned by the manager. It's valid to return nullptr.
   virtual SpeechRecognitionManagerDelegate*

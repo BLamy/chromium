@@ -32,6 +32,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink-forward.h"
 #include "third_party/blink/public/common/permissions_policy/document_policy.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
@@ -295,6 +296,12 @@ class CORE_EXPORT WorkerGlobalScope
     return top_level_frame_security_origin_.get();
   }
 
+  // Added by Electron. Opaque embedder preload blob delivered via
+  // EmbeddedWorkerStartParams; read on the worker thread.
+  const std::optional<mojo_base::BigBuffer>& ElectronPreloadData() const {
+    return electron_preload_data_;
+  }
+
  protected:
   WorkerGlobalScope(std::unique_ptr<GlobalScopeCreationParams>,
                     WorkerThread*,
@@ -440,6 +447,9 @@ class CORE_EXPORT WorkerGlobalScope
   std::unique_ptr<CodeCacheHost> code_cache_host_;
 
   const ukm::SourceId ukm_source_id_;
+
+  // Added by Electron. See ElectronPreloadData().
+  std::optional<mojo_base::BigBuffer> electron_preload_data_;
 
   // Pauses virtual time from the time the thread has initialized (including
   // DevTools agents being configured while waiting for debugger) till the main

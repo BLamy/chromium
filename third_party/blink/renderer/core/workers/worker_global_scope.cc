@@ -945,6 +945,9 @@ WorkerGlobalScope::WorkerGlobalScope(
           std::move(creation_params->top_level_frame_security_origin)) {
   // Workers should always maintain the default world of an isolate.
   CHECK(creation_params->is_default_world_of_isolate);
+  // Added by Electron: stash the embedder preload blob before creation_params
+  // is consumed, so the service worker thread can read it later.
+  electron_preload_data_ = std::move(creation_params->electron_preload_data);
   TRACE_EVENT("blink.worker", "WorkerGlobalScope::WorkerGlobalScope");
   TRACE_EVENT_BEGIN(
       "blink.worker", "WorkerGlobalScope setup",

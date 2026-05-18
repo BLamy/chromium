@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/unguessable_token.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/storage_access_api/status.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -259,6 +260,11 @@ struct CORE_EXPORT GlobalScopeCreationParams final {
   // Initiator URL for the dedicated worker script's ResourceTiming entry.
   // Shared and service worker scripts have no ResourceTiming entry.
   KURL dedicated_worker_script_initiator_url;
+
+  // Added by Electron. Opaque embedder preload blob, moved onto the worker
+  // global scope on the worker thread. Settable post-construction (like
+  // dedicated_worker_start_time) to avoid touching the ~35-arg ctor.
+  std::optional<mojo_base::BigBuffer> electron_preload_data;
 
   // The parent ExecutionContext's Storage Access API status.
   const net::StorageAccessApiStatus parent_storage_access_api_status;

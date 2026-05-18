@@ -32,6 +32,7 @@
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_MODULES_SERVICE_WORKER_WEB_SERVICE_WORKER_CONTEXT_PROXY_H_
 
 #include "base/time/time.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "third_party/blink/public/mojom/service_worker/controller_service_worker.mojom-shared.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom-shared.h"
@@ -40,6 +41,7 @@
 #include "third_party/blink/public/platform/web_string.h"
 
 #include <memory>
+#include <optional>
 
 namespace blink {
 
@@ -80,6 +82,10 @@ class WebServiceWorkerContextProxy {
   virtual mojom::ServiceWorkerFetchHandlerType FetchHandlerType() = 0;
   virtual bool HasHidEventHandlers() = 0;
   virtual bool HasUsbEventHandlers() = 0;
+
+  // Added by Electron. The opaque embedder preload blob delivered with this
+  // worker's start params, read on the worker thread.
+  virtual const std::optional<mojo_base::BigBuffer>& ElectronPreloadData() = 0;
 
   // Passes an associated endpoint handle to the remote end to be bound to a
   // Channel-associated interface named |name|.

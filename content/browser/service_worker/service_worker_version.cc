@@ -2867,6 +2867,12 @@ void ServiceWorkerVersion::StartWorkerInternal() {
   params->ukm_source_id = ukm_source_id_;
   params->storage_key = key_;
 
+  if (BrowserContext* browser_context =
+          context_->wrapper()->browser_context()) {
+    params->electron_preload_data =
+        browser_client->GetServiceWorkerStartupData(browser_context, scope_);
+  }
+
   // policy_container_host could be null for registration restored from old DB
   if (policy_container_host_) {
     params->policy_container =

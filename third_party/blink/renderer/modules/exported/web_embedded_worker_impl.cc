@@ -250,6 +250,9 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
       /*origin_to_use=*/nullptr, std::move(coep_reporting_observer),
       std::move(dip_reporting_observer));
 
+  global_scope_creation_params->electron_preload_data =
+      std::move(worker_start_data->electron_preload_data);
+
   worker_thread_ = std::make_unique<ServiceWorkerThread>(
       std::make_unique<ServiceWorkerGlobalScopeProxy>(
           *this, *worker_context_client_, initiator_thread_task_runner),

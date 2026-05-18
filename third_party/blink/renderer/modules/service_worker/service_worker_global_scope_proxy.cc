@@ -329,6 +329,11 @@ bool ServiceWorkerGlobalScopeProxy::HasUsbEventHandlers() {
   return WorkerGlobalScope()->HasUsbEventHandlers();
 }
 
+const std::optional<mojo_base::BigBuffer>&
+ServiceWorkerGlobalScopeProxy::ElectronPreloadData() {
+  return WorkerGlobalScope()->ElectronPreloadData();
+}
+
 void ServiceWorkerGlobalScopeProxy::GetRemoteAssociatedInterface(
     const WebString& name,
     mojo::ScopedInterfaceEndpointHandle handle) {

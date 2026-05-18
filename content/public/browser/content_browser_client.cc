@@ -858,6 +858,13 @@ ContentBrowserClient::GetExtraCreateNewWindowReplyData(
   return std::nullopt;
 }
 
+std::optional<mojo_base::BigBuffer>
+ContentBrowserClient::GetServiceWorkerStartupData(
+    BrowserContext* browser_context,
+    const GURL& scope) {
+  return std::nullopt;
+}
+
 SpeechRecognitionManagerDelegate*
 ContentBrowserClient::CreateSpeechRecognitionManagerDelegate() {
   return nullptr;

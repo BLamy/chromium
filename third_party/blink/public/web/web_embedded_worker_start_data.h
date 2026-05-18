@@ -31,7 +31,10 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_EMBEDDED_WORKER_START_DATA_H_
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_EMBEDDED_WORKER_START_DATA_H_
 
+#include <optional>
+
 #include "base/unguessable_token.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/common/fingerprinting_protection/noise_token.h"
 #include "third_party/blink/public/common/loader/worker_main_script_load_parameters.h"
@@ -74,6 +77,10 @@ struct WebEmbeddedWorkerStartData {
   std::unique_ptr<WorkerMainScriptLoadParameters> main_script_load_params;
 
   std::unique_ptr<WebPolicyContainer> policy_container;
+
+  // Added by Electron. Opaque embedder preload blob carried from the browser
+  // via EmbeddedWorkerStartParams; read on the service worker thread.
+  std::optional<mojo_base::BigBuffer> electron_preload_data;
 
   explicit WebEmbeddedWorkerStartData(
       WebFetchClientSettingsObject outside_fetch_client_settings_object)
