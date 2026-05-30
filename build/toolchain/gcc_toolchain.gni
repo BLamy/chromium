@@ -42,7 +42,8 @@ if (enable_resource_allowlist_generation) {
       !is_component_build,
       "enable_resource_allowlist_generation=true requires is_component_build=false")
   assert(
-      target_os == "android" || target_os == "win",
+      target_os == "android" || target_os == "win" || target_os == "linux" ||
+          target_os == "mac",
       "enable_resource_allowlist_generation=true does not work for target_os=$target_os")
 }
 
