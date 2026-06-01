@@ -123,6 +123,52 @@ config("pgo_optimization_flags") {
       inputs = [ "//chrome/build/android-desktop-x64.pgo.txt" ]
     }
 
+    # Electron generates and consumes its own PGO profiles. They are named per
+    # platform/arch - including per-arch Linux profiles, which Chrome does not
+    # have - and resolved through state files in Electron's tree, downloaded
+    # by Electron's gclient hooks. Resolution is skipped when pgo_data_path is
+    # set explicitly, preserving that arg as an override.
+    # See //electron/build/pgo_profiles/README.md.
+    if (is_electron_build && pgo_data_path == "") {
+      _electron_pgo_target = ""
+      if (is_win) {
+        if (target_cpu == "arm64") {
+          _electron_pgo_target = "win-arm64"
+        } else if (target_cpu == "x64") {
+          _electron_pgo_target = "win-x64"
+        } else {
+          _electron_pgo_target = "win-x86"
+        }
+      } else if (is_mac) {
+        if (target_cpu == "arm64") {
+          _electron_pgo_target = "macos-arm64"
+        } else {
+          _electron_pgo_target = "macos-x64"
+        }
+      } else if (is_linux) {
+        if (target_cpu == "arm64") {
+          _electron_pgo_target = "linux-arm64"
+        } else if (target_cpu == "arm") {
+          _electron_pgo_target = "linux-arm"
+        } else {
+          _electron_pgo_target = "linux-x64"
+        }
+      }
+      if (_electron_pgo_target != "") {
+        _electron_state_file =
+            "//electron/build/pgo_profiles/${_electron_pgo_target}.pgo.txt"
+        inputs += [ _electron_state_file ]
+
+        # State file lines are "<name> <sha256>" (or legacy "<name>"). The
+        # build only needs the name; the sha256 is verified at download time
+        # by //electron/script/pgo/download-profiles.py.
+        _electron_state_line = read_file(_electron_state_file, "trim string")
+        _electron_state_fields = string_split(_electron_state_line)
+        pgo_data_path =
+            "//electron/build/pgo_profiles/" + _electron_state_fields[0]
+      }
+    }
+
     if (_pgo_target != "" && pgo_data_path == "") {
       common_args = [
         "--target",
