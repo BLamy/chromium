@@ -116,6 +116,7 @@ void GlobalAcceleratorListenerLinux::OnServiceStarted(uint32_t version) {
   portal_version_ = version;
 
   if (!*service_started_) {
+    NotifyRegistrationsResolved(false);
     bound_commands_.clear();
     return;
   }
@@ -170,8 +171,12 @@ void GlobalAcceleratorListenerLinux::OnCommandsChanged(
     gfx::AcceleratedWidget widget,
     base::RepeatingCallback<void(const std::string&, const std::string&)>
         execute_command) {
-  // If starting the service failed, there's no need to add the command list.
+  // If starting the service failed, there's no need to add the command list;
+  // resolve the registration as failed right away.
   if (!service_started_.value_or(true)) {
+    if (registration_resolved_callback_) {
+      registration_resolved_callback_.Run(accelerator_group_id, false);
+    }
     return;
   }
 
@@ -230,6 +235,13 @@ void GlobalAcceleratorListenerLinux::OnCommandsChanged(
 
   SaveState();
   MaybeBind();
+
+  // If every global command of this group is already bound in the current
+  // session, MaybeBind() doesn't bind again, so resolve the registration now.
+  if (!global_ids.empty() && session_ && bind_state_ == BindState::kBound &&
+      registration_resolved_callback_) {
+    registration_resolved_callback_.Run(accelerator_group_id, true);
+  }
 }
 
 void GlobalAcceleratorListenerLinux::SetStateStore(
@@ -302,6 +314,8 @@ void GlobalAcceleratorListenerLinux::OnCreateSessionResponse(
   if (!session) {
     VLOG(1) << "Failed to create portal session.";
     session_.reset();
+    bind_state_ = BindState::kNotBound;
+    NotifyRegistrationsResolved(false);
     return;
   }
 
@@ -369,6 +383,7 @@ void GlobalAcceleratorListenerLinux::OnListShortcuts(
           [&](const std::string& id) { return listed_ids.contains(id); })) {
     session_ids_ = ids_to_bind;
     bind_state_ = BindState::kBound;
+    NotifyRegistrationsResolved(true);
     return;
   }
 
@@ -398,12 +413,18 @@ void GlobalAcceleratorListenerLinux::BindShortcuts(std::string parent_handle) {
   }
 
   const base::flat_set<std::string> ids_to_bind = GetIdsToBind();
+  pending_bind_groups_.clear();
+  base::flat_set<std::string> pending_groups_seen;
   for (const std::string& id : ids_to_bind) {
     dbus_xdg::Dictionary& props = shortcut_map[id];
     props.clear();
     auto bound_it = bound_commands_.find(id);
     if (bound_it != bound_commands_.end()) {
-      const ui::Command& command = bound_it->second.command;
+      const BoundCommand& bound_cmd = bound_it->second;
+      if (pending_groups_seen.insert(bound_cmd.accelerator_group_id).second) {
+        pending_bind_groups_.push_back(bound_cmd.accelerator_group_id);
+      }
+      const ui::Command& command = bound_cmd.command;
       props["description"] =
           dbus_utils::Variant::Wrap<"s">(GetDescription(command));
       std::string trigger = AcceleratorToXdgShortcut(command.accelerator());
@@ -451,6 +472,10 @@ void GlobalAcceleratorListenerLinux::OnBindShortcuts(
   const bool needs_rebind = bind_state_ == BindState::kNeedsRebind;
   base::flat_set<std::string> bound_ids = std::move(pending_bind_ids_);
   pending_bind_ids_.clear();
+  // Only resolve the groups that were part of this bind request; commands
+  // registered while the bind was in flight resolve with the rebind below.
+  const std::vector<std::string> groups = std::move(pending_bind_groups_);
+  pending_bind_groups_.clear();
 
   if (results.has_value()) {
     for (const std::string& id : bound_ids) {
@@ -460,6 +485,8 @@ void GlobalAcceleratorListenerLinux::OnBindShortcuts(
       }
     }
     SaveState();
+    // Shortcuts successfully bound.
+    NotifyGroupsResolved(groups, true);
     session_ids_ = std::move(bound_ids);
     bind_state_ = BindState::kBound;
     if (needs_rebind) {
@@ -471,6 +498,7 @@ void GlobalAcceleratorListenerLinux::OnBindShortcuts(
 
   LOG(ERROR) << "Failed to call BindShortcuts (error code "
              << static_cast<int>(results.error()) << ").";
+  NotifyGroupsResolved(groups, false);
 
   // If the user cancelled the dialog, or the backend failed to apply the
   // shortcuts after showing it (e.g. xdg-desktop-portal-gnome without GNOME
@@ -507,17 +535,12 @@ void GlobalAcceleratorListenerLinux::OnBindShortcuts(
     SaveState();
   }
 
-  base::EraseIf(bound_ids, [&](const std::string& id) {
-    auto it = offered_shortcuts_.find(id);
-    return it != offered_shortcuts_.end() &&
-           it->second.state == OfferState::kDeclined;
-  });
-  session_ids_ = std::move(bound_ids);
-  bind_state_ = BindState::kBound;
+  // Close the session so that the failed IDs aren't treated as bound, and a
+  // later registration attempts a fresh bind.
+  CloseSession();
 
   if (GetIdsToBind().empty()) {
-    // Everything was declined, so there's nothing to keep the session for.
-    CloseSession();
+    // Everything was declined, so there's nothing left to bind.
     return;
   }
 
@@ -525,7 +548,6 @@ void GlobalAcceleratorListenerLinux::OnBindShortcuts(
   // stay active. This can't loop indefinitely, since a retry only happens if a
   // shortcut was declined or shortcuts were added during the bind.
   if (newly_declined || needs_rebind) {
-    CloseSession();
     CreateSession();
   }
 }
@@ -561,6 +583,39 @@ void GlobalAcceleratorListenerLinux::OnSignalConnected(
   if (!success) {
     LOG(ERROR) << "Failed to connect to signal: " << interface_name << "."
                << signal_name;
+  }
+}
+
+void GlobalAcceleratorListenerLinux::SetRegistrationResolvedCallback(
+    RegistrationResolvedCallback callback) {
+  registration_resolved_callback_ = std::move(callback);
+}
+
+void GlobalAcceleratorListenerLinux::NotifyRegistrationsResolved(bool bound) {
+  if (!registration_resolved_callback_) {
+    return;
+  }
+  // Snapshot the group ids first: the callback may re-enter and mutate
+  // `bound_commands_`.
+  std::vector<std::string> groups;
+  base::flat_set<std::string> seen;
+  for (const auto& [id, bound_cmd] : bound_commands_) {
+    if (bound_cmd.command.global() &&
+        seen.insert(bound_cmd.accelerator_group_id).second) {
+      groups.push_back(bound_cmd.accelerator_group_id);
+    }
+  }
+  NotifyGroupsResolved(groups, bound);
+}
+
+void GlobalAcceleratorListenerLinux::NotifyGroupsResolved(
+    const std::vector<std::string>& groups,
+    bool bound) {
+  if (!registration_resolved_callback_) {
+    return;
+  }
+  for (const auto& group : groups) {
+    registration_resolved_callback_.Run(group, bound);
   }
 }
 

@@ -145,6 +145,8 @@ class COMPONENT_EXPORT(GLOBAL_ACCELERATOR_LISTENER)
       gfx::AcceleratedWidget widget,
       base::RepeatingCallback<void(const std::string&, const std::string&)>
           execute_command) override;
+  void SetRegistrationResolvedCallback(
+      RegistrationResolvedCallback callback) override;
   void PruneStaleCommands() override;
   void SetStateStore(std::unique_ptr<StateStore> store) override;
 
@@ -192,6 +194,14 @@ class COMPONENT_EXPORT(GLOBAL_ACCELERATOR_LISTENER)
   void LoadState();
   void SaveState();
 
+  // Runs `registration_resolved_callback_` once per accelerator group that
+  // has global commands.
+  void NotifyRegistrationsResolved(bool bound);
+
+  // Runs `registration_resolved_callback_` for each of `groups`.
+  void NotifyGroupsResolved(const std::vector<std::string>& groups,
+                            bool bound);
+
   // DBus components.
   scoped_refptr<dbus::Bus> bus_;
   raw_ptr<dbus::ObjectProxy> global_shortcuts_proxy_ = nullptr;
@@ -233,6 +243,10 @@ class COMPONENT_EXPORT(GLOBAL_ACCELERATOR_LISTENER)
   base::flat_set<std::string> pending_bind_ids_;
 
   std::unique_ptr<StateStore> state_store_;
+
+  RegistrationResolvedCallback registration_resolved_callback_;
+  // Accelerator groups included in the in-flight BindShortcuts request.
+  std::vector<std::string> pending_bind_groups_;
 
   base::WeakPtrFactory<GlobalAcceleratorListenerLinux> weak_ptr_factory_{this};
 };

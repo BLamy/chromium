@@ -89,6 +89,18 @@ class COMPONENT_EXPORT(GLOBAL_ACCELERATOR_LISTENER) GlobalAcceleratorListener {
       base::RepeatingCallback<void(const std::string&, const std::string&)>
           execute_command) {}
 
+  // Invoked with `accelerator_group_id` and whether the registration is
+  // actually bound, once an externally-handled registration resolves (e.g.
+  // the GlobalShortcuts portal accepts or denies a bind). May be invoked
+  // multiple times per group since re-binds re-resolve existing
+  // registrations. Only meaningful when IsRegistrationHandledExternally()
+  // returns true; the default implementation drops the callback.
+  using RegistrationResolvedCallback =
+      base::RepeatingCallback<void(const std::string& accelerator_group_id,
+                                   bool bound)>;
+  virtual void SetRegistrationResolvedCallback(
+      RegistrationResolvedCallback callback) {}
+
   // Removes command map entries whose execute_command callbacks are cancelled.
   virtual void PruneStaleCommands() {}
 
