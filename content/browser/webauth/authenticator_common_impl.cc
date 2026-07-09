@@ -3110,8 +3110,12 @@ AuthenticatorCommonImpl::CreateMakeCredentialResponse(
     AttestationErasureOption attestation_erasure) {
   auto response = blink::mojom::MakeCredentialAuthenticatorResponse::New();
   auto common_info = blink::mojom::CommonCredentialInfo::New();
-  common_info->client_data_json.assign(req_state_->client_data_json.begin(),
-                                       req_state_->client_data_json.end());
+  if (response_data.raw_client_data_json.has_value()) {
+    common_info->client_data_json = *response_data.raw_client_data_json;
+  } else {
+    common_info->client_data_json.assign(req_state_->client_data_json.begin(),
+                                         req_state_->client_data_json.end());
+  }
   common_info->raw_id = response_data.attestation_object.GetCredentialId();
   common_info->id = webauthn::Base64UrlEncodeOmitPadding(common_info->raw_id);
 
@@ -3323,8 +3327,12 @@ AuthenticatorCommonImpl::CreateGetAssertionResponse(
   auto common_info = blink::mojom::CommonCredentialInfo::New();
   auto response_extensions =
       blink::mojom::AuthenticationExtensionsClientOutputs::New();
-  common_info->client_data_json.assign(req_state_->client_data_json.begin(),
-                                       req_state_->client_data_json.end());
+  if (response_data.raw_client_data_json.has_value()) {
+    common_info->client_data_json = *response_data.raw_client_data_json;
+  } else {
+    common_info->client_data_json.assign(req_state_->client_data_json.begin(),
+                                         req_state_->client_data_json.end());
+  }
   common_info->raw_id = response_data.credential->id;
   common_info->id = webauthn::Base64UrlEncodeOmitPadding(common_info->raw_id);
   response->info = std::move(common_info);

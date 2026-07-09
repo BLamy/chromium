@@ -97,6 +97,11 @@ class COMPONENT_EXPORT(DEVICE_FIDO) AuthenticatorMakeCredentialResponse {
   // `cmtg_key` is present if the client requested a CMTG key and the
   // authenticator supported it.
   std::optional<CmtgKeyResponse> cmtg_key;
+
+  // If set, this overrides the client_data_json that would normally be returned
+  // to the relying party. Used by Electron's platform passkey authenticator on
+  // macOS where Apple constructs its own clientDataJSON.
+  std::optional<std::vector<uint8_t>> raw_client_data_json;
 };
 
 // Through cbor::Writer, produces a CTAP style CBOR-encoded byte array

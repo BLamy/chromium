@@ -96,6 +96,14 @@ class COMPONENT_EXPORT(DEVICE_FIDO) AuthenticatorGetAssertionResponse {
 
   // Contains the CMTG public key and signature if requested and supported.
   std::optional<CmtgKeyResponse> cmtg_key;
+
+  // If set, this overrides the client_data_json that would normally be returned
+  // to the relying party. This is used by Electron's platform passkey
+  // authenticator on macOS, where Apple's ASAuthorizationController constructs
+  // its own clientDataJSON from the supplied challenge and signs over it. The
+  // page must receive Apple's JSON so that the RP can verify the signature
+  // against it.
+  std::optional<std::vector<uint8_t>> raw_client_data_json;
 };
 
 }  // namespace device
