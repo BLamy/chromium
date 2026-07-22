@@ -126,3 +126,13 @@ type:*StartPageService*
 # Remove once function attribute level ignorelisting is implemented.
 # See crbug.com/476063.
 fun:*forbidGCDuringConstruction*
+
+#############################################################################
+# Electron-specific ignores
+#
+
+# Re-enable checks for RenderWidgetHostViewMac
+type:*RenderWidgetHostViewMac*=sanitize
+
+# This has a static_cast that is UB but is benign
+fun:*AudioManagerMac*ReleaseInputStream*

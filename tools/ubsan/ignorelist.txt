@@ -37,3 +37,17 @@ fun:*find_best_partition_order_*
 # https://crbug.com/451633108
 [builtin]
 fun:*_dispatch_once*
+
+#############################################################################
+# Electron-specific
+#
+
+# memcpy with a NULL dest and 0 write length is well-defined per C2y (N3322),
+# but glibc still marks memcpy's dest parameter as __nonnull
+[nonnull-attribute]
+fun:*StringBytes*Write*
+fun:*Http2Session*OnStreamRead*
+
+# This is a benign alignment UB
+[alignment]
+fun:*v8*internal*Script*Iterator*Next*
