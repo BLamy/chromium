@@ -519,6 +519,12 @@ WebstorePrivateApi::PopApprovalForTesting(  // IN-TEST
 
 // static
 void WebstorePrivateApi::EnsureAssociatedFactoryBuilt() {
+  // The factory's dependencies are obtained from the embedder-provided
+  // WebstorePrivateAPIDelegate. Embedders that do not support the
+  // webstorePrivate API (e.g. Electron) do not provide a delegate, so skip
+  // building the factory to avoid dereferencing a null delegate.
+  if (!ExtensionsAPIClient::Get()->GetWebstorePrivateAPIDelegate())
+    return;
   PendingApprovalsShutdownNotifierFactory::GetInstance();
 }
 
