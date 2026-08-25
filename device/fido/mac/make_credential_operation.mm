@@ -56,9 +56,19 @@ void MakeCredentialOperation::Run() {
       request_.user_verification,
       device::fido::mac::DeviceHasBiometricsAvailable());
   if (require_uv) {
+    // -[LAContext evaluateAccessControl:operation:localizedReason:reply:]
+    // raises NSInvalidArgumentException on an empty localizedReason, which
+    // terminates the process. The localized string is empty if no locale pak
+    // was loaded, so fall back to an unlocalized reason instead of formatting
+    // an empty template.
+    std::u16string rp_id = base::UTF8ToUTF16(request_.rp.id);
+    std::u16string reason =
+        l10n_util::GetStringUTF16(IDS_WEBAUTHN_TOUCH_ID_PROMPT_REASON).empty()
+            ? u"verify your identity on " + rp_id
+            : l10n_util::GetStringFUTF16(IDS_WEBAUTHN_TOUCH_ID_PROMPT_REASON,
+                                         rp_id);
     touch_id_context_->PromptTouchId(
-        l10n_util::GetStringFUTF16(IDS_WEBAUTHN_TOUCH_ID_PROMPT_REASON,
-                                   base::UTF8ToUTF16(request_.rp.id)),
+        std::move(reason),
         base::BindOnce(&MakeCredentialOperation::PromptTouchIdDone,
                        base::Unretained(this)));
     return;
