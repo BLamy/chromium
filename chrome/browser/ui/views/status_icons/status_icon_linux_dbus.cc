@@ -29,7 +29,6 @@
 #include "base/task/thread_pool.h"
 #include "components/dbus/menu/menu.h"
 #include "components/dbus/properties/dbus_properties.h"
-#include "components/dbus/thread_linux/dbus_thread_linux.h"
 #include "components/dbus/utils/bind_weak_ptr_for_export_method.h"
 #include "components/dbus/utils/call_method.h"
 #include "components/dbus/utils/export_method.h"
@@ -228,8 +227,6 @@ base::FilePath WriteIconFile(size_t icon_file_id,
   return file_path;
 }
 
-bool g_shared_bus_in_use = false;
-
 scoped_refptr<dbus::Bus> CreateSessionBus() {
   dbus::Bus::Options options;
   options.bus_type = dbus::Bus::SESSION;
@@ -242,10 +239,11 @@ scoped_refptr<dbus::Bus> CreateSessionBus() {
 
 scoped_refptr<dbus::Bus> GetBusForNewStatusIcon() {
   CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
-  if (!g_shared_bus_in_use) {
-    g_shared_bus_in_use = true;
-    return dbus_thread_linux::GetSharedSessionBus();
-  }
+  // The item is registered with the StatusNotifierWatcher under the
+  // connection's unique name, and watchers only drop an item once that name
+  // leaves the bus. Always use a private connection so that the item goes
+  // away with the icon instead of lingering for as long as the shared session
+  // bus stays connected.
   return CreateSessionBus();
 }
 
@@ -350,17 +348,11 @@ StatusIconLinuxDbus::~StatusIconLinuxDbus() {
   watcher_ = nullptr;
 
   if (bus_) {
-    if (bus_ == dbus_thread_linux::GetSharedSessionBus()) {
-      g_shared_bus_in_use = false;
-      bus_->UnregisterExportedObject(dbus::ObjectPath(kPathStatusNotifierItem));
-      bus_->UnregisterExportedObject(dbus::ObjectPath(kPathDbusMenu));
-    } else {
-      bus_->GetDBusTaskRunner()->PostTask(
-          FROM_HERE,
-          base::BindOnce(
-              [](scoped_refptr<dbus::Bus> bus) { bus->ShutdownAndBlock(); },
-              bus_));
-    }
+    bus_->GetDBusTaskRunner()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](scoped_refptr<dbus::Bus> bus) { bus->ShutdownAndBlock(); },
+            bus_));
   }
 }
 
