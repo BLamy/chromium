@@ -1057,7 +1057,7 @@ TEST(ChromeUsbDelegateBrowserContextTest, BrowserContextIsNull) {
   ChromeUsbDelegate chrome_usb_delegate;
   url::Origin origin = url::Origin::Create(GURL(kDefaultTestUrl));
   EXPECT_FALSE(chrome_usb_delegate.CanRequestDevicePermission(
-      /*browser_context=*/nullptr, origin));
+      /*browser_context=*/nullptr, /*frame=*/nullptr, origin));
   EXPECT_FALSE(chrome_usb_delegate.HasDevicePermission(
       /*browser_context=*/nullptr, /*frame=*/nullptr, origin,
       device::mojom::UsbDeviceInfo()));

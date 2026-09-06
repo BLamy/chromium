@@ -60,7 +60,10 @@ class CONTENT_EXPORT HidDelegate {
   virtual bool IsHidAllowedForFrame(RenderFrameHost* render_frame_host) = 0;
 
   // Returns whether `origin` has permission to request access to a device.
+  // `render_frame_host` is the frame making the request, or null when there
+  // is none (for example, for a service worker).
   virtual bool CanRequestDevicePermission(BrowserContext* browser_context,
+                                          RenderFrameHost* render_frame_host,
                                           const url::Origin& origin) = 0;
 
   // Returns whether `origin` has permission to access `device`.

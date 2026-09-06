@@ -57,7 +57,7 @@ class MockHidDelegate : public HidDelegate {
   MOCK_METHOD(bool, IsHidAllowedForFrame, (RenderFrameHost*), (override));
   MOCK_METHOD(bool,
               CanRequestDevicePermission,
-              (BrowserContext*, const url::Origin&));
+              (BrowserContext*, RenderFrameHost*, const url::Origin&));
   MOCK_METHOD(bool,
               HasDevicePermission,
               (BrowserContext*,

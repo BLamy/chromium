@@ -68,8 +68,10 @@ class CONTENT_EXPORT UsbDelegate {
   virtual bool PageMayUseUsb(Page& page) = 0;
 
   // Returns whether `origin` in `browser_context` has permission to request
-  // access to a device.
+  // access to a device. `frame` is the frame making the request, or null when
+  // there is none (for example, for a service worker).
   virtual bool CanRequestDevicePermission(BrowserContext* browser_context,
+                                          RenderFrameHost* frame,
                                           const url::Origin& origin) = 0;
 
   // Attempts to revoke the permission for `origin` in `browser_context` to

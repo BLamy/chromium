@@ -464,8 +464,8 @@ void HidService::RequestDevice(
     std::vector<blink::mojom::HidDeviceFilterPtr> exclusion_filters,
     RequestDeviceCallback callback) {
   HidDelegate* delegate = GetContentClient()->browser()->GetHidDelegate();
-  if (!delegate ||
-      !delegate->CanRequestDevicePermission(GetBrowserContext(), origin_)) {
+  if (!delegate || !delegate->CanRequestDevicePermission(
+                       GetBrowserContext(), render_frame_host_, origin_)) {
     std::move(callback).Run(std::vector<device::mojom::HidDeviceInfoPtr>());
     return;
   }

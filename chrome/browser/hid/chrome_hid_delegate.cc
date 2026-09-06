@@ -303,6 +303,7 @@ std::unique_ptr<content::HidChooser> ChromeHidDelegate::RunChooser(
 
 bool ChromeHidDelegate::CanRequestDevicePermission(
     content::BrowserContext* browser_context,
+    content::RenderFrameHost* render_frame_host,
     const url::Origin& origin) {
   return browser_context &&
          GetChooserContext(browser_context)->CanRequestObjectPermission(origin);
@@ -469,7 +470,7 @@ void ChromeHidDelegate::OnWebViewHidPermissionRequestCompleted(
 
   auto* browser_context = render_frame_host->GetBrowserContext();
   auto origin = render_frame_host->GetMainFrame()->GetLastCommittedOrigin();
-  if (!CanRequestDevicePermission(browser_context, origin)) {
+  if (!CanRequestDevicePermission(browser_context, render_frame_host, origin)) {
     std::move(callback).Run(/*devices=*/{});
     return;
   }

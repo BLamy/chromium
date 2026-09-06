@@ -338,8 +338,8 @@ void WebUsbServiceImpl::GetPermission(
     blink::mojom::WebUsbRequestDeviceOptionsPtr options,
     GetPermissionCallback callback) {
   auto* delegate = GetContentClient()->browser()->GetUsbDelegate();
-  if (!delegate ||
-      !delegate->CanRequestDevicePermission(GetBrowserContext(), origin_)) {
+  if (!delegate || !delegate->CanRequestDevicePermission(
+                       GetBrowserContext(), render_frame_host_, origin_)) {
     std::move(callback).Run(nullptr);
     return;
   }

@@ -1330,7 +1330,7 @@ TEST(ChromeHidDelegateBrowserContextTest, BrowserContextIsNull) {
   ChromeHidDelegate chrome_hid_delegate;
   url::Origin origin = url::Origin::Create(GURL(kDefaultTestUrl));
   EXPECT_FALSE(chrome_hid_delegate.CanRequestDevicePermission(
-      /*browser_context=*/nullptr, origin));
+      /*browser_context=*/nullptr, /*render_frame_host=*/nullptr, origin));
   EXPECT_FALSE(chrome_hid_delegate.HasDevicePermission(
       /*browser_context=*/nullptr, /*render_frame_host=*/nullptr, origin,
       device::mojom::HidDeviceInfo()));

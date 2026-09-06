@@ -41,6 +41,7 @@ class ChromeHidDelegate : public content::HidDelegate {
   bool IsHidAllowedForFrame(
       content::RenderFrameHost* render_frame_host) override;
   bool CanRequestDevicePermission(content::BrowserContext* browser_context,
+                                  content::RenderFrameHost* render_frame_host,
                                   const url::Origin& origin) override;
   bool HasDevicePermission(content::BrowserContext* browser_context,
                            content::RenderFrameHost* render_frame_host,

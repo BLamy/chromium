@@ -295,6 +295,7 @@ bool ChromeUsbDelegate::PageMayUseUsb(content::Page& page) {
 
 bool ChromeUsbDelegate::CanRequestDevicePermission(
     content::BrowserContext* browser_context,
+    content::RenderFrameHost* frame,
     const url::Origin& origin) {
   return browser_context &&
          GetChooserContext(browser_context)->CanRequestObjectPermission(origin);
