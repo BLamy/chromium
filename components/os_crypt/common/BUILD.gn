@@ -2,6 +2,20 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+declare_args() {
+  # Whether to make account and service names for the crypto key storage
+  # configurable at runtime for embedders.
+  #
+  # Currently only has an effect on macOS via KeychainPassword
+  allow_runtime_configurable_key_storage = false
+}
+
+config("key_storage_config") {
+  if (allow_runtime_configurable_key_storage) {
+    defines = [ "ALLOW_RUNTIME_CONFIGURABLE_KEY_STORAGE" ]
+  }
+}
+
 group("common") {
   # TODO(crbug.com/547814493): Move to this file.
   public_deps = [ "//components/os_crypt/async/common" ]
@@ -28,6 +42,7 @@ if (is_apple) {
       "//crypto",
       "//electron/build/config:generate_mas_config",
     ]
+    public_configs = [ ":key_storage_config" ]
   }
 }
 
