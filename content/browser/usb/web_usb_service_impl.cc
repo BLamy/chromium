@@ -208,7 +208,7 @@ void WebUsbServiceImpl::Create(
       std::make_unique<WebUsbServiceImpl>(
           &render_frame_host,
           /*service_worker_version=*/nullptr,
-          render_frame_host.GetMainFrame()->GetLastCommittedOrigin()),
+          render_frame_host.GetLastCommittedOrigin()),
       render_frame_host, std::move(pending_receiver));
 }
 

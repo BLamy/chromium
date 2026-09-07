@@ -137,7 +137,7 @@ HidService::HidService(
 HidService::HidService(RenderFrameHostImpl* render_frame_host)
     : HidService(render_frame_host,
                  /*service_worker_version=*/nullptr,
-                 render_frame_host->GetMainFrame()->GetLastCommittedOrigin()) {}
+                 render_frame_host->GetLastCommittedOrigin()) {}
 
 HidService::HidService(
     base::WeakPtr<ServiceWorkerVersion> service_worker_version,
