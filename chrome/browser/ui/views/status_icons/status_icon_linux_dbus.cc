@@ -71,7 +71,7 @@ const char kInterfaceStatusNotifierWatcher[] = "org.kde.StatusNotifierWatcher";
 // Object paths.
 const char kPathStatusNotifierItem[] = "/StatusNotifierItem";
 const char kPathStatusNotifierWatcher[] = "/StatusNotifierWatcher";
-const char kPathDbusMenu[] = "/org/chromium/DbusMenu";
+const char kPathDbusMenu[] = "/com/canonical/dbusmenu";
 
 // Methods.
 const char kMethodNameHasOwner[] = "NameHasOwner";
