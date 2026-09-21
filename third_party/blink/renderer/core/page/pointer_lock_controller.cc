@@ -58,6 +58,7 @@ bool PointerLockController::RequestPointerLock(Element* target,
   }
   LocalDOMWindow* window = To<LocalDOMWindow>(target->GetExecutionContext());
   window->GetFrame()->GetWidgetForLocalRoot()->RequestMouseLock(
+      window->GetFrame()->GetLocalFrameToken(),
       LocalFrame::HasTransientUserActivation(window->GetFrame()),
       /*unadjusted_movement_requested=*/false,
       blink::BindOnce(&PointerLockController::LockRequestCallback,
@@ -175,6 +176,7 @@ void PointerLockController::RequestPointerLock(
     // Subsequent steps are handled in the browser process.
   } else {
     window->GetFrame()->GetWidgetForLocalRoot()->RequestMouseLock(
+        window->GetFrame()->GetLocalFrameToken(),
         LocalFrame::HasTransientUserActivation(window->GetFrame()),
         unadjusted_movement_requested,
         blink::BindOnce(&PointerLockController::LockRequestCallback,

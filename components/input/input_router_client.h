@@ -12,6 +12,7 @@
 #include "components/input/event_with_latency_info.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom.h"
 #include "ui/gfx/geometry/vector2d_f.h"
@@ -99,6 +100,7 @@ class COMPONENT_EXPORT(INPUT) InputRouterClient {
   virtual void SetAutoscrollSelectionActiveInMainFrame(
       bool autoscroll_selection) = 0;
   virtual void RequestMouseLock(
+      const blink::LocalFrameToken& requesting_frame,
       bool from_user_gesture,
       bool unadjusted_movement,
       blink::mojom::WidgetInputHandlerHost::RequestMouseLockCallback

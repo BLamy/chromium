@@ -21,6 +21,7 @@
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/page/drag_operation.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-shared.h"
 #include "third_party/blink/public/mojom/manifest/application_context.mojom.h"
@@ -227,10 +228,13 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
 
   // Requests to lock the mouse. Once the request is approved or rejected,
   // GotResponseToLockPointerRequest() will be called on the requesting render
-  // widget host.
-  virtual void RequestToLockPointer(RenderWidgetHostImpl* render_widget_host,
-                                    bool user_gesture,
-                                    bool last_unlocked_by_target) {}
+  // widget host. |requesting_frame| is the renderer-supplied token of the
+  // frame hosted by |render_widget_host| whose document asked for the lock.
+  virtual void RequestToLockPointer(
+      RenderWidgetHostImpl* render_widget_host,
+      const blink::LocalFrameToken& requesting_frame,
+      bool user_gesture,
+      bool last_unlocked_by_target) {}
 
   virtual void UnlockPointer(RenderWidgetHostImpl* render_widget_host) {}
 

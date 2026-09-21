@@ -108,7 +108,8 @@ class COMPONENT_EXPORT(INPUT) InputRouterImpl
   void SetMouseCapture(bool capture) override;
   void SetAutoscrollSelectionActiveInMainFrame(
       bool autoscroll_selection) override;
-  void RequestMouseLock(bool from_user_gesture,
+  void RequestMouseLock(const blink::LocalFrameToken& requesting_frame,
+                        bool from_user_gesture,
                         bool unadjusted_movement,
                         RequestMouseLockCallback response) override;
   // Notifies touch action filter and touch event queue whether there are

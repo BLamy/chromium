@@ -892,6 +892,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void SetAutoscrollSelectionActiveInMainFrame(
       bool autoscroll_selection) override;
   void RequestMouseLock(
+      const blink::LocalFrameToken& requesting_frame,
       bool from_user_gesture,
       bool unadjusted_movement,
       input::InputRouterImpl::RequestMouseLockCallback response) override;

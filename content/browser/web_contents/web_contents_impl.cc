@@ -5529,6 +5529,7 @@ blink::mojom::ApplicationContext WebContentsImpl::GetApplicationContext()
 
 void WebContentsImpl::RequestToLockPointer(
     RenderWidgetHostImpl* render_widget_host,
+    const blink::LocalFrameToken& requesting_frame,
     bool user_gesture,
     bool last_unlocked_by_target) {
   OPTIONAL_TRACE_EVENT1("content", "WebContentsImpl::RequestPointerLock",
@@ -5556,9 +5557,19 @@ void WebContentsImpl::RequestToLockPointer(
     }
   }
 
+  // The renderer names the document that called requestPointerLock(). It must
+  // be a frame in the widget's process whose local root is that widget.
+  RenderFrameHostImpl* requesting_rfh = RenderFrameHostImpl::FromFrameToken(
+      render_widget_host->GetProcess()->GetID(), requesting_frame);
+  if (!requesting_rfh ||
+      requesting_rfh->GetRenderWidgetHost() != render_widget_host) {
+    widget_in_frame_tree = false;
+  }
+
   WebContentsDelegate* delegate = GetFirstWebContentsDelegate();
   if (widget_in_frame_tree && delegate) {
     SetPointerLockWidgetInParentChain(render_widget_host);
+    pointer_lock_requesting_frame_id_ = requesting_rfh->GetGlobalId();
     observers_.NotifyObservers(&WebContentsObserver::PointerLockRequested);
     delegate->RequestPointerLock(this, user_gesture, last_unlocked_by_target);
   } else {
@@ -10182,9 +10193,22 @@ bool WebContentsImpl::HasPointerLockWidgetInParentChain() {
   return false;
 }
 
+RenderFrameHostImpl* WebContentsImpl::GetPointerLockRequestingFrame() {
+  if (!pointer_lock_widget_) {
+    return nullptr;
+  }
+  RenderFrameHostImpl* rfh =
+      RenderFrameHostImpl::FromID(pointer_lock_requesting_frame_id_);
+  return rfh && rfh->GetRenderWidgetHost() == pointer_lock_widget_ ? rfh
+                                                                   : nullptr;
+}
+
 void WebContentsImpl::SetPointerLockWidgetInParentChain(
     RenderWidgetHostImpl* widget) {
   pointer_lock_widget_ = widget;
+  if (!widget) {
+    pointer_lock_requesting_frame_id_ = GlobalRenderFrameHostId();
+  }
   if (auto* connector = GetSurfaceEmbedConnector()) {
     static_cast<SurfaceEmbedConnectorImpl*>(connector)
         ->SetPointerLockWidgetInParentChain(widget);

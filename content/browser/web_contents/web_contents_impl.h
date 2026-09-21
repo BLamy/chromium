@@ -1234,6 +1234,7 @@ class CONTENT_EXPORT WebContentsImpl
       base::RepeatingClosure hang_monitor_restarter) override;
   void RendererResponsive(RenderWidgetHostImpl* render_widget_host) override;
   void RequestToLockPointer(RenderWidgetHostImpl* render_widget_host,
+                            const blink::LocalFrameToken& requesting_frame,
                             bool user_gesture,
                             bool last_unlocked_by_target) override;
   bool IsWaitingForPointerLockPrompt(
@@ -1675,6 +1676,11 @@ class CONTENT_EXPORT WebContentsImpl
   RenderWidgetHost* mouse_lock_widget_for_testing() {
     return pointer_lock_widget_;
   }
+
+  // The frame whose document requested the pointer lock that is pending or
+  // held through |pointer_lock_widget_|, or nullptr if there is none or the
+  // frame has gone away.
+  RenderFrameHostImpl* GetPointerLockRequestingFrame();
 
   const std::set<raw_ptr<RenderFrameHostImpl, SetExperimental>>&
   fullscreen_frames_for_testing() const {
@@ -2777,6 +2783,9 @@ class CONTENT_EXPORT WebContentsImpl
   // there's no RenderWidgetHost holding a lock.
   raw_ptr<RenderWidgetHostImpl, DanglingUntriaged> pointer_lock_widget_ =
       nullptr;
+
+  // The frame within |pointer_lock_widget_| whose document asked for the lock.
+  GlobalRenderFrameHostId pointer_lock_requesting_frame_id_;
 
   // Stores the RenderWidgetHost that currently holds a keyboard lock or nullptr
   // if no RenderWidgetHost has the keyboard locked.

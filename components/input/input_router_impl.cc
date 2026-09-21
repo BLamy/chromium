@@ -435,11 +435,13 @@ void InputRouterImpl::SetAutoscrollSelectionActiveInMainFrame(
   client_->SetAutoscrollSelectionActiveInMainFrame(autoscroll_selection);
 }
 
-void InputRouterImpl::RequestMouseLock(bool from_user_gesture,
-                                       bool unadjusted_movement,
-                                       RequestMouseLockCallback response) {
-  client_->RequestMouseLock(from_user_gesture, unadjusted_movement,
-                            std::move(response));
+void InputRouterImpl::RequestMouseLock(
+    const blink::LocalFrameToken& requesting_frame,
+    bool from_user_gesture,
+    bool unadjusted_movement,
+    RequestMouseLockCallback response) {
+  client_->RequestMouseLock(requesting_frame, from_user_gesture,
+                            unadjusted_movement, std::move(response));
 }
 
 void InputRouterImpl::SetMovementXYForTouchPoints(blink::WebTouchEvent* event) {

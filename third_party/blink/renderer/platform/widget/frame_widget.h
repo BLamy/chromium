@@ -16,6 +16,7 @@
 #include "cc/trees/layer_tree_host.h"
 #include "mojo/public/mojom/base/text_direction.mojom-blink.h"
 #include "services/viz/public/mojom/compositing/frame_sink_id.mojom-blink.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-blink.h"
 #include "third_party/blink/public/mojom/manifest/application_context.mojom-blink.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-blink.h"
@@ -273,6 +274,7 @@ class PLATFORM_EXPORT FrameWidget {
   virtual gfx::RectF DIPsToBlinkSpace(const gfx::RectF& rect) = 0;
 
   virtual void RequestMouseLock(
+      const LocalFrameToken& requesting_frame,
       bool has_transient_user_activation,
       bool request_unadjusted_movement,
       mojom::blink::WidgetInputHandlerHost::RequestMouseLockCallback

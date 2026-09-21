@@ -21,6 +21,7 @@ import "third_party/blink/public/mojom/input/pointer_lock_result.mojom";
 import "third_party/blink/public/mojom/input/stylus_writing_gesture.mojom";
 import "third_party/blink/public/mojom/input/touch_event.mojom";
 import "third_party/blink/public/mojom/selection_menu/selection_menu_behavior.mojom";
+import "third_party/blink/public/mojom/tokens/tokens.mojom";
 import "ui/base/ime/mojom/ime_types.mojom";
 import "ui/events/mojom/event.mojom";
 import "ui/events/mojom/event_constants.mojom";
@@ -301,6 +302,9 @@ interface WidgetInputHandlerHost {
   // removing the cursor from view.  Mostly used by the Pointer Lock API.
   // See https://www.w3.org/TR/pointerlock/ for more info. This call is
   // also used by Pepper Flash.
+  // |requesting_frame| identifies the document in this widget's local root
+  // subtree that called requestPointerLock(), so the browser can attribute the
+  // request to that frame rather than to the local root.
   // |from_user_gesture| indicates whether this request came from a user
   // gesture or not.
   // |unadjusted_movement| indicates whether the request asked for raw mouse
@@ -310,7 +314,8 @@ interface WidgetInputHandlerHost {
   // reason if not.
   // |context| is one end of a mojo pipe that will stay connected as long as
   // the mouse is locked. Is a NullRemote if |result| is not kSuccess.
-  RequestMouseLock(bool from_user_gesture, bool unadjusted_movement)
+  RequestMouseLock(blink.mojom.LocalFrameToken requesting_frame,
+                   bool from_user_gesture, bool unadjusted_movement)
       => (PointerLockResult result,
           pending_remote<blink.mojom.PointerLockContext>? context);
 };

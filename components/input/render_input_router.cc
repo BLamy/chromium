@@ -301,11 +301,13 @@ void RenderInputRouter::SetAutoscrollSelectionActiveInMainFrame(
 }
 
 void RenderInputRouter::RequestMouseLock(
+    const blink::LocalFrameToken& requesting_frame,
     bool from_user_gesture,
     bool unadjusted_movement,
     InputRouterImpl::RequestMouseLockCallback response) {
   render_input_router_client_->RequestMouseLock(
-      from_user_gesture, unadjusted_movement, std::move(response));
+      requesting_frame, from_user_gesture, unadjusted_movement,
+      std::move(response));
 }
 
 gfx::Size RenderInputRouter::GetRootWidgetViewportSize() {

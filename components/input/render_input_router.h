@@ -104,6 +104,7 @@ class COMPONENT_EXPORT(INPUT) RenderInputRouter
   void SetAutoscrollSelectionActiveInMainFrame(
       bool autoscroll_selection) override;
   void RequestMouseLock(
+      const blink::LocalFrameToken& requesting_frame,
       bool from_user_gesture,
       bool unadjusted_movement,
       InputRouterImpl::RequestMouseLockCallback response) override;

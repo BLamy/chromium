@@ -333,6 +333,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   Vector<ui::mojom::blink::ImeTextSpanInfoPtr> GetImeTextSpansInfo(
       const std::vector<ui::ImeTextSpan>& ime_text_spans) override;
   void RequestMouseLock(
+      const LocalFrameToken& requesting_frame,
       bool has_transient_user_activation,
       bool request_unadjusted_movement,
       mojom::blink::WidgetInputHandlerHost::RequestMouseLockCallback callback)

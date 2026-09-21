@@ -3665,6 +3665,7 @@ void RenderWidgetHostImpl::SetAutoscrollSelectionActiveInMainFrame(
 }
 
 void RenderWidgetHostImpl::RequestMouseLock(
+    const blink::LocalFrameToken& requesting_frame,
     bool from_user_gesture,
     bool unadjusted_movement,
     input::InputRouterImpl::RequestMouseLockCallback response) {
@@ -3701,7 +3702,7 @@ void RenderWidgetHostImpl::RequestMouseLock(
     return;
   }
 
-  delegate_->RequestToLockPointer(this, from_user_gesture,
+  delegate_->RequestToLockPointer(this, requesting_frame, from_user_gesture,
                                   is_last_unlocked_by_target_);
   // We need to reset |is_last_unlocked_by_target_| here as we don't know
   // request source in |LostPointerLock()|.

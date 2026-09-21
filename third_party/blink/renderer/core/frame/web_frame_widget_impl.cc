@@ -3691,6 +3691,7 @@ void WebFrameWidgetImpl::CancelComposition() {
 }
 
 void WebFrameWidgetImpl::RequestMouseLock(
+    const LocalFrameToken& requesting_frame,
     bool has_transient_user_activation,
     bool request_unadjusted_movement,
     mojom::blink::WidgetInputHandlerHost::RequestMouseLockCallback callback) {
@@ -3704,7 +3705,7 @@ void WebFrameWidgetImpl::RequestMouseLock(
   // callback. It does share the same signature as the mojo definition
   // for simplicity.
   if (host) {
-    host->RequestMouseLock(has_transient_user_activation,
+    host->RequestMouseLock(requesting_frame, has_transient_user_activation,
                            request_unadjusted_movement, std::move(callback));
   }
 }

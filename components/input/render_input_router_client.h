@@ -28,6 +28,7 @@ class COMPONENT_EXPORT(INPUT) RenderInputRouterClient {
   virtual void SetAutoscrollSelectionActiveInMainFrame(
       bool autoscroll_selection) = 0;
   virtual void RequestMouseLock(
+      const blink::LocalFrameToken& requesting_frame,
       bool from_user_gesture,
       bool unadjusted_movement,
       blink::mojom::WidgetInputHandlerHost::RequestMouseLockCallback
