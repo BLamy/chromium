@@ -196,7 +196,6 @@ bool BrowserMainRunner::ExitedMainMessageLoop() {
 
 // static
 void BrowserMainRunner::SetOverrideResultCode(int code) {
-  CHECK_GE(code, RESULT_CODE_LAST_CODE);
   GetProcessResultCode() = code;
 }
 
