@@ -982,6 +982,10 @@
   "webstorePrivate": [{
     "channel": "stable",
     "contexts": ["web_page"],
+    // Electron has no WebstorePrivateAPIDelegate and never registers a
+    // delegated availability check, so gating this branch like the testing
+    // one below makes the feature fail closed in every context.
+    "requires_delegated_availability_check": true,
     "matches": ["https://chromewebstore.google.com/*"]
   }, {
     // Used for webstore testing. See comment in
