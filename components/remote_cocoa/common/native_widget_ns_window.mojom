@@ -291,6 +291,7 @@ interface NativeWidgetNSWindow {
   // Presumably, (10, 15) of this area would be used to draw client-drawn
   // decorations, while the remaining (30, 30) would be used for whatever
   // content is supposed to have a 1.f aspect-ratio.
+  // An empty |aspect_ratio| removes the restriction.
   SetAspectRatio(
       gfx.mojom.SizeF aspect_ratio, gfx.mojom.Size excluded_margin);
 
@@ -302,6 +303,18 @@ interface NativeWidgetNSWindow {
 
   // Ignore or accept mouse events on the NSWindow.
   SetIgnoresMouseEvents(bool ignores_mouse_events);
+
+  // Set whether the window can be moved by dragging it.
+  SetMovable(bool movable);
+
+  // Set whether the window has a close button and a minimize button that
+  // work.
+  SetClosable(bool closable);
+  SetMiniaturizable(bool miniaturizable);
+
+  // Set whether the window can go full screen, whatever the size constraints
+  // say; without this call a window that can resize and maximize can.
+  SetFullscreenable(bool fullscreenable);
 
   // Make the content view be the first responder for the NSWindow.
   MakeFirstResponder();

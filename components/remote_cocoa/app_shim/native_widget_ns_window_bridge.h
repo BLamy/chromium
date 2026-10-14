@@ -325,6 +325,10 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   void SetCALayerParams(gfx::CALayerParams ca_layer_params) override;
   void SetWindowTitle(const std::u16string& title) override;
   void SetIgnoresMouseEvents(bool ignores_mouse_events) override;
+  void SetMovable(bool movable) override;
+  void SetClosable(bool closable) override;
+  void SetMiniaturizable(bool miniaturizable) override;
+  void SetFullscreenable(bool fullscreenable) override;
   void MakeFirstResponder() override;
   void SortSubviews(
       const std::vector<uint64_t>& associated_subview_ids) override;
@@ -480,6 +484,10 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   std::unique_ptr<CocoaWindowMoveLoop> window_move_loop_;
   ui::mojom::ModalType modal_type_ = ui::mojom::ModalType::kNone;
   bool is_translucent_window_ = false;
+  // Set by SetFullscreenable(); takes the place of what the size constraints
+  // would decide.
+  std::optional<bool> fullscreenable_override_;
+  void ApplyFullscreenableOverride();
   id __strong local_event_monitor_;
 
   raw_ptr<NativeWidgetNSWindowBridge> parent_ =

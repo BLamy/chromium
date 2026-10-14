@@ -7,6 +7,7 @@
 
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "base/process/process_handle.h"
 #include "components/remote_cocoa/browser/remote_cocoa_browser_export.h"
 #include "components/remote_cocoa/common/application.mojom.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -42,9 +43,16 @@ class REMOTE_COCOA_BROWSER_EXPORT ApplicationHost {
 
   const std::string& bundle_id() const { return bundle_id_; }
 
+  // The process that hosts the application, when the embedder knows it.
+  // Activation is then yielded to that process, and not to whichever running
+  // app declares |bundle_id|.
+  void set_pid(base::ProcessId pid) { pid_ = pid; }
+  base::ProcessId pid() const { return pid_; }
+
  private:
   mojo::AssociatedRemote<mojom::Application> application_remote_;
   const std::string bundle_id_;
+  base::ProcessId pid_ = base::kNullProcessId;
   base::ObserverList<Observer> observers_;
 };
 

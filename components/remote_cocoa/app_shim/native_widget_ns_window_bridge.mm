@@ -1632,6 +1632,7 @@ void NativeWidgetNSWindowBridge::SetSizeConstraints(const gfx::Size& min_size,
   gfx::ApplyNSWindowSizeConstraints(window_, min_size, max_size,
                                     shows_resize_controls,
                                     shows_fullscreen_controls);
+  ApplyFullscreenableOverride();
 }
 
 void NativeWidgetNSWindowBridge::OnShowAnimationComplete() {
@@ -2047,7 +2048,10 @@ void NativeWidgetNSWindowBridge::SetActivationIndependence(bool independence) {
 void NativeWidgetNSWindowBridge::SetAspectRatio(
     const gfx::SizeF& aspect_ratio,
     const gfx::Size& excluded_margin) {
-  DCHECK(!aspect_ratio.IsEmpty());
+  if (aspect_ratio.IsEmpty()) {
+    [window_delegate_ clearAspectRatio];
+    return;
+  }
   [window_delegate_ setAspectRatio:aspect_ratio.width() / aspect_ratio.height()
                     excludedMargin:excluded_margin];
 }
@@ -2125,6 +2129,56 @@ void NativeWidgetNSWindowBridge::SetCALayerParams(
 void NativeWidgetNSWindowBridge::SetIgnoresMouseEvents(
     bool ignores_mouse_events) {
   [window_ setIgnoresMouseEvents:ignores_mouse_events];
+}
+
+void NativeWidgetNSWindowBridge::SetMovable(bool movable) {
+  [window_ setMovable:movable];
+}
+
+void NativeWidgetNSWindowBridge::SetClosable(bool closable) {
+  NSUInteger style_mask = [window_ styleMask];
+  if (closable) {
+    style_mask |= NSWindowStyleMaskClosable;
+  } else {
+    style_mask &= ~NSWindowStyleMaskClosable;
+  }
+  [window_ setStyleMask:style_mask];
+}
+
+void NativeWidgetNSWindowBridge::SetMiniaturizable(bool miniaturizable) {
+  NSUInteger style_mask = [window_ styleMask];
+  if (miniaturizable) {
+    style_mask |= NSWindowStyleMaskMiniaturizable;
+  } else {
+    style_mask &= ~NSWindowStyleMaskMiniaturizable;
+  }
+  [window_ setStyleMask:style_mask];
+}
+
+void NativeWidgetNSWindowBridge::SetFullscreenable(bool fullscreenable) {
+  fullscreenable_override_ = fullscreenable;
+  // Not while in full screen or on the way: the window would lose the
+  // behavior it needs to come back. The next size constraints apply it.
+  if (fullscreen_controller_.CanResize()) {
+    ApplyFullscreenableOverride();
+  }
+}
+
+void NativeWidgetNSWindowBridge::ApplyFullscreenableOverride() {
+  if (!fullscreenable_override_) {
+    return;
+  }
+  // A resizable window can go full screen unless it is marked as auxiliary,
+  // so clearing the primary behavior alone would not stop it.
+  NSWindowCollectionBehavior behavior = [window_ collectionBehavior];
+  if (*fullscreenable_override_) {
+    behavior |= NSWindowCollectionBehaviorFullScreenPrimary;
+    behavior &= ~NSWindowCollectionBehaviorFullScreenAuxiliary;
+  } else {
+    behavior &= ~NSWindowCollectionBehaviorFullScreenPrimary;
+    behavior |= NSWindowCollectionBehaviorFullScreenAuxiliary;
+  }
+  [window_ setCollectionBehavior:behavior];
 }
 
 void NativeWidgetNSWindowBridge::MakeFirstResponder() {

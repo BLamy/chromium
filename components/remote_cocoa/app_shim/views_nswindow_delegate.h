@@ -52,6 +52,9 @@ REMOTE_COCOA_APP_SHIM_EXPORT
 - (void)setAspectRatio:(float)aspectRatio
         excludedMargin:(const gfx::Size&)excludedMargin;
 
+// Removes the restriction set by setAspectRatio:excludedMargin:.
+- (void)clearAspectRatio;
+
 @end
 
 #endif  // COMPONENTS_REMOTE_COCOA_APP_SHIM_VIEWS_NSWINDOW_DELEGATE_H_

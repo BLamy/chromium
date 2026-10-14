@@ -153,6 +153,11 @@ enum NSWindowLiveResizeEdge {
   _excludedMargin = excludedMargin;
 }
 
+- (void)clearAspectRatio {
+  _aspectRatio.reset();
+  _excludedMargin = gfx::Size();
+}
+
 - (NSSize)windowWillResize:(NSWindow*)window toSize:(NSSize)size {
   const NSRect windowFrame = [window frame];
   if (_aspectRatio) {

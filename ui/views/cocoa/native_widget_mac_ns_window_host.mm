@@ -910,8 +910,17 @@ void NativeWidgetMacNSWindowHost::SetVisibilityState(
   if (@available(macOS 14, *)) {
     if (application_host_ &&
         new_state == WindowVisibilityState::kShowAndActivateWindow) {
-      [NSApp yieldActivationToApplicationWithBundleIdentifier:
-                 base::SysUTF8ToNSString(application_host_->bundle_id())];
+      NSRunningApplication* application = nil;
+      if (application_host_->pid() != base::kNullProcessId) {
+        application = [NSRunningApplication
+            runningApplicationWithProcessIdentifier:application_host_->pid()];
+      }
+      if (application) {
+        [NSApp yieldActivationToApplication:application];
+      } else {
+        [NSApp yieldActivationToApplicationWithBundleIdentifier:
+                   base::SysUTF8ToNSString(application_host_->bundle_id())];
+      }
     }
   }
 
