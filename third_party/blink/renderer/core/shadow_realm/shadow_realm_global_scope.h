@@ -45,6 +45,7 @@ class CORE_EXPORT ShadowRealmGlobalScope final : public EventTarget,
 
   // ExecutionContext:
   bool IsShadowRealmGlobalScope() const override;
+  ExecutionContext* GetRootExecutionContext() override;
   const KURL& Url() const override;
   const KURL& BaseURL() const override;
   KURL CompleteURL(const String& url) const override;

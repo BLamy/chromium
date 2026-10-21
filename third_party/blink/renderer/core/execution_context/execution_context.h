@@ -164,6 +164,8 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   virtual bool IsShadowRealmGlobalScope() const { return false; }
   virtual bool IsJSExecutionForbidden() const { return false; }
 
+  virtual ExecutionContext* GetRootExecutionContext() { return this; }
+
   // Notifies the execution context that new web socket activity (such as
   // sending or receiving a message) has happened.
   virtual void NotifyWebSocketActivity() {}

@@ -20,10 +20,7 @@ ShadowRealmGlobalScope::ShadowRealmGlobalScope(
 
 ExecutionContext* ShadowRealmGlobalScope::GetRootInitiatorExecutionContext()
     const {
-  return initiator_execution_context_->IsShadowRealmGlobalScope()
-             ? To<ShadowRealmGlobalScope>(initiator_execution_context_.Get())
-                   ->GetRootInitiatorExecutionContext()
-             : initiator_execution_context_.Get();
+  return initiator_execution_context_->GetRootExecutionContext();
 }
 
 void ShadowRealmGlobalScope::Trace(Visitor* visitor) const {
@@ -61,6 +58,10 @@ void ShadowRealmGlobalScope::CountWebDXFeature(
 
 bool ShadowRealmGlobalScope::IsShadowRealmGlobalScope() const {
   return true;
+}
+
+ExecutionContext* ShadowRealmGlobalScope::GetRootExecutionContext() {
+  return GetRootInitiatorExecutionContext();
 }
 
 const KURL& ShadowRealmGlobalScope::Url() const {

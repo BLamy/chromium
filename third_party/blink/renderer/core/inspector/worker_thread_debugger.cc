@@ -82,11 +82,7 @@ void WorkerThreadDebugger::ReportConsoleMessage(
   if (!context)
     return;
 
-  ExecutionContext* root_worker_context =
-      context->IsShadowRealmGlobalScope()
-          ? To<ShadowRealmGlobalScope>(context)
-                ->GetRootInitiatorExecutionContext()
-          : context;
+  ExecutionContext* root_worker_context = context->GetRootExecutionContext();
 
   To<WorkerOrWorkletGlobalScope>(root_worker_context)
       ->GetThread()
@@ -168,7 +164,9 @@ void WorkerThreadDebugger::ExceptionThrown(WorkerThread* worker_thread,
 }
 
 int WorkerThreadDebugger::ContextGroupId(ExecutionContext* context) {
-  return ContextGroupId(To<WorkerOrWorkletGlobalScope>(context)->GetThread());
+  return ContextGroupId(
+      To<WorkerOrWorkletGlobalScope>(context->GetRootExecutionContext())
+          ->GetThread());
 }
 
 void WorkerThreadDebugger::PauseWorkerOnStart(WorkerThread* worker_thread) {

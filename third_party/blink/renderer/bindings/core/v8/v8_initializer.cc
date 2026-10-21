@@ -475,10 +475,7 @@ static void PromiseRejectHandlerInWorker(v8::PromiseRejectMessage data) {
     return;
 
   ExecutionContext* root_worker_context =
-      execution_context->IsShadowRealmGlobalScope()
-          ? To<ShadowRealmGlobalScope>(execution_context)
-                ->GetRootInitiatorExecutionContext()
-          : execution_context;
+      execution_context->GetRootExecutionContext();
   DCHECK(root_worker_context->IsWorkerOrWorkletGlobalScope());
 
   auto* script_controller =
