@@ -324,6 +324,23 @@ void ObjectProxy::StartAsyncMethodCall(int timeout_ms,
   DBusPendingCall* dbus_pending_call = nullptr;
   bus_->SendWithReply(request_message, &dbus_pending_call, timeout_ms);
 
+  // dbus_connection_send_with_reply() succeeds without creating a pending
+  // call when the connection is already disconnected, or when the message
+  // carries Unix file descriptors the connection cannot pass. Passing that
+  // null pending call to dbus_pending_call_set_notify() fails a libdbus
+  // argument check, which aborts the process by default. Run the error
+  // callback with nullptr instead, as for the failures above.
+  if (!dbus_pending_call) {
+    base::OnceClosure task =
+        base::BindOnce(&ObjectProxy::RunResponseOrErrorCallback, this,
+                       std::move(callback_holder), nullptr /* response */,
+                       nullptr /* error_response */);
+    bus_->GetOriginTaskRunner()->PostTask(FROM_HERE, std::move(task));
+
+    dbus_message_unref(request_message);
+    return;
+  }
+
   using PendingCallback =
       base::OnceCallback<void(DBusPendingCall * pending_call)>;
   // This returns false only when unable to allocate memory.
