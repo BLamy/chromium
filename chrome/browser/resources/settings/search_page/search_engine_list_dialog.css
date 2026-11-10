@@ -1,0 +1,42 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=chrome://resources/cr_elements/cr_shared_style_lit.css.js
+ * #import=chrome://resources/cr_elements/cr_shared_vars.css.js
+ * #import=../settings_shared_lit.css.js
+ * #import=./search_engine_list_dialog_shared.css.js
+ * #include=cr-shared-style-lit settings-shared-lit search-engine-list-dialog-shared
+ * #css_wrapper_metadata_end */
+
+.subtitle {
+  font-size: 0.75rem;
+  grid-column: 1;
+  line-height: 22px;
+}
+
+.title {
+  grid-column: 1;
+  margin-bottom: 16px;
+}
+
+#moreEnginesButton {
+  align-self: start;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.search-engine {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  gap: 16px;
+}
+
+.search-engine cr-policy-indicator {
+  margin-inline-start: auto;
+  margin-inline-end: 8px;
+}

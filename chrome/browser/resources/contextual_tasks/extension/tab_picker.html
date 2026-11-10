@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html $i18n{webuiRoundedIconsAttribute}>
+<head>
+  <meta charset="utf-8">
+  <title>Tab Picker</title>
+  <script src="color_scheme.js"></script>
+  <link rel="stylesheet" href="//resources/css/text_defaults_md.css">
+  <style>
+    html {
+      color-scheme: light;
+    }
+
+    html[dark-mode] {
+      color-scheme: light dark;
+    }
+
+    html,
+    body {
+      background: transparent;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      padding: 0;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <tab-picker-app></tab-picker-app>
+  <script type="module" src="tab_picker.js"></script>
+</body>
+</html>

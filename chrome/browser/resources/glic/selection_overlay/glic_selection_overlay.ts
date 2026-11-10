@@ -1,0 +1,677 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import '/lens/region_selection.js';
+import '/lens/post_selection_renderer.js';
+import '/lens/overlay_border_glow.js';
+import '/lens/overlay_shimmer_canvas.js';
+import '/strings.m.js';
+import './inline_fulfillment_host.js';
+import '//resources/cr_elements/cr_button/cr_button.js';
+import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
+import '//resources/cr_elements/cr_toast/cr_toast.js';
+
+import {assert} from '//resources/js/assert.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import type {OverlayBorderGlowElement} from '/lens/overlay_border_glow.js';
+import type {OverlayShimmerCanvasElement} from '/lens/overlay_shimmer_canvas.js';
+import type {PostSelectionBoundingBox, PostSelectionRendererElement} from '/lens/post_selection_renderer.js';
+import type {RegionSelectionElement} from '/lens/region_selection.js';
+import {SelectionOverlayBaseLitElement} from '/lens/selection_overlay_base_lit.js';
+import {DragFeature, GestureState} from '/lens/selection_utils.js';
+
+import {getCss} from './glic_selection_overlay.css.js';
+import {getHtml} from './glic_selection_overlay.html.js';
+import type {InlineFulfillmentHostElement} from './inline_fulfillment_host.js';
+import {                                   //
+  DismissOverlayReason,                    //
+  SuggestedActionIcon,                     //
+  SuggestedActionsListenerCallbackRouter,  //
+} from './selection_overlay.mojom-webui.js';
+import type {InteractionOptions, SuggestedAction} from './selection_overlay.mojom-webui.js';
+import type {SelectionOverlayBaseHandlerImpl} from './selection_overlay_base_handler_impl.js';
+
+const GLIC_BORDER_GLOW_COLORS: string[] = [
+  '#1B6EF3',
+  '#0B57D0',
+  '#1B6EF3',
+  '#7CACF8',
+];
+
+/*
+ * Element responsible for coordinating selections between the various selection
+ * features. This includes:
+ *   - Storing state needed to coordinate selections across features
+ *   - Listening to mouse/tap events and delegating them to the correct features
+ *   - Coordinating animations between the different features
+ */
+export interface GlicSelectionOverlayElement {
+  $: {
+    backgroundImageCanvas: HTMLCanvasElement,
+    cursor: HTMLElement,
+    initialFlashScrim: HTMLElement,
+    overlayShimmerCanvas: OverlayShimmerCanvasElement,
+    postSelectionRenderer: PostSelectionRendererElement,
+    regionSelectionLayer: RegionSelectionElement,
+    selectionOverlay: HTMLElement,
+  };
+}
+
+export class GlicSelectionOverlayElement extends
+    SelectionOverlayBaseLitElement {
+  static get is() {
+    return 'glic-selection-overlay';
+  }
+
+  static override get styles() {
+    return getCss();
+  }
+
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
+    return {
+      ...super.properties,
+      screenshotDataUri: {type: String},
+      enableRegionSelectedGlow: {type: Boolean},
+      enableBorderGlow: {type: Boolean},
+      disableShimmer: {type: Boolean},
+      showFloatingPrompt: {type: Boolean},
+      floatingPromptStyle: {type: String},
+      activeSelection: {type: Object},
+      suggestedActions: {type: Array},
+      enableSelectionOverlayPrompt: {type: Boolean},
+      enableSelectionOverlayPromptBox: {type: Boolean},
+      hideHandles: {type: Boolean},
+      disableMultiSelect: {type: Boolean, reflect: true},
+      skipIntroAnimation: {type: Boolean, reflect: true},
+      hasPromptText: {type: Boolean},
+      sidePanelOpen: {type: Boolean, reflect: true},
+    };
+  }
+
+  accessor screenshotDataUri: string = '';
+  accessor enableRegionSelectedGlow: boolean = true;
+  override accessor enableBorderGlow: boolean = true;
+  override accessor disableShimmer: boolean = false;
+  accessor showFloatingPrompt: boolean = false;
+  accessor floatingPromptStyle: string = '';
+  accessor activeSelection: PostSelectionBoundingBox|null = null;
+  accessor suggestedActions: SuggestedAction[] = [];
+  accessor enableSelectionOverlayPrompt: boolean =
+      loadTimeData.getBoolean('enableSelectionOverlayPrompt');
+  accessor enableSelectionOverlayPromptBox: boolean =
+      loadTimeData.getBoolean('enableSelectionOverlayPromptBox');
+  accessor hideHandles: boolean = false;
+  accessor disableMultiSelect: boolean = false;
+  accessor skipIntroAnimation: boolean = false;
+  // Whether the prompt input has non-whitespace text, which shows the submit
+  // button.
+  accessor hasPromptText: boolean = false;
+  // Whether the Glic side panel is open for this tab: showing, or backgrounded
+  // and showing again once the tab is in front. Kept live by the browser for
+  // the length of the session. Separate from the base class's
+  // `sidePanelOpened`, which applies the Lens side panel margins; the Glic
+  // overlay is tab-scoped and never applies them.
+  accessor sidePanelOpen: boolean = false;
+
+  override connectedCallback() {
+    super.connectedCallback();
+    const handlerImpl = this.baseHandler as SelectionOverlayBaseHandlerImpl;
+    this.listenerIds.push(handlerImpl.addSetInteractionOptionsListener(
+        (options: InteractionOptions) => {
+          this.hideHandles = options.hideHandles;
+          this.disableMultiSelect = options.disableMultiSelect;
+          this.skipIntroAnimation = options.skipIntroAnimation;
+        }));
+    this.listenerIds.push(
+        handlerImpl.addSetSidePanelOpenListener((open: boolean) => {
+          this.sidePanelOpen = open;
+        }));
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.floatingPromptResizeObserver_.disconnect();
+  }
+
+  override firstUpdated() {
+    super.firstUpdated();
+    GLIC_BORDER_GLOW_COLORS.forEach((color, index) => {
+      this.style.setProperty(`--overlay-border-glow-color-${index + 1}`, color);
+    });
+    this.updateThemeColors();
+    this.resetCursor();
+
+    this.eventTracker_.add(
+        document, 'post-selection-updated',
+        (e: CustomEvent<PostSelectionBoundingBox>) => {
+          // `PostSelectionRendererElement.clearSelection()` reports a cleared
+          // selection as an update with zero size.
+          if (e.detail.width === 0 && e.detail.height === 0) {
+            this.skipIntroAnimation = false;
+          }
+          const prev = this.activeSelection;
+          const selectionChanged = !prev ||
+              Math.abs(prev.top - e.detail.top) > 1e-5 ||
+              Math.abs(prev.left - e.detail.left) > 1e-5 ||
+              Math.abs(prev.width - e.detail.width) > 1e-5 ||
+              Math.abs(prev.height - e.detail.height) > 1e-5;
+          this.activeSelection = e.detail;
+          if (this.currentGesture?.state === GestureState.NOT_STARTED ||
+              this.currentGesture?.state === undefined) {
+            // Activate the dark scrim on the region selection layer, which
+            // normally only activates at the end of a manual drag gesture.
+            this.selectionElements.regionSelectionLayer
+                .handlePostSelectionDragGestureEnd();
+            this.updateFloatingPromptPosition();
+            if (selectionChanged) {
+              this.fetchSuggestedActions();
+            }
+          }
+        });
+
+    // TODO(b/501134201): 'post-selection-cleared' is never dispatched. Move
+    // this cleanup into the zero-size branch of the 'post-selection-updated'
+    // listener above and return early there, so that a cleared selection does
+    // not re-activate the scrim. Then remove this listener.
+    this.eventTracker_.add(document, 'post-selection-cleared', () => {
+      this.activeSelection = null;
+      this.showFloatingPrompt = false;
+      this.clearInlineFulfillment_();
+    });
+
+    if (this.enableSelectionOverlayPrompt ||
+        this.enableSelectionOverlayPromptBox) {
+      this.fetchSuggestedActions();
+    }
+
+    this.eventTracker_.add(window, 'resize', () => {
+      if (this.showFloatingPrompt) {
+        this.updateFloatingPromptPosition();
+      }
+    });
+
+    const container =
+        this.shadowRoot.querySelector<HTMLElement>('#floatingPromptContainer');
+    if (container) {
+      this.floatingPromptResizeObserver_.observe(container);
+    }
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+    if (changedProperties.has('skipIntroAnimation') &&
+        this.skipIntroAnimation) {
+      this.selectionElements.regionSelectionLayer
+          .handlePostSelectionDragGestureEnd();
+    }
+  }
+
+  override get selectionElements() {
+    return {
+      backgroundImageCanvas: this.$.backgroundImageCanvas,
+      cursor: this.$.cursor,
+      initialFlashScrim: this.$.initialFlashScrim,
+      overlayShimmerCanvas: this.$.overlayShimmerCanvas,
+      postSelectionRenderer: this.$.postSelectionRenderer,
+      regionSelectionLayer: this.$.regionSelectionLayer,
+      selectionOverlay: this.$.selectionOverlay,
+    };
+  }
+
+  // Overridden to log container and screenshot dimensions for diagnosing
+  // unexpected insets / margins (b/512915349). Unlike Lens Overlay, gPointer
+  // is tab-scoped and should never apply side panel margins or insets (unless
+  // the user resizes the browser window).
+  protected override updateCanvasSize(
+      containerWidth: number, containerHeight: number) {
+    super.updateCanvasSize(containerWidth, containerHeight);
+
+    const canvas = this.selectionElements.backgroundImageCanvas;
+    const screenshotWidth = canvas.width;
+    const screenshotHeight = canvas.height;
+    const dpr = window.devicePixelRatio;
+    const diffW = Math.abs(containerWidth - (screenshotWidth / dpr));
+    const diffH = Math.abs(containerHeight - (screenshotHeight / dpr));
+    const doesScreenshotFillContainer = diffW <= 2 && diffH <= 2;
+    const shouldApplyMargins =
+        !doesScreenshotFillContainer || this.sidePanelOpened;
+
+    // Diagnostics for b/512915349: Check the logged values against each
+    // hypothesis:
+    //
+    // Hypothesis 1 (Mojo/State): sidePanelOpened=true
+    // Proves: isSidePanelOpen was erroneously passed as true via Mojo or
+    // setSidePanelOpened() was called, unconditionally applying margins.
+    //
+    // Hypothesis 2 (Fractional DPI): 2px < diffW/diffH <= 4px
+    // Why 2px-4px: SCREENSHOT_RESIZE_TOLERANCE_PIXELS is 2px. Converting
+    // physical pixels to DIPs (physical / devicePixelRatio) on
+    // fractional/Retina displays introduces floating-point and rounding
+    // jitter across layers (Blink layout vs compositor surface vs WebUI).
+    // Differences between 2.01px and ~4px prove subpixel rounding noise
+    // barely crossed the strict 2px threshold, rather than a real layout
+    // shift.
+    //
+    // Hypothesis 3 (Late Resize): diffW >> 5px or changing container dims
+    // Why >> 5px: Differentiates real layout changes from rounding noise
+    // (<=4px). A side panel animation frame shifts layout by 20-60px per
+    // frame (total panel is ~400px), and window resizes shift by
+    // dozens/hundreds of pixels. Diffs >> 5px prove container resized AFTER
+    // the screenshot was captured.
+    //
+    // Hypothesis 4 (Top Chrome/Toolbar): diffW <= 2px, diffH >> 2px (e.g.
+    // 36-72px) Proves: Height mismatch from UI elements (e.g. download shelf,
+    // bookmark bar, or tabstrip bounds offset in C++ capture).
+    if (shouldApplyMargins) {
+      console.error(
+          `[SelectionOverlayDebug] ` +
+          `container=${containerWidth}x${containerHeight}, ` +
+          `screenshot=${screenshotWidth}x${screenshotHeight}, ` +
+          `dpr=${dpr}, ` +
+          `diffW=${diffW.toFixed(2)}, diffH=${diffH.toFixed(2)}, ` +
+          `doesScreenshotFillContainer=${doesScreenshotFillContainer}, ` +
+          `sidePanelOpened=${this.sidePanelOpened}, ` +
+          `isResized=${this.isResized}, ` +
+          `shouldApplyMargins=${shouldApplyMargins}`);
+    }
+  }
+
+  // Repositions the prompt when its size changes, e.g. when a card is added
+  // or its content grows, so it doesn't overflow the viewport.
+  private floatingPromptResizeObserver_ = new ResizeObserver(() => {
+    if (this.showFloatingPrompt) {
+      this.updateFloatingPromptPosition();
+    }
+  });
+
+  private updateThemeColors() {
+    const selectionColor = this.getSelectionElementColor();
+    if (selectionColor) {
+      this.style.setProperty('--color-selection-element', selectionColor);
+    }
+    const primaryColor = this.getPrimaryColor();
+    if (primaryColor) {
+      this.style.setProperty('--color-primary', primaryColor);
+    }
+  }
+
+  // Only rendered when the prompt is enabled.
+  private get inlineFulfillmentHost_(): InlineFulfillmentHostElement|null {
+    return this.shadowRoot.querySelector<InlineFulfillmentHostElement>(
+        '#inlineFulfillmentHost');
+  }
+
+  // The action whose card is showing, if any.
+  private shownInlineAction_: SuggestedAction|null = null;
+
+  // Height of `.action-chips-row` before the inline fulfillment card replaced
+  // it, used to keep the card's top-left corner at the row's top-left corner.
+  private replacedChipsRowHeight_ = 0;
+
+  private clearInlineFulfillment_() {
+    this.shownInlineAction_ = null;
+    this.inlineFulfillmentHost_?.clear();
+  }
+
+  private suggestedActionsListenerRouter_:
+      SuggestedActionsListenerCallbackRouter|null = null;
+
+  private fetchSuggestedActions() {
+    if (!this.enableSelectionOverlayPrompt &&
+        !this.enableSelectionOverlayPromptBox) {
+      return;
+    }
+    if (this.suggestedActionsListenerRouter_) {
+      this.suggestedActionsListenerRouter_.$.close();
+    }
+    this.suggestedActions = [];
+    // A card belongs to the previous selection's actions.
+    this.clearInlineFulfillment_();
+    this.suggestedActionsListenerRouter_ =
+        new SuggestedActionsListenerCallbackRouter();
+    this.suggestedActionsListenerRouter_.onSuggestedActionsAvailable
+        .addListener(async (actions: SuggestedAction[]) => {
+          const combined = [...this.suggestedActions, ...actions];
+          const askGeminiActions = combined.filter(
+              action => action.title.toLowerCase() === 'ask gemini');
+          const otherActions = combined.filter(
+              action => action.title.toLowerCase() !== 'ask gemini');
+          this.suggestedActions = [...otherActions, ...askGeminiActions];
+          await this.updateComplete;
+          if (this.showFloatingPrompt) {
+            this.updateFloatingPromptPosition();
+          }
+        });
+    const handlerImpl = this.baseHandler as SelectionOverlayBaseHandlerImpl;
+    handlerImpl.getSuggestedActions(
+        this.suggestedActionsListenerRouter_.$.bindNewPipeAndPassRemote());
+  }
+
+  protected override get defaultCursorIconUrl() {
+    return 'url("/glic_region_selection_cursor_icon.svg")';
+  }
+
+  private updateFloatingPromptPosition() {
+    if (!this.enableSelectionOverlayPrompt &&
+        !this.enableSelectionOverlayPromptBox) {
+      this.showFloatingPrompt = false;
+      return;
+    }
+
+    if (!this.selectionElements.postSelectionRenderer.hasSelection()) {
+      this.showFloatingPrompt = false;
+      return;
+    }
+
+    const bounds = this.activeSelection;
+    if (!bounds || (bounds.width === 0 && bounds.height === 0)) {
+      this.showFloatingPrompt = false;
+      return;
+    }
+
+    const overlayRect = this.selectionOverlayRect;
+    const selLeft = overlayRect.left + bounds.left * overlayRect.width;
+    const selTop = overlayRect.top + bounds.top * overlayRect.height;
+    const selWidth = bounds.width * overlayRect.width;
+    const selHeight = bounds.height * overlayRect.height;
+    const selBottom = selTop + selHeight;
+    const selRight = selLeft + selWidth;
+    const selCenterX = selLeft + selWidth / 2;
+
+    const margin = 16;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const maxAvailableWidth = Math.max(0, viewportWidth - 2 * margin);
+
+    const computeStyle = (width: number, height: number): string => {
+      const effectiveWidth = Math.min(width, maxAvailableWidth);
+      if (this.enableSelectionOverlayPromptBox) {
+        let clampedCenterX: number;
+        if (effectiveWidth >= maxAvailableWidth) {
+          clampedCenterX = viewportWidth / 2;
+        } else {
+          const minCenter = effectiveWidth / 2 + margin;
+          const maxCenter = viewportWidth - effectiveWidth / 2 - margin;
+          clampedCenterX = Math.max(minCenter, Math.min(selCenterX, maxCenter));
+        }
+
+        let targetTop = selBottom + margin;
+        if (targetTop + height > viewportHeight - margin) {
+          const topAbove = selTop - height - margin;
+          if (topAbove >= margin) {
+            targetTop = topAbove;
+          } else {
+            targetTop = Math.max(margin, viewportHeight - height - margin);
+          }
+        }
+        return `left: ${clampedCenterX}px; top: ${
+            targetTop}px; transform: translateX(-50%);`;
+      }
+
+      // When the prompt box is not shown, anchor the bottom-left of the row at
+      // the region's top-right corner (selRight, selTop). When an inline
+      // fulfillment card replaces the row, keep the card's top-left corner at
+      // the row's top-left corner so it expands downward.
+      const idealCenterX = selRight + effectiveWidth / 2;
+      let clampedCenterX: number;
+      if (effectiveWidth >= maxAvailableWidth) {
+        clampedCenterX = viewportWidth / 2;
+      } else {
+        const minCenter = effectiveWidth / 2 + margin;
+        const maxCenter = viewportWidth - effectiveWidth / 2 - margin;
+        clampedCenterX = Math.max(minCenter, Math.min(idealCenterX, maxCenter));
+      }
+
+      const idealTop = selTop -
+          (this.shownInlineAction_ ? this.replacedChipsRowHeight_ : height);
+      const targetTop = Math.max(
+          margin, Math.min(idealTop, viewportHeight - height - margin));
+      return `left: ${clampedCenterX}px; top: ${
+          targetTop}px; transform: translateX(-50%);`;
+    };
+
+    const container =
+        this.shadowRoot.querySelector<HTMLElement>('#floatingPromptContainer');
+    let promptWidth = this.enableSelectionOverlayPromptBox ? 360 : 32;
+    let promptHeight = this.enableSelectionOverlayPromptBox ? 96 : 32;
+
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      if (rect.width > 0) {
+        promptWidth = rect.width;
+        promptHeight = rect.height;
+      }
+    }
+
+    this.floatingPromptStyle = computeStyle(promptWidth, promptHeight);
+    this.showFloatingPrompt = true;
+
+    const refinePosition = () => {
+      if (!this.showFloatingPrompt) {
+        return;
+      }
+      const currentContainer = this.shadowRoot.querySelector<HTMLElement>(
+          '#floatingPromptContainer');
+      if (currentContainer) {
+        const newRect = currentContainer.getBoundingClientRect();
+        if (newRect.width > 0 &&
+            (Math.abs(newRect.width - promptWidth) > 1 ||
+             Math.abs(newRect.height - promptHeight) > 1)) {
+          promptWidth = newRect.width;
+          promptHeight = newRect.height;
+          this.floatingPromptStyle =
+              computeStyle(newRect.width, newRect.height);
+        }
+      }
+    };
+
+    // Refine position once Lit renders the unhidden container and in the next
+    // animation frame after layout resolves.
+    this.updateComplete.then(refinePosition);
+    requestAnimationFrame(refinePosition);
+  }
+
+  override handleGestureStart() {
+    super.handleGestureStart();
+    this.showFloatingPrompt = false;
+    if (this.selectionElements.postSelectionRenderer.handleGestureStart(
+            this.currentGesture)) {
+      this.draggingRespondent = DragFeature.POST_SELECTION;
+    }
+  }
+
+  protected override handleGestureDrag(event: PointerEvent) {
+    assert(this.currentGesture.state === GestureState.DRAGGING);
+    this.showFloatingPrompt = false;
+    // Capture pointer events so gestures still work if the users pointer
+    // leaves the selection overlay div. Pointer capture is implicitly
+    // released after pointerup or pointercancel events.
+    this.setPointerCapture(event.pointerId);
+
+    if (this.draggingRespondent === DragFeature.POST_SELECTION) {
+      this.selectionElements.postSelectionRenderer.handleGestureDrag(
+          this.currentGesture);
+      return;
+    }
+
+    // If no one is responding to the drag yet, then let the region selection
+    // layer respond.
+    if (this.draggingRespondent === DragFeature.NONE) {
+      // Disable region selection on click.
+      // TODO(b/565871325): Allow adding regions while Ctrl or Cmd is held, here
+      // and in `handleGestureEnd()`.
+      if (this.disableMultiSelect) {
+        return;
+      }
+      this.setCursorToCrosshair();
+      this.draggingRespondent = DragFeature.MANUAL_REGION;
+
+      this.activeRegionId = '';
+      this.baseHandler.activeRegionId = '';
+      this.selectionElements.postSelectionRenderer.clearSelection();
+
+      // TODO(crbug.com/421002691): follow the convention where the layer
+      // should return true if its handling the gesture, and draggingRespondent
+      // should be updated. Currently used to trigger the fade in of the
+      // darkened scrim.
+      this.selectionElements.regionSelectionLayer.handleGestureStart();
+    }
+
+    if (this.draggingRespondent === DragFeature.MANUAL_REGION) {
+      this.selectionElements.regionSelectionLayer.handleGestureDrag(
+          this.currentGesture);
+    }
+  }
+
+  protected override handleGestureEnd() {
+    if (this.disableMultiSelect &&
+        this.draggingRespondent === DragFeature.NONE) {
+      (this.baseHandler as SelectionOverlayBaseHandlerImpl)
+          .dismissOverlay(DismissOverlayReason.kBackgroundClick);
+      return;
+    }
+
+    // Allow proper feature to respond to the tap/drag event.
+    switch (this.currentGesture.state) {
+      case GestureState.DRAGGING:
+
+        // Drag has finished. Let the features respond to the end of a drag.
+        if (this.draggingRespondent === DragFeature.MANUAL_REGION) {
+          this.selectionElements.regionSelectionLayer.handleGestureEnd(
+              this.currentGesture);
+        } else if (this.draggingRespondent === DragFeature.POST_SELECTION) {
+          this.selectionElements.postSelectionRenderer.handleGestureEnd();
+          // Fade out scrim which is currently being managed by region selection
+          // TODO(crbug.com/420998632): move scrim out to its own component
+          this.selectionElements.regionSelectionLayer
+              .handlePostSelectionDragGestureEnd();
+        }
+        this.fetchSuggestedActions();
+        break;
+      case GestureState.STARTING:
+        if (this.draggingRespondent === DragFeature.NONE) {
+          this.baseHandler.activeRegionId = '';
+          this.selectionElements.regionSelectionLayer.handleGestureEnd(
+              this.currentGesture);
+        }
+        break;
+      default:  // Other states are invalid and ignored.
+        break;
+    }
+
+    this.resetCursor();
+    this.updateFloatingPromptPosition();
+  }
+
+  protected onPromptInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.hasPromptText = input.value.trim().length > 0;
+  }
+
+  protected onInputKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      this.submitPromptInput_();
+    } else if (event.key === 'Escape') {
+      (this.baseHandler as SelectionOverlayBaseHandlerImpl)
+          .dismissOverlay(DismissOverlayReason.kCloseButton);
+    }
+  }
+
+  protected onSubmitPromptClick() {
+    this.submitPromptInput_();
+  }
+
+  private submitPromptInput_() {
+    const input =
+        this.shadowRoot.querySelector<HTMLInputElement>('#promptInput');
+    const prompt = input?.value.trim() ?? '';
+    if (prompt.length > 0) {
+      this.submitPrompt(prompt);
+    }
+  }
+
+  protected async onSuggestedActionClick(e: Event) {
+    const index = Number((e.currentTarget as HTMLElement).dataset['index']);
+    const action = this.suggestedActions[index];
+    if (!action) {
+      return;
+    }
+    const handler = this.baseHandler as SelectionOverlayBaseHandlerImpl;
+    const inlineFulfillment = action.action.inlineFulfillment;
+    if (!inlineFulfillment) {
+      handler.executeSuggestedAction(action.id, null);
+      return;
+    }
+    const host = this.inlineFulfillmentHost_;
+    // Its card is already showing. Executing it again would send the browser
+    // a second channel for the same action.
+    if (!host || action === this.shownInlineAction_) {
+      return;
+    }
+    // TODO(liuwilliam): We should consider moving this to pointerdown to save
+    // ~200ms of click time.
+    //
+    // `show()` sends the channel only if the card loaded and no newer click or
+    // selection replaced it. Otherwise nothing is sent, since the browser
+    // rejects an inline action without a channel.
+    await host.show(inlineFulfillment.resourceName, channel => {
+      this.replacedChipsRowHeight_ =
+          this.shadowRoot.querySelector<HTMLElement>(
+                             '.action-chips-row')!.offsetHeight;
+      this.shownInlineAction_ = action;
+      handler.executeSuggestedAction(action.id, channel);
+    });
+  }
+
+  protected onInlineFulfillmentCloseClick() {
+    // Closes the overlay without the hidden toast, like a background click.
+    // TODO(b/546644969): Reorganize overlay close reasons once the UX is final.
+    (this.baseHandler as SelectionOverlayBaseHandlerImpl)
+        .dismissOverlay(DismissOverlayReason.kBackgroundClick);
+  }
+
+  protected submitPrompt(prompt: string) {
+    (this.baseHandler as SelectionOverlayBaseHandlerImpl).submitPrompt(prompt);
+  }
+
+  protected onPromptPointerdown(event: PointerEvent) {
+    event.stopPropagation();
+  }
+
+  protected onSettingsClick(event: Event) {
+    (this.baseHandler as SelectionOverlayBaseHandlerImpl).openSettings();
+    event.stopPropagation();
+  }
+
+  protected getActionIconClass(icon: SuggestedActionIcon): string {
+    switch (icon) {
+      case SuggestedActionIcon.kSpark:
+        return 'spark';
+      case SuggestedActionIcon.kExplain:
+        return 'explain';
+      case SuggestedActionIcon.kNone:
+      default:
+        return '';
+    }
+  }
+
+  override getOverlayBorderGlow(): OverlayBorderGlowElement {
+    return this.shadowRoot.querySelector<OverlayBorderGlowElement>(
+        '#overlayBorderGlow')!;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'glic-selection-overlay': GlicSelectionOverlayElement;
+  }
+}
+
+customElements.define(
+    GlicSelectionOverlayElement.is, GlicSelectionOverlayElement);

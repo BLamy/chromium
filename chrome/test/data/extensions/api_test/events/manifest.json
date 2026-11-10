@@ -1,0 +1,10 @@
+{
+  "name": "events apitest",
+  "description": "events extension",
+  "version": "0.1",
+  "manifest_version": 3,
+  "action": {"default_title": "apitest"},
+  "background": {
+    "service_worker": "background.js"
+  }
+}

@@ -1,0 +1,8 @@
+rootWebArea
+++genericContainer ignored
+++++genericContainer
+++++++canvas
+++++++canvas
+++++++++staticText name='Static fallback'
+++++++canvas
+++++++++staticText name='Static fallback'

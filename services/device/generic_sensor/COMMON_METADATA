@@ -1,0 +1,8 @@
+monorail: {
+  component: "Blink>Sensor"
+}
+buganizer_public: {
+  component_id: 1456235
+}
+agentic_review: {
+}

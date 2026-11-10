@@ -1,0 +1,9 @@
+monorail: {
+  component: "Blink>Identity>FedCM"
+}
+buganizer_public: {
+  component_id: 1456331
+}
+
+# Opt in to agentic code review.
+agentic_review {}

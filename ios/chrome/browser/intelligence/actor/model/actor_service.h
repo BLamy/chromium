@@ -1,0 +1,243 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_SERVICE_H_
+#define IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_SERVICE_H_
+
+#import <map>
+#import <memory>
+#import <optional>
+#import <string>
+#import <string_view>
+#import <vector>
+
+#import "base/callback_list.h"
+#import "base/memory/raw_ptr.h"
+#import "base/memory/weak_ptr.h"
+#import "base/sequence_checker.h"
+#import "components/actor/core/aggregated_journal.h"
+#import "components/keyed_service/core/keyed_service.h"
+#import "components/optimization_guide/proto/features/actions_data.pb.h"
+#import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
+#import "ios/web/public/web_state_id.h"
+
+@class PageContextWrapper;
+@class PostedObserverList<ObserverType>;
+@protocol ActorTaskInterventionDelegate;
+@protocol ActorTaskLifecycleObserver;
+@protocol ActorTaskUpdatesObserver;
+class ProfileIOS;
+
+namespace web {
+class WebState;
+}
+
+namespace actor {
+
+class ActorEnterprisePolicyCheckerIOS;
+class ActorTask;
+class ActorTaskBackgroundWorker;
+class ActorToolRequest;
+class ActorToolFactory;
+class AggregatedJournal;
+struct TaskSourceInfo;
+
+// Service responsible for handling Actor requests. The normal flow is to
+// `CreateTask` and reuse this ID for an entire Actor task (journey).
+// `ExecuteTools` can be called multiple times on the same task sequentially.
+// Must be created and used on a single sequence. Observers passed to
+// `Add*Observer()` must not be nil, `Remove*Observer()` ignores nil.
+class ActorService : public KeyedService {
+ public:
+  explicit ActorService(ProfileIOS* profile);
+  ~ActorService() override;
+
+  // KeyedService:
+  void Shutdown() override;
+
+  // Creates a new task. `source_info` identifies the client creating the task.
+  ActorTaskId CreateTask(const std::string& title,
+                         const TaskSourceInfo& source_info,
+                         bool allow_incognito_web_states);
+
+  // Submits actions to an active task with a task update string (a short
+  // blurb which tells the user what the Actor is currently doing in plain
+  // language).
+  //
+  // Actions are validated and executed sequentially. If any action fails
+  // validation or execution, the sequence is aborted immediately, and
+  // subsequent actions will not be run.
+  //
+  // If the task does not exist, `callback` is posted with a single
+  // `kTaskWentAway` result. If the task is still executing a previous request,
+  // `callback` is posted with a single `kExecutionEngineExistingAction` result
+  // and the request's target WebStates are not added to the task.
+  void PerformActions(
+      ActorTaskId task_id,
+      const std::vector<optimization_guide::proto::Action>& actions,
+      const std::string& task_update,
+      PerformActionsCallback callback);
+
+  // Requests a "tab observation" (nomenclature aligned with
+  // `chrome/browser/actor`). Tab is equivalent to WebState and "observation" is
+  // equivalent to a PageContext extraction. Not an "observing" pattern. In
+  // practice, this is equivalent to requesting a rich actionable mode
+  // extraction on `PageContextWrapper`, with a completion callback.
+  void RequestTabObservation(ActorTaskId task_id,
+                             web::WebState* web_state,
+                             TabObservationCallback callback);
+
+  // Pauses a task, cancelling in-progress actions and returning control of the
+  // WebState to the user.
+  void PauseTask(ActorTaskId task_id, bool from_actor);
+
+  // Sets the intervention delegate for UI interaction on the given task.
+  void SetTaskInterventionDelegate(ActorTaskId task_id,
+                                   id<ActorTaskInterventionDelegate> delegate);
+
+  // Interrupts a task to wait for user input, suspending ongoing actions
+  // without cancelling them. Accepts an optional message to display to the
+  // user.
+  void InterruptTask(ActorTaskId task_id,
+                     ActorTaskInterruptReason reason,
+                     std::string_view message = "");
+
+  // Stops a task.
+  void StopTask(ActorTaskId task_id, ActorTaskStoppedReason reason);
+
+  // TODO(crbug.com/517583120): Remove when the temporary actuation prototype is
+  // cleaned up.
+  // Stops all active tasks.
+  void StopAllTasks();
+
+  // Returns the aggregated journal for this service.
+  AggregatedJournal* GetJournal() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    return journal_.get();
+  }
+
+  // Registers an observer for task updates.
+  void AddTaskUpdatesObserver(id<ActorTaskUpdatesObserver> observer);
+
+  // Removes a registered observer for task updates.
+  void RemoveTaskUpdatesObserver(id<ActorTaskUpdatesObserver> observer);
+
+  // Registers `observer` for updates of the task identified by `task_id` only.
+  // Returns false if there is no active task with `task_id`.
+  bool AddTaskUpdatesObserver(ActorTaskId task_id,
+                              id<ActorTaskUpdatesObserver> observer);
+
+  // Removes `observer` from the task identified by `task_id`, if active.
+  void RemoveTaskUpdatesObserver(ActorTaskId task_id,
+                                 id<ActorTaskUpdatesObserver> observer);
+
+  // Registers the `observer` for task lifecycle events.
+  // Events are posted, never delivered synchronously, and `observer` receives
+  // those posted after this call until it is removed or the service shuts down.
+  void AddTaskLifecycleObserver(id<ActorTaskLifecycleObserver> observer);
+
+  // Removes a registered task lifecycle observer. Pending events are not
+  // delivered to `observer`.
+  void RemoveTaskLifecycleObserver(id<ActorTaskLifecycleObserver> observer);
+
+  // Returns the execution state of the currently active task, or `std::nullopt`
+  // if there are no active tasks.
+  std::optional<ActorTaskState> GetActiveTaskState() const;
+
+  // Returns the WebState associated with the given ActorTask by its ID, or
+  // nullptr if not found or is not in the set of the task's controlled
+  // WebStates.
+  web::WebState* GetWebStateForID(web::WebStateID web_state_id,
+                                  ActorTaskId task_id);
+
+  // Adds a WebState to the set of controlled WebStates for the given task.
+  void AddControlledWebState(ActorTaskId task_id, web::WebState* web_state);
+
+  // Returns a weak pointer to the background worker of each active task.
+  std::vector<base::WeakPtr<ActorTaskBackgroundWorker>>
+  GetWeakTaskBackgroundWorkers();
+
+  // Returns a weak pointer to this service instance.
+  base::WeakPtr<ActorService> GetWeakPtr() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+ private:
+  friend class ActorServiceTest;
+
+  // The profile associated with this service instance. Owned by the
+  // ProfileManager, which is guaranteed to outlive this KeyedService.
+  raw_ptr<ProfileIOS> profile_;
+
+  // Actor tool factory.
+  std::unique_ptr<ActorToolFactory> tool_factory_;
+
+  // Journal used for logging task tools, state transitions, and results.
+  std::unique_ptr<AggregatedJournal> journal_;
+
+  // Enterprise policy checker for this profile.
+  std::unique_ptr<ActorEnterprisePolicyCheckerIOS> policy_checker_;
+
+  // Subscription for enterprise policy changes to the actuation capability.
+  base::CallbackListSubscription can_act_on_web_subscription_;
+
+  // Map of active tasks, keyed by their task ID.
+  std::map<ActorTaskId, std::unique_ptr<ActorTask>> active_tasks_;
+
+  // Observers for task updates.
+  std::vector<__weak id<ActorTaskUpdatesObserver>> task_observers_;
+
+  // Observers notified of task start and stop, held weakly.
+  __strong PostedObserverList<id<ActorTaskLifecycleObserver>>*
+      lifecycle_observers_;
+
+  // Map of pending PageContext extractions ("observations"). Used to keep the
+  // wrapper alive while the extraction is in progress.
+  std::map<web::WebStateID, PageContextWrapper*> pending_observations_;
+
+  // Posts the lifecycle stop of `task` to lifecycle observers.
+  void NotifyTaskStopped(const ActorTask& task);
+
+  // Callback for when PageContext extraction completes.
+  void OnPageContextExtractionComplete(
+      web::WebStateID web_state_id,
+      const GURL& last_committed_url,
+      std::unique_ptr<AggregatedJournal::PendingAsyncEntry>
+          pending_journal_entry,
+      TabObservationCallback callback,
+      PageContextWrapperCallbackResponse response);
+
+  // Callback for when a task finishes executing its actions.
+  void OnActCompleted(ActorTaskId task_id,
+                      PerformActionsCallback callback,
+                      std::vector<ActionResult> results);
+
+  // Resolves target WebStates from ActorToolRequests and registers them in the
+  // task's controlled WebStates.
+  void AddControlledWebStates(
+      ActorTask* task,
+      const std::vector<std::unique_ptr<ActorToolRequest>>& actions);
+
+  // Stops all active tasks when enterprise policy disables web actuation.
+  void OnCanActOnWebChanged(bool can_act_on_web);
+
+  // Returns the WebState associated with the given `web_state_id`, or nullptr
+  // if it cannot be found.
+  web::WebState* GetWebState(web::WebStateID web_state_id,
+                             bool allows_incognito);
+
+  // Ensures the service is only used on the sequence it was created on.
+  SEQUENCE_CHECKER(sequence_checker_);
+
+  // Generator for unique task IDs.
+  ActorTaskId::Generator next_task_id_;
+
+  // Weak pointer factory.
+  base::WeakPtrFactory<ActorService> weak_ptr_factory_{this};
+};
+
+}  // namespace actor
+
+#endif  // IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_SERVICE_H_

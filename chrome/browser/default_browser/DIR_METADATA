@@ -1,0 +1,8 @@
+monorail {
+  component: "UI>Browser>TopChrome"
+}
+team_email: "top-chrome-desktop-ui@google.com"
+buganizer_public: {
+  component_id: 1457234
+}
+agentic_review {}

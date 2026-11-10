@@ -1,0 +1,431 @@
+// Copyright 2015 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "third_party/blink/renderer/platform/media/url_index.h"
+
+#include <algorithm>
+#include <set>
+#include <utility>
+
+#include "base/feature_list.h"
+#include "base/location.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
+#include "media/base/media_switches.h"
+#include "third_party/blink/renderer/platform/media/resource_multi_buffer_data_provider.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/hash_map.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
+
+namespace blink {
+
+const int kBlockSizeShift = 15;  // 1<<15 == 32kb
+const int kUrlMappingTimeoutSeconds = 300;
+
+ResourceMultiBuffer::ResourceMultiBuffer(
+    UrlData* url_data,
+    int block_shift,
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+    : MultiBuffer(block_shift, url_data->url_index_->lru_),
+      url_data_(url_data),
+      task_runner_(std::move(task_runner)) {}
+
+ResourceMultiBuffer::~ResourceMultiBuffer() = default;
+
+std::unique_ptr<MultiBuffer::DataProvider> ResourceMultiBuffer::CreateWriter(
+    const MultiBufferBlockId& pos,
+    bool is_client_audio_element) {
+  auto writer = std::make_unique<ResourceMultiBufferDataProvider>(
+      url_data_, pos, is_client_audio_element, task_runner_);
+  writer->Start();
+  return writer;
+}
+
+bool ResourceMultiBuffer::RangeSupported() const {
+  return url_data_->range_supported_;
+}
+
+void ResourceMultiBuffer::OnEmpty() {
+  url_data_->OnEmpty();
+}
+
+// static
+UrlData::KeyType UrlData::MakeKey(
+    const KURL& url,
+    scoped_refptr<const SecurityOrigin> security_origin,
+    CorsMode cors_mode,
+    media::DataSource::EncodingMode encoding_mode) {
+  return std::make_pair(
+      url, std::make_pair(std::move(security_origin),
+                          std::make_pair(cors_mode, encoding_mode)));
+}
+
+UrlData::UrlData(base::PassKey<UrlIndex>,
+                 const KURL& url,
+                 CorsMode cors_mode,
+                 CacheMode cache_lookup_mode,
+                 scoped_refptr<const SecurityOrigin> security_origin,
+                 media::DataSource::EncodingMode encoding_mode,
+                 base::WeakPtr<UrlIndex> url_index,
+                 scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+    : UrlData(url,
+              cors_mode,
+              cache_lookup_mode,
+              std::move(security_origin),
+              encoding_mode,
+              url_index,
+              std::move(task_runner)) {}
+
+UrlData::UrlData(const KURL& url,
+                 CorsMode cors_mode,
+                 CacheMode cache_lookup_mode,
+                 scoped_refptr<const SecurityOrigin> security_origin,
+                 media::DataSource::EncodingMode encoding_mode,
+                 base::WeakPtr<UrlIndex> url_index,
+                 scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+    : url_(url),
+      security_origin_(std::move(security_origin)),
+      cors_mode_(cors_mode),
+      has_access_control_(false),
+      url_index_(url_index),
+      length_(kPositionNotSpecified),
+      range_supported_(false),
+      cacheable_(false),
+      cache_lookup_mode_(cache_lookup_mode),
+      encoding_mode_(encoding_mode),
+      multibuffer_(this, url_index_->block_shift(), std::move(task_runner)) {
+  CHECK(security_origin_);
+}
+
+UrlData::~UrlData() = default;
+
+UrlData::KeyType UrlData::key() const {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  return MakeKey(url(), security_origin(), cors_mode(), encoding_mode());
+}
+
+void UrlData::set_valid_until(base::Time valid_until) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  valid_until_ = valid_until;
+}
+
+bool UrlData::MergeFrom(const scoped_refptr<UrlData>& other) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  // We're merging from another UrlData that refers to the *same*
+  // resource, so when we merge the metadata, we can use the most
+  // optimistic values.
+  CHECK(security_origin_->IsSameOriginWith(other->security_origin_.get()));
+  const KURL other_origin = other->data_origin_.value_or(KURL());
+  if (!CanAcceptDataFrom(other_origin, other->is_cors_cross_origin_)) {
+    return false;
+  }
+  // Do not merge if either UrlData already has a known length and the other
+  // does not report the same length, to prevent splicing responses from
+  // resources of different sizes onto the same UrlData.
+  if (!HasCompatibleLength(other->length_) ||
+      !other->HasCompatibleLength(length_)) {
+    return false;
+  }
+  SetDataOrigin(other_origin, other->is_cors_cross_origin_);
+
+  valid_until_ = std::max(valid_until_, other->valid_until_);
+  // set_length() will not override the length if already known.
+  set_length(other->length_);
+  cacheable_ |= other->cacheable_;
+  cache_lookup_mode_ = other->cache_lookup_mode_;
+  range_supported_ |= other->range_supported_;
+  if (last_modified_.is_null()) {
+    last_modified_ = other->last_modified_;
+  }
+  bytes_read_from_cache_ += other->bytes_read_from_cache_;
+  has_access_control_ |= other->has_access_control_;
+  multibuffer()->MergeFrom(other->multibuffer());
+  return true;
+}
+
+void UrlData::set_cacheable(bool cacheable) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  cacheable_ = cacheable;
+}
+
+void UrlData::set_length(int64_t length) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (length != kPositionNotSpecified) {
+    length_ = length;
+  }
+}
+
+bool UrlData::HasCompatibleLength(int64_t length) const {
+  return length_ == kPositionNotSpecified || length_ == length;
+}
+
+void UrlData::set_is_cors_cross_origin(bool is_cors_cross_origin) {
+  if (is_cors_cross_origin_)
+    return;
+  is_cors_cross_origin_ = is_cors_cross_origin;
+}
+
+void UrlData::set_has_access_control() {
+  has_access_control_ = true;
+}
+
+void UrlData::set_mime_type(std::string mime_type) {
+  mime_type_ = std::move(mime_type);
+}
+
+void UrlData::set_passed_timing_allow_origin_check(
+    bool passed_timing_allow_origin_check) {
+  passed_timing_allow_origin_check_ = passed_timing_allow_origin_check;
+}
+
+void UrlData::RedirectTo(const scoped_refptr<UrlData>& url_data) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  // Copy any cached data over to the new location.
+  url_data->multibuffer()->MergeFrom(multibuffer());
+  url_data->set_is_cors_cross_origin(is_cors_cross_origin());
+
+  Vector<RedirectCB> redirect_callbacks;
+  redirect_callbacks.swap(redirect_callbacks_);
+  for (RedirectCB& cb : redirect_callbacks) {
+    std::move(cb).Run(url_data);
+  }
+}
+
+void UrlData::Fail() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  // Handled similar to a redirect.
+  Vector<RedirectCB> redirect_callbacks;
+  redirect_callbacks.swap(redirect_callbacks_);
+  for (RedirectCB& cb : redirect_callbacks) {
+    std::move(cb).Run(nullptr);
+  }
+}
+
+void UrlData::CrossOriginFail() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  set_is_cors_cross_origin(true);
+  Fail();
+}
+
+void UrlData::OnRedirect(RedirectCB cb) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  redirect_callbacks_.push_back(std::move(cb));
+}
+
+void UrlData::Use() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  last_used_ = base::Time::Now();
+}
+
+bool UrlData::CanAcceptDataFrom(const KURL& origin,
+                                bool is_cors_cross_origin) const {
+  if (!data_origin_) {
+    return true;
+  }
+
+  // Mixing non-opaque and opaque responses on a resource that has already
+  // received a response is not allowed, as consumers may have already checked
+  // origin tainting based on the earlier response.
+  if (is_cors_cross_origin_ != is_cors_cross_origin &&
+      base::FeatureList::IsEnabled(media::kDisallowMixedOpaqueMediaResponses)) {
+    return false;
+  }
+
+  if (cors_mode_ == UrlData::CORS_UNSPECIFIED) {
+    // If both origins are null return true, otherwise
+    // SecurityOrigin::AreSameOrigin will create a unique nonce for each.
+    if (!data_origin_->IsNull() || !origin.IsNull()) {
+      if (!SecurityOrigin::AreSameOrigin(data_origin_.value(), origin)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+void UrlData::SetDataOrigin(const KURL& origin, bool is_cors_cross_origin) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  CHECK(CanAcceptDataFrom(origin, is_cors_cross_origin));
+  if (!data_origin_) {
+    data_origin_ = origin;
+  }
+  // The actual cors checks are done in the net layer.
+  set_is_cors_cross_origin(is_cors_cross_origin);
+}
+
+void UrlData::OnEmpty() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (url_index_) {
+    url_index_->RemoveUrlData(this);
+  }
+}
+
+bool UrlData::FullyCached() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (length_ == kPositionNotSpecified)
+    return false;
+  // Check that the first unavailable block in the cache is after the
+  // end of the file.
+  return (multibuffer()->FindNextUnavailable(0) << kBlockSizeShift) >= length_;
+}
+
+bool UrlData::Valid() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  base::Time now = base::Time::Now();
+  if (!range_supported_ && !FullyCached())
+    return false;
+  // When ranges are not supported, we cannot re-use cached data.
+  if (valid_until_ > now)
+    return true;
+  if (now - last_used_ < base::Seconds(kUrlMappingTimeoutSeconds))
+    return true;
+  return false;
+}
+
+void UrlData::set_last_modified(base::Time last_modified) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  last_modified_ = last_modified;
+}
+
+void UrlData::set_etag(const std::string& etag) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  etag_ = etag;
+}
+
+void UrlData::set_range_supported() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  range_supported_ = true;
+}
+
+ResourceMultiBuffer* UrlData::multibuffer() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  return &multibuffer_;
+}
+
+size_t UrlData::CachedSize() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  return multibuffer()->map().size();
+}
+
+UrlIndex::UrlIndex(ResourceFetchContext* fetch_context,
+                   scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+    : UrlIndex(fetch_context, kBlockSizeShift, std::move(task_runner)) {}
+
+UrlIndex::UrlIndex(ResourceFetchContext* fetch_context,
+                   int block_shift,
+                   scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+    : fetch_context_(fetch_context),
+      lru_(base::MakeRefCounted<MultiBuffer::GlobalLRU>(task_runner)),
+      block_shift_(block_shift),
+      task_runner_(std::move(task_runner)) {}
+
+UrlIndex::~UrlIndex() = default;
+
+void UrlIndex::RemoveUrlData(const scoped_refptr<UrlData>& url_data) {
+  DCHECK(url_data->multibuffer()->map().empty());
+
+  auto i = indexed_data_.find(url_data->key());
+  if (i != indexed_data_.end() && i->value == url_data) {
+    indexed_data_.erase(i);
+  }
+}
+
+scoped_refptr<UrlData> UrlIndex::GetByUrl(
+    const KURL& url,
+    UrlData::CorsMode cors_mode,
+    UrlData::CacheMode cache_mode,
+    scoped_refptr<const SecurityOrigin> security_origin,
+    media::DataSource::EncodingMode encoding_mode) {
+  if (cache_mode == UrlData::kNormal) {
+    auto i = indexed_data_.find(
+        UrlData::MakeKey(url, security_origin, cors_mode, encoding_mode));
+    if (i != indexed_data_.end() && i->value->Valid()) {
+      return i->value;
+    }
+  }
+
+  return NewUrlData(url, cors_mode, cache_mode, std::move(security_origin),
+                    encoding_mode);
+}
+
+scoped_refptr<UrlData> UrlIndex::NewUrlData(
+    const KURL& url,
+    UrlData::CorsMode cors_mode,
+    UrlData::CacheMode cache_lookup_mode,
+    scoped_refptr<const SecurityOrigin> security_origin,
+    media::DataSource::EncodingMode encoding_mode) {
+  return base::MakeRefCounted<UrlData>(
+      base::PassKey<UrlIndex>(), url, cors_mode, cache_lookup_mode,
+      std::move(security_origin), encoding_mode, weak_factory_.GetWeakPtr(),
+      task_runner_);
+}
+
+namespace {
+bool IsStrongEtag(const std::string& etag) {
+  return etag.size() > 2 && etag[0] == '"';
+}
+
+bool IsNewDataForSameResource(const scoped_refptr<UrlData>& new_entry,
+                              const scoped_refptr<UrlData>& old_entry) {
+  if (IsStrongEtag(new_entry->etag()) && IsStrongEtag(old_entry->etag())) {
+    if (new_entry->etag() != old_entry->etag())
+      return true;
+  }
+  if (!new_entry->last_modified().is_null()) {
+    if (new_entry->last_modified() != old_entry->last_modified())
+      return true;
+  }
+  return false;
+}
+}  // namespace
+
+scoped_refptr<UrlData> UrlIndex::TryInsert(
+    const scoped_refptr<UrlData>& url_data) {
+  auto iter = indexed_data_.find(url_data->key());
+  if (iter == indexed_data_.end()) {
+    // If valid and not already indexed, index it.
+    if (url_data->Valid()) {
+      indexed_data_.insert(url_data->key(), url_data);
+    }
+    return url_data;
+  }
+
+  // A UrlData instance for the same key is already indexed.
+
+  // If the indexed instance is the same as |url_data|,
+  // nothing needs to be done.
+  if (iter->value == url_data) {
+    return url_data;
+  }
+
+  // The indexed instance is different.
+  // Check if it should be replaced with |url_data|.
+  if (IsNewDataForSameResource(url_data, iter->value)) {
+    if (url_data->Valid()) {
+      iter->value = url_data;
+    }
+    return url_data;
+  }
+
+  // If the url data should bypass the cache lookup, we want to not merge it.
+  if (url_data->cache_lookup_mode() == UrlData::kCacheDisabled) {
+    return url_data;
+  }
+
+  if (!url_data->Valid()) {
+    return url_data;
+  }
+
+  if (!iter->value->Valid() ||
+      url_data->CachedSize() > iter->value->CachedSize()) {
+    iter->value = url_data;
+  } else if (!iter->value->MergeFrom(url_data)) {
+    return url_data;
+  }
+  return iter->value;
+}
+
+}  // namespace blink

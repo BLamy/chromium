@@ -1,0 +1,43 @@
+// Copyright 2016 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef MOJO_CORE_BROKER_H_
+#define MOJO_CORE_BROKER_H_
+
+#include "base/memory/writable_shared_memory_region.h"
+#include "base/synchronization/lock.h"
+#include "mojo/public/cpp/platform/platform_handle.h"
+
+namespace mojo {
+namespace core {
+
+// The Broker is a channel to the broker process, which allows synchronous IPCs
+// to fulfill shared memory allocation requests on some platforms.
+class Broker {
+ public:
+  explicit Broker(PlatformHandle handle);
+
+  Broker(const Broker&) = delete;
+  Broker& operator=(const Broker&) = delete;
+
+  ~Broker();
+
+  // Request a shared buffer from the broker process. Blocks the current thread.
+  base::WritableSharedMemoryRegion GetWritableSharedMemoryRegion(
+      size_t num_bytes);
+
+ private:
+  // Handle to the broker process, used for synchronous IPCs.
+  PlatformHandle sync_channel_;
+
+  // Lock to only allow one sync message at a time. This avoids having to deal
+  // with message ordering since we can only have one request at a time
+  // in-flight.
+  base::Lock lock_;
+};
+
+}  // namespace core
+}  // namespace mojo
+
+#endif  // MOJO_CORE_BROKER_H_

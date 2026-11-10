@@ -1,0 +1,460 @@
+// Copyright 2021 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#import "ios/chrome/browser/first_run/coordinator/first_run_coordinator.h"
+
+#import <UIKit/UIKit.h>
+
+#import <algorithm>
+
+#import "base/apple/foundation_util.h"
+#import "base/feature_list.h"
+#import "base/functional/bind.h"
+#import "base/metrics/histogram_functions.h"
+#import "base/notreached.h"
+#import "base/time/time.h"
+#import "base/timer/elapsed_timer.h"
+#import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/tracker.h"
+#import "components/metrics/metrics_service.h"
+#import "components/segmentation_platform/embedder/default_model/device_switcher_model.h"
+#import "components/segmentation_platform/embedder/default_model/device_switcher_result_dispatcher.h"
+#import "components/segmentation_platform/public/result.h"
+#import "components/signin/public/base/signin_metrics.h"
+#import "ios/chrome/browser/authentication/fullscreen_signin_screen/coordinator/fullscreen_signin_screen_coordinator.h"
+#import "ios/chrome/browser/authentication/history_sync/coordinator/history_sync_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_context_style.h"
+#import "ios/chrome/browser/docking_promo/coordinator/docking_promo_coordinator.h"
+#import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/first_run/animated_lens/coordinator/animated_lens_promo_coordinator.h"
+#import "ios/chrome/browser/first_run/best_features/coordinator/best_features_screen_coordinator.h"
+#import "ios/chrome/browser/first_run/default_browser/coordinator/default_browser_screen_coordinator.h"
+#import "ios/chrome/browser/first_run/interactive_lens/coordinator/interactive_lens_promo_coordinator.h"
+#import "ios/chrome/browser/first_run/model/first_run_metrics.h"
+#import "ios/chrome/browser/first_run/public/features.h"
+#import "ios/chrome/browser/first_run/public/first_run_screen_delegate.h"
+#import "ios/chrome/browser/first_run/public/first_run_util.h"
+#import "ios/chrome/browser/screen/ui_bundled/screen_provider.h"
+#import "ios/chrome/browser/screen/ui_bundled/screen_type.h"
+#import "ios/chrome/browser/search_engine_choice/coordinator/search_engine_choice_coordinator.h"
+#import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/new_tab_page_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
+#import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/public/provider/chrome/browser/signin/choice_api.h"
+#import "ios/public/provider/chrome/browser/switcher_info/switcher_info_api.h"
+
+namespace {
+
+// Timeout for waiting for the device switcher classification result.
+constexpr base::TimeDelta kDeviceSwitcherWaitTimeout = base::Seconds(60);
+
+// Returns true if `result` classifies the user as an Android switcher.
+// A user is considered an Android switcher if the classification succeeded,
+// their primary (first) label is `kAndroidPhoneLabel`, and they were not also
+// classified with `kIosPhoneChromeLabel` (matching the Bring Android Tabs
+// criteria).
+bool IsAndroidSwitcher(
+    const segmentation_platform::ClassificationResult& result) {
+  return result.status == segmentation_platform::PredictionStatus::kSucceeded &&
+         !result.ordered_labels.empty() &&
+         result.ordered_labels[0] ==
+             segmentation_platform::DeviceSwitcherModel::kAndroidPhoneLabel &&
+         !std::ranges::contains(
+             result.ordered_labels,
+             segmentation_platform::DeviceSwitcherModel::kIosPhoneChromeLabel);
+}
+
+// Callback invoked when the segmentation device switcher classification result
+// is received or times out. Records the latency and the Android switcher
+// classification result.
+void OnSegmentationDeviceSwitcherResult(
+    base::ElapsedTimer timer,
+    const segmentation_platform::ClassificationResult& result) {
+  const base::TimeDelta elapsed = timer.Elapsed();
+
+  // Determine the Android switcher classification result from the segmentation
+  // platform prediction result.
+  first_run::DefaultBrowserPromoSegmentationResult segmentation_result =
+      first_run::DefaultBrowserPromoSegmentationResult::kNotReady;
+  bool is_success = false;
+  switch (result.status) {
+    case segmentation_platform::PredictionStatus::kNotReady:
+      segmentation_result =
+          first_run::DefaultBrowserPromoSegmentationResult::kNotReady;
+      break;
+    case segmentation_platform::PredictionStatus::kFailed:
+      segmentation_result =
+          first_run::DefaultBrowserPromoSegmentationResult::kFailed;
+      break;
+    case segmentation_platform::PredictionStatus::kSucceeded:
+      if (result.ordered_labels.empty()) {
+        segmentation_result =
+            first_run::DefaultBrowserPromoSegmentationResult::kFailed;
+      } else if (std::ranges::contains(
+                     result.ordered_labels,
+                     segmentation_platform::DeviceSwitcherModel::
+                         kNotSyncedLabel)) {
+        segmentation_result =
+            first_run::DefaultBrowserPromoSegmentationResult::kNotReady;
+      } else if (IsAndroidSwitcher(result)) {
+        segmentation_result =
+            first_run::DefaultBrowserPromoSegmentationResult::kAndroidSwitcher;
+        is_success = true;
+      } else {
+        segmentation_result = first_run::DefaultBrowserPromoSegmentationResult::
+            kNotAndroidSwitcher;
+        is_success = true;
+      }
+      break;
+  }
+
+  base::UmaHistogramMediumTimes(
+      is_success
+          ? first_run::kDefaultBrowserPromoSegmentationLatencySuccessHistogram
+          : first_run::kDefaultBrowserPromoSegmentationLatencyFailureHistogram,
+      elapsed);
+  base::UmaHistogramEnumeration(
+      first_run::kDefaultBrowserPromoSegmentationResultHistogram,
+      segmentation_result);
+}
+
+// Queries the segmentation platform device switcher classification result and
+// records the result and latency metrics.
+void RecordSegmentationDeviceSwitcherSignal(ProfileIOS* profile) {
+  if (!experimental_flags::GetSegmentForForcedDeviceSwitcherExperience()
+           .empty() ||
+      !first_run::IsQueryDeviceSwitcherSignalsInFirstRunEnabled()) {
+    return;
+  }
+  segmentation_platform::DeviceSwitcherResultDispatcher* dispatcher =
+      segmentation_platform::SegmentationPlatformServiceFactory::
+          GetDispatcherForProfile(profile);
+  if (!dispatcher) {
+    return;
+  }
+  dispatcher->WaitForClassificationResult(
+      kDeviceSwitcherWaitTimeout,
+      base::BindOnce(&OnSegmentationDeviceSwitcherResult,
+                     base::ElapsedTimer()));
+}
+
+// Callback invoked when the switcher info API result is received. Records the
+// latency and the Android switcher classification result.
+void OnSwitcherInfoDeviceSwitcherResult(
+    base::ElapsedTimer timer,
+    std::optional<ios::provider::SwitcherInfoResult> result) {
+  const base::TimeDelta elapsed = timer.Elapsed();
+
+  first_run::DefaultBrowserPromoSegmentationResult switcher_info_result =
+      first_run::DefaultBrowserPromoSegmentationResult::kFailed;
+  bool is_success = false;
+  if (result.has_value()) {
+    switch (result->switcher_status) {
+      case ios::provider::SwitcherStatus::kUnknown:
+        switcher_info_result =
+            first_run::DefaultBrowserPromoSegmentationResult::kNotReady;
+        break;
+      case ios::provider::SwitcherStatus::kNotSwitcher:
+        switcher_info_result = first_run::
+            DefaultBrowserPromoSegmentationResult::kNotAndroidSwitcher;
+        is_success = true;
+        break;
+      case ios::provider::SwitcherStatus::kSwitcher:
+        switcher_info_result =
+            first_run::DefaultBrowserPromoSegmentationResult::kAndroidSwitcher;
+        is_success = true;
+        break;
+    }
+  }
+
+  base::UmaHistogramMediumTimes(
+      is_success
+          ? first_run::kDefaultBrowserPromoSwitcherInfoLatencySuccessHistogram
+          : first_run::kDefaultBrowserPromoSwitcherInfoLatencyFailureHistogram,
+      elapsed);
+  base::UmaHistogramEnumeration(
+      first_run::kDefaultBrowserPromoSwitcherInfoResultHistogram,
+      switcher_info_result);
+}
+
+// Queries the switcher info API signal for the signed-in user and records the
+// result and latency metrics.
+void RecordSwitcherInfoDeviceSwitcherSignal(ProfileIOS* profile) {
+  AuthenticationService* authentication_service =
+      AuthenticationServiceFactory::GetForProfile(profile);
+  if (!authentication_service) {
+    return;
+  }
+  id<SystemIdentity> identity = authentication_service->GetPrimaryIdentity();
+  if (!identity || !first_run::IsQuerySwitcherInfoSignalInFirstRunEnabled()) {
+    return;
+  }
+  ios::provider::GetSwitcherInfo(
+      identity, base::BindOnce(&OnSwitcherInfoDeviceSwitcherResult,
+                               base::ElapsedTimer()));
+}
+
+// Queries device switcher signals to record Default Browser promo metrics.
+void RecordDeviceSwitcherSignals(ProfileIOS* profile) {
+  RecordSegmentationDeviceSwitcherSignal(profile);
+  RecordSwitcherInfoDeviceSwitcherSignal(profile);
+}
+
+}  // namespace
+
+namespace first_run {
+
+// Helper class used to access the passkey needed to call
+// MetricsService::StartOutOfBandUploadIfPossible().
+class FirstRunCoordinatorMetricsHelper final {
+ public:
+  FirstRunCoordinatorMetricsHelper() {
+    metrics_service_ = GetApplicationContext()->GetMetricsService();
+  }
+  ~FirstRunCoordinatorMetricsHelper() {}
+
+  // Triggers an UMA metrics log upload.
+  void StartOutOfBandUploadIfPossible() {
+    if (metrics_service_) {
+      metrics_service_->StartOutOfBandUploadIfPossible(
+          metrics::MetricsService::OutOfBandUploadPasskey());
+    }
+  }
+
+ private:
+  raw_ptr<metrics::MetricsService> metrics_service_ = nullptr;
+};
+
+}  // namespace first_run
+
+@interface FirstRunCoordinator () <FirstRunScreenDelegate,
+                                   HistorySyncCoordinatorDelegate>
+
+@property(nonatomic, strong) ScreenProvider* screenProvider;
+@property(nonatomic, strong) ChromeCoordinator* childCoordinator;
+
+@end
+
+@implementation FirstRunCoordinator {
+  // First Run navigation controller.
+  UINavigationController* _navigationController;
+}
+
+- (instancetype)initWithBaseViewController:(UIViewController*)viewController
+                                   browser:(Browser*)browser
+                            screenProvider:(ScreenProvider*)screenProvider {
+  self = [super initWithBaseViewController:viewController browser:browser];
+  if (self) {
+    CHECK_EQ(browser->type(), Browser::Type::kRegular);
+    _screenProvider = screenProvider;
+    _navigationController =
+        [[UINavigationController alloc] initWithNavigationBarClass:nil
+                                                      toolbarClass:nil];
+    _navigationController.modalPresentationStyle = UIModalPresentationFormSheet;
+  }
+  return self;
+}
+
+- (void)dealloc {
+  CHECK(!_navigationController, base::NotFatalUntil::M155);
+  CHECK(!_childCoordinator, base::NotFatalUntil::M155);
+}
+
+- (void)start {
+  [self presentScreen:[self.screenProvider nextScreenType]];
+  void (^completion)(void) = ^{
+    base::UmaHistogramEnumeration(first_run::kFirstRunStageHistogram,
+                                  first_run::kStart);
+  };
+  [_navigationController setNavigationBarHidden:YES animated:NO];
+  [self.baseViewController presentViewController:_navigationController
+                                        animated:NO
+                                      completion:completion];
+}
+
+- (void)stopWithCompletion:(ProceduralBlock)completionHandler {
+  if (self.childCoordinator) {
+    // If the child coordinator is not nil, then the FRE is stopped because
+    // Chrome is being shutdown.
+    base::UmaHistogramEnumeration(first_run::kFirstRunStageHistogram,
+                                  first_run::kFirstRunInterrupted);
+    [self stopChildCoordinator];
+  }
+  [_navigationController.presentingViewController
+      dismissViewControllerAnimated:YES
+                         completion:completionHandler];
+  _navigationController = nil;
+  [super stop];
+}
+
+- (void)stop {
+  [self stopWithCompletion:nil];
+}
+
+#pragma mark - FirstRunScreenDelegate
+
+- (void)firstRunScreenCoordinatorWantsToBeStopped:
+    (ChromeCoordinator*)coordinator {
+  CHECK_EQ(coordinator, self.childCoordinator, base::NotFatalUntil::M155);
+  [self stopChildCoordinator];
+  [self presentScreen:[self.screenProvider nextScreenType]];
+
+  // Trigger a metrics log upload with the MetricsService.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(^{
+        std::unique_ptr<first_run::FirstRunCoordinatorMetricsHelper>
+            metricsHelper =
+                std::make_unique<first_run::FirstRunCoordinatorMetricsHelper>();
+        metricsHelper->StartOutOfBandUploadIfPossible();
+      }));
+}
+
+#pragma mark - Helper
+
+// Presents the screen of certain `type`.
+- (void)presentScreen:(ScreenType)type {
+  // If no more screen need to be present, call delegate to stop presenting
+  // screens.
+  if (type == kStepsCompleted) {
+    // The user went through all screens of the FRE.
+    base::UmaHistogramEnumeration(first_run::kFirstRunStageHistogram,
+                                  first_run::kComplete);
+
+    RecordDeviceSwitcherSignals(self.profile);
+
+    feature_engagement::Tracker* tracker =
+        feature_engagement::TrackerFactory::GetForProfile(self.profile);
+
+    if (tracker) {
+      tracker->NotifyEvent(feature_engagement::events::kIOSFirstRunComplete);
+    }
+
+    WriteFirstRunSentinel();
+    [self.delegate didFinishFirstRun];
+
+    if (!first_run::IsPostFREIphInProfileAgentEnabled()) {
+      if (self.browser == nullptr) {
+        // Speculative fix for some of the crashes in crbug.com/474279386. There
+        // is most likely an underlying issue somewhere in the cleanup logic,
+        // but null checking here should at least prevent some crashes.
+        return;
+      }
+
+      if (self.profile && self.profile->GetPrefs() &&
+          self.profile->GetPrefs()->GetBoolean(
+              prefs::kAppStoreGeminiPromoTriggered)) {
+        // If first run started due to app store external action, do not show
+        // any follow up IPH.
+        return;
+      }
+
+      if (IsBestOfAppLensAnimatedPromoEnabled()) {
+        // Present the Lens entrypoint IPH.
+        [HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                            NewTabPageCommands) presentLensIconBubble];
+      } else {
+        // Present feed swipe IPH.
+        [HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                            NewTabPageCommands) presentFeedSwipeFirstRunBubble];
+      }
+    }
+
+    return;
+  }
+  self.childCoordinator = [self createChildCoordinatorWithScreenType:type];
+  [self.childCoordinator start];
+}
+
+// Creates a screen coordinator according to `type`.
+- (ChromeCoordinator*)createChildCoordinatorWithScreenType:(ScreenType)type {
+  switch (type) {
+    case kSignIn:
+      return [[FullscreenSigninScreenCoordinator alloc]
+           initWithBaseNavigationController:_navigationController
+                                    browser:self.browser
+                                   delegate:self
+                               contextStyle:SigninContextStyle::kDefault
+                                accessPoint:signin_metrics::AccessPoint::
+                                                kStartPage
+                                promoAction:signin_metrics::PromoAction::
+                                                PROMO_ACTION_NO_SIGNIN_PROMO
+          changeProfileContinuationProvider:DoNothingContinuationProvider()];
+    case kHistorySync:
+      return [[HistorySyncCoordinator alloc]
+          initWithBaseNavigationController:_navigationController
+                                   browser:self.browser
+                                  delegate:self
+                                  firstRun:YES
+                             showUserEmail:NO
+                                isOptional:YES
+                              contextStyle:SigninContextStyle::kDefault
+                               accessPoint:signin_metrics::AccessPoint::
+                                               kStartPage];
+    case kDefaultBrowserPromo:
+      return [[DefaultBrowserScreenCoordinator alloc]
+          initWithBaseNavigationController:_navigationController
+                                   browser:self.browser
+                                  delegate:self];
+    case kChoice:
+      return [[SearchEngineChoiceCoordinator alloc]
+          initForFirstRunWithBaseNavigationController:_navigationController
+                                              browser:self.browser
+                                     firstRunDelegate:self];
+    case kBestFeatures:
+      return [[BestFeaturesScreenCoordinator alloc]
+          initWithBaseNavigationController:_navigationController
+                                   browser:self.browser
+                                  delegate:self];
+    case kLensInteractivePromo: {
+      InteractiveLensPromoCoordinator* lensInteractivePromoCoordinator =
+          [[InteractiveLensPromoCoordinator alloc]
+              initWithBaseNavigationController:_navigationController
+                                       browser:self.browser];
+      lensInteractivePromoCoordinator.firstRunDelegate = self;
+      return lensInteractivePromoCoordinator;
+    }
+    case kLensAnimatedPromo: {
+      AnimatedLensPromoCoordinator* lensAnimatedPromoCoordinator =
+          [[AnimatedLensPromoCoordinator alloc]
+              initWithBaseNavigationController:_navigationController
+                                       browser:self.browser];
+      lensAnimatedPromoCoordinator.firstRunDelegate = self;
+      return lensAnimatedPromoCoordinator;
+    }
+    case kSyncedSetUp:
+    case kGuidedTour:
+    case kSafariImport:
+    case kStepsCompleted:
+      NOTREACHED() << "Reaches kStepsCompleted unexpectedly.";
+  }
+  return nil;
+}
+
+#pragma mark - HistorySyncCoordinatorDelegate
+
+- (void)historySyncCoordinator:(HistorySyncCoordinator*)historySyncCoordinator
+                    withResult:(HistorySyncResult)result {
+  CHECK_EQ(self.childCoordinator, historySyncCoordinator);
+  [self firstRunScreenCoordinatorWantsToBeStopped:historySyncCoordinator];
+}
+
+#pragma mark - Private
+
+- (void)stopChildCoordinator {
+  // The child's `stop` method must unset the delegate.
+  [self.childCoordinator stop];
+  self.childCoordinator = nil;
+}
+
+@end
