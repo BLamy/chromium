@@ -9,6 +9,7 @@
 #include <string>
 #include <variant>
 
+#include "base/record_replay.h"
 #include "base/base_paths.h"
 #include "base/check.h"
 #include "base/command_line.h"
@@ -1266,7 +1267,11 @@ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
 #if BUILDFLAG(IS_MAC)
   // Give the browser process a longer treadmill, since crashes
   // there have more impact.
-  ObjcEvilDoers::ZombieEnable(true, is_browser ? 10000 : 1000);
+  // Zombies swap -[NSObject dealloc] through the Objective-C runtime, which
+  // isn't there when replaying.
+  if (!recordreplay::IsRecordingOrReplaying()) {
+    ObjcEvilDoers::ZombieEnable(true, is_browser ? 10000 : 1000);
+  }
 #endif
 
   content::Profiling::ProcessStarted();

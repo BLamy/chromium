@@ -6,6 +6,7 @@
 
 #import <Cocoa/Cocoa.h>
 
+#include "base/record_replay.h"
 #include "base/mac/mac_util.h"
 #include "content/common/mac/system_policy.h"
 
@@ -62,7 +63,11 @@ void InitializeMac() {
     }];
   }
 
-  SetSystemPolicyCrashKeys();
+  // These read AMFI's and System Integrity Protection's state for crash keys,
+  // through system calls the recording has no use for.
+  if (!recordreplay::IsRecordingOrReplaying()) {
+    SetSystemPolicyCrashKeys();
+  }
 }
 
 }  // namespace content
