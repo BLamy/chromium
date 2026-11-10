@@ -11,6 +11,15 @@
 #include "build/build_config.h"
 #include "content/public/app/aperitif_mac.h"
 
+#if !defined(HELPER_EXECUTABLE)
+#include "base/record_replay_driver.h"
+
+// Replay's build ID, which names this exact build in every recording it makes.
+// The inspector reads it from this executable to find the runtime a recording
+// needs.
+__attribute__((used)) const char kRecordReplayBuildId[] = RECORD_REPLAY_BUILD_ID;
+#endif
+
 int ChromeMain(int, char**);
 
 __attribute__((constructor)) static void CheckAperitif() {
