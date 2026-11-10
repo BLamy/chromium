@@ -334,7 +334,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '447efb37bca5e7d5426acf4af3e77d3692ecbaa0',
+  'v8_revision': '66c1a4f6dc4e4a19854f51f7f7b1eca564d71403',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
@@ -350,7 +350,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling BoringSSL
   # and whatever else without interference from each other.
-  'boringssl_revision': 'ea9f3a34c3977144c45d272be81842fd891a0bdb',
+  'boringssl_revision': 'bad5d56e465f9f1abb6f4247ba9b338940947a01',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Fuchsia sdk
   # and whatever else without interference from each other.
@@ -2188,7 +2188,8 @@ deps = {
   },
 
   'src/third_party/boringssl/src':
-    Var('boringssl_git') + '/boringssl.git' + '@' +  Var('boringssl_revision'),
+    # Replay's fork: upstream's commit with Replay's changes on top.
+    'https://github.com/BLamy/boringssl.git' + '@' +  Var('boringssl_revision'),
 
   'src/third_party/breakpad/breakpad':
     Var('chromium_git') + '/breakpad/breakpad.git' + '@' + Var('breakpad_revision'),
@@ -3373,7 +3374,8 @@ deps = {
   },
 
   'src/v8':
-    Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
+    # Replay's fork: upstream's tree at 15.8.62.9 with Replay's record/replay on top.
+    'https://github.com/BLamy/chromium-v8.git' + '@' +  Var('v8_revision'),
 
 # See checkout_src_internal_infra declaration.
 # LINT.IfChange
