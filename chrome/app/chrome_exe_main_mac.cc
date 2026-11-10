@@ -143,7 +143,11 @@ __attribute__((used)) const char kGrossPaddingForCrbug1300598[216 * 1024] = {};
 
 }  // namespace
 
+#include "./record_replay_main.cc"
+
 __attribute__((visibility("default"))) int main(int argc, char* argv[]) {
+  RecordReplayAttach(&argc, const_cast<const char***>(&argv));
+
   partition_alloc::EarlyMallocZoneRegistration();
 
 #if defined(RENDERER_HELPER_EXECUTABLE)

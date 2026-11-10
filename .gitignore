@@ -352,3 +352,7 @@ third_party/rust/target/
 
 # Trace files created when using --trace-startup.
 **/chrometrace.log
+
+# Replay: written by the build from the driver, with the build ID.
+/base/record_replay_driver.cc
+/base/record_replay_driver.h
