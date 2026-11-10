@@ -58,7 +58,9 @@ void RemoteRouterLink::SetLinkState(FragmentRef<RouterLinkState> state) {
   ABSL_ASSERT(type_.is_central());
   ABSL_ASSERT(!state.is_null());
 
-  if (state.is_pending()) {
+  if (recordreplay::Value("ipcz RemoteRouterLink::SetLinkState pending",
+                          state.is_pending()) != 0 &&
+      state.is_pending()) {
     // Wait for the fragment's buffer to be mapped locally.
     Ref<NodeLinkMemory> memory = WrapRefCounted(&node_link()->memory());
     FragmentDescriptor descriptor = state.fragment().descriptor();
@@ -115,8 +117,19 @@ LinkType RemoteRouterLink::GetType() const {
 }
 
 RouterLinkState* RemoteRouterLink::GetLinkState() const {
-  recordreplay::AutoOrderedAtomics ordered;
-  return link_state_.load(std::memory_order_acquire);
+  RouterLinkState* state;
+  {
+    recordreplay::AutoOrderedAtomics ordered;
+    state = link_state_.load(std::memory_order_acquire);
+  }
+  // Whether the state is there yet depends on when the buffer it's in was
+  // mapped, so a replay goes by what the recording saw: without one when it
+  // had none, whatever this node has by now.
+  if (!recordreplay::Value("ipcz RemoteRouterLink::GetLinkState",
+                           state != nullptr)) {
+    return nullptr;
+  }
+  return state;
 }
 
 void RemoteRouterLink::WaitForLinkStateAsync(std::function<void()> callback) {

@@ -68,6 +68,9 @@ void AssertBytes(const char* why, const void* buf, size_t size);
 bool AreAssertsDisabled();
 
 uintptr_t RecordReplayValue(const char* why, uintptr_t v);
+// The same, for somewhere that also runs while events are disallowed or
+// passed through, where the value is used as it is.
+uintptr_t RecordReplayValueIfAllowed(const char* why, uintptr_t v);
 void RecordReplayBytes(const char* why, void* buf, size_t size);
 void RecordReplayString(const char* why, std::string& text);
 

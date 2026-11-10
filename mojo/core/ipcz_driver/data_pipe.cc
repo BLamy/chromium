@@ -12,6 +12,7 @@
 #include <optional>
 #include <tuple>
 
+#include "base/record_replay.h"
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
@@ -399,6 +400,13 @@ MojoResult DataPipe::ReadData(void* elements,
       num_bytes = base::checked_cast<uint32_t>(read_size);
     }
 
+    // The bytes come out of a ring buffer in memory shared with whoever is
+    // writing, which a replay doesn't have. They're recorded as they're read.
+    if (!discard && read_size != 0) {
+      recordreplay::RecordReplayBytes("DataPipe::ReadData",
+                                      output_bytes.data(), read_size);
+    }
+
     if (peek || read_size == 0) {
       return MOJO_RESULT_OK;
     }
@@ -432,6 +440,11 @@ MojoResult DataPipe::BeginReadData(const void*& buffer,
   buffer = two_phase_reader_->bytes().data();
   buffer_num_bytes =
       base::checked_cast<uint32_t>(two_phase_reader_->bytes().size());
+  // The caller reads straight from the shared ring buffer. What's there is
+  // recorded, and a replay writes it into its own copy of the memory first.
+  recordreplay::RecordReplayBytes("DataPipe::BeginReadData",
+                                  const_cast<void*>(buffer),
+                                  buffer_num_bytes);
   has_new_data_ = false;
   return IPCZ_RESULT_OK;
 }

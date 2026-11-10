@@ -880,15 +880,31 @@ void NodeLink::HandleTransportError() {
     pending_referrals.swap(pending_referrals_);
   }
 
+  // In order of ID rather than the hash map's own order, which comes from a
+  // seed that isn't the same when a recording replays. Each of these takes
+  // locks and may send, so the order is something a replay has to repeat.
+  std::vector<SublinkId> sublink_ids;
+  sublink_ids.reserve(sublinks.size());
   for (auto& [id, sublink] : sublinks) {
+    sublink_ids.push_back(id);
+  }
+  std::sort(sublink_ids.begin(), sublink_ids.end());
+  for (SublinkId id : sublink_ids) {
+    Sublink& sublink = sublinks.find(id)->second;
     DVLOG(4) << "NodeLink disconnection dropping "
              << sublink.router_link->Describe() << " which is bound to router "
              << sublink.receiver.get();
     sublink.receiver->NotifyLinkDisconnected(*sublink.router_link);
   }
 
+  std::vector<uint64_t> referral_ids;
+  referral_ids.reserve(pending_referrals.size());
   for (auto& [id, callback] : pending_referrals) {
-    callback(/*link=*/nullptr, /*num_portals=*/0);
+    referral_ids.push_back(id);
+  }
+  std::sort(referral_ids.begin(), referral_ids.end());
+  for (uint64_t id : referral_ids) {
+    pending_referrals.find(id)->second(/*link=*/nullptr, /*num_portals=*/0);
   }
 
   Ref<NodeLink> self = WrapRefCounted(this);

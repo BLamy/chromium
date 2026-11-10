@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/structured_shared_memory.h"
@@ -117,6 +118,11 @@ ScopedScenarioObserverList::~ScopedScenarioObserverList() {
 
 scoped_refptr<RefCountedScenarioMapping> GetScenarioMappingForScope(
     ScenarioScope scope) {
+  // A recorded process sees no scenario. The browser writes the state into
+  // memory it shares, at times of its own, and a replay has neither.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return nullptr;
+  }
   // This lock must be held while the scoped_refptr is copied.
   base::AutoLock lock(MappingPtrLockForScope(scope));
   return MappingPtrForScope(scope);

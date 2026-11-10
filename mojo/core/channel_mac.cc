@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/apple/mach_logging.h"
 #include "base/apple/scoped_mach_port.h"
 #include "base/apple/scoped_mach_vm.h"
@@ -919,14 +920,26 @@ class ChannelMac : public Channel,
         return;
       }
 
+      // When replaying the raw address used when recording will be replayed,
+      // which we can't dereference. Allocate a new block of memory and copy
+      // in its contents from the recording.
+      void* address = descriptor->address;
+      if (recordreplay::IsReplaying()) {
+        address = nullptr;
+        kern_return_t kr_allocate = vm_allocate(
+            mach_task_self(), reinterpret_cast<vm_address_t*>(&address),
+            descriptor->size, true);
+        CHECK(kr_allocate == KERN_SUCCESS);
+      }
+      recordreplay::RecordReplayBytes("ChannelMac::OnMachMessageReceived",
+                                      address, descriptor->size);
+
       payload = UNSAFE_TODO(base::span<const char>(
-          reinterpret_cast<const char*>(descriptor->address),
-          descriptor->size));
+          reinterpret_cast<const char*>(address), descriptor->size));
       // The kernel page-aligns the OOL memory when performing the mach_msg on
       // the send side, but it preserves the original size in the descriptor.
-      ool_memory.reset_unaligned(
-          reinterpret_cast<vm_address_t>(descriptor->address),
-          descriptor->size);
+      ool_memory.reset_unaligned(reinterpret_cast<vm_address_t>(address),
+                                 descriptor->size);
     } else {
       // Mach message structs are all 4-byte aligned, but `uint64_t` is 8-byte
       // aligned on 64-bit architectures. To avoid alignment issues, write the

@@ -313,6 +313,15 @@ uintptr_t RecordReplayValue(const char* why, uintptr_t v) {
   return Active() ? gRecordReplayValue(why, v) : v;
 }
 
+uintptr_t RecordReplayValueIfAllowed(const char* why, uintptr_t v) {
+  if (!Active() || gRecordReplayAreEventsDisallowed() ||
+      gRecordReplayAreEventsPassedThrough() ||
+      gRecordReplayHasDivergedFromRecording()) {
+    return v;
+  }
+  return gRecordReplayValue(why, v);
+}
+
 void RecordReplayBytes(const char* why, void* buf, size_t size) {
   if (Active()) {
     gRecordReplayBytes(why, buf, size);
