@@ -30,7 +30,9 @@ class LOCKABLE BASE_EXPORT Lock {
   static const LockMetricTag& GetBaseLockMetricTag();
   static const LockMetricTagList& GetBaseLockMetricTagList();
 
-  Lock() = default;
+  // A lock with a name is ordered when recording or replaying: threads take
+  // it in the same order on both sides.
+  Lock(const char* ordered_name = nullptr) : lock_(ordered_name) {}
 
   Lock(const Lock&) = delete;
   Lock& operator=(const Lock&) = delete;

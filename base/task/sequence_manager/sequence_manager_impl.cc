@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/task/sequence_manager/sequence_manager_impl.h"
 
 #include <algorithm>
@@ -890,7 +891,23 @@ bool SequenceManagerImpl::GetAndClearSystemIsQuiescentBit() {
 }
 
 EnqueueOrder SequenceManagerImpl::GetNextSequenceNumber() {
-  return enqueue_order_generator_.GenerateNext();
+  EnqueueOrder rv = enqueue_order_generator_.GenerateNext();
+  if (!recordreplay::IsRecordingOrReplaying() ||
+      recordreplay::AreEventsDisallowed("unordered-tasks") ||
+      recordreplay::AreEventsPassedThrough("unordered-tasks")) {
+    return rv;
+  }
+  // EnqueueOrders need to be the same when replaying as when recording,
+  // because they affect the order in which tasks will run. We could use
+  // an ordered lock here, but it's more efficient to just record/replay
+  // the EnqueueOrders which were created when recording.
+  static_assert(sizeof(rv) == sizeof(uint64_t));
+  uint64_t value;
+  memcpy(&value, &rv, sizeof(value));
+  recordreplay::RecordReplayBytes("GetNextSequenceNumber", &value,
+                                  sizeof(value));
+  memcpy(static_cast<void*>(&rv), &value, sizeof(value));
+  return rv;
 }
 
 std::unique_ptr<trace_event::ConvertableToTraceFormat>

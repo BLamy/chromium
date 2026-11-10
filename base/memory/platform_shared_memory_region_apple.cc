@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/memory/platform_shared_memory_region.h"
 
 #include <mach/vm_map.h>
@@ -174,9 +175,16 @@ PlatformSharedMemoryRegion::CheckPlatformHandlePermissionsCorrespondToMode(
     // TODO(crbug.com/40574272): convert to DLOG when bug fixed.
     MACH_LOG_IF(ERROR, kr_deallocate != KERN_SUCCESS, kr_deallocate)
         << "vm_deallocate";
-  } else if (kr != KERN_INVALID_RIGHT) {
+  } else if (kr != KERN_INVALID_RIGHT && !recordreplay::IsReplaying()) {
     MACH_LOG(ERROR, kr) << "vm_map";
     return unexpected(TakeError::kVmMapFailed);
+  }
+
+  // vm_map doesn't behave identically when replaying, so treat things as
+  // consistent. If any checks fail while recording then the process would have
+  // crashed anyways.
+  if (recordreplay::IsReplaying()) {
+    return ok();
   }
 
   bool is_read_only = kr == KERN_INVALID_RIGHT;

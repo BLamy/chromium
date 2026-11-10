@@ -349,14 +349,27 @@ void InvalidateRecording(const char* why) {
   }
 }
 
+// Set once V8 has attached and taken the first checkpoint, which is where the
+// engine starts from. Nothing takes one before, and only the thread the driver
+// attached on takes them.
+static bool gCheckpointsAllowed;
+
+void OnV8Initialized() {
+  if (Active() && IsMainThread()) {
+    gCheckpointsAllowed = true;
+  }
+}
+
 void NewCheckpoint() {
-  if (Active()) {
+  if (Active() && gCheckpointsAllowed && IsMainThread() &&
+      !gRecordReplayAreEventsDisallowed()) {
     gRecordReplayNewCheckpoint();
   }
 }
 
 void NewCheckpointFlushed() {
-  if (Active() && gRecordReplayNewCheckpointFlushed) {
+  if (Active() && gCheckpointsAllowed && IsMainThread() &&
+      gRecordReplayNewCheckpointFlushed) {
     gRecordReplayNewCheckpointFlushed();
   }
 }

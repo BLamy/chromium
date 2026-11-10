@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/record_replay.h"
 #include "base/apple/call_with_eh_frame.h"
 #include "base/apple/scoped_cftyperef.h"
 #include "base/apple/scoped_nsautorelease_pool.h"
@@ -36,6 +37,21 @@
 #endif  // !BUILDFLAG(IS_IOS)
 
 namespace base {
+
+namespace {
+
+// CallWithEHFrame only makes sure the process ends if an Objective-C exception
+// is thrown through these calls, and it crashed replays on Chromium 108, so the
+// block is called directly when recording or replaying.
+void CallWithEHFrameUnlessRecordReplay(void (^block)(void)) {
+  if (recordreplay::IsRecordingOrReplaying()) {
+    block();
+  } else {
+    base::apple::CallWithEHFrame(block);
+  }
+}
+
+}  // namespace
 
 namespace {
 
@@ -390,7 +406,7 @@ void MessagePumpCFRunLoopBase::RunDelayedWorkTimer(CFRunLoopTimerRef timer,
   MessagePumpCFRunLoopBase* self = static_cast<MessagePumpCFRunLoopBase*>(info);
   // The timer fired, assume we have work and let RunWork() figure out what to
   // do and what to schedule after.
-  base::apple::CallWithEHFrame(^{
+  CallWithEHFrameUnlessRecordReplay(^{
     // It would be incorrect to expect that `self->delayed_work_scheduled_at_`
     // is smaller than or equal to `TimeTicks::Now()` because the fire date of a
     // CFRunLoopTimer can be adjusted slightly.
@@ -405,8 +421,15 @@ void MessagePumpCFRunLoopBase::RunDelayedWorkTimer(CFRunLoopTimerRef timer,
 // Called from the run loop.
 // static
 void MessagePumpCFRunLoopBase::RunWorkSource(void* info) {
+  // A checkpoint each time the run loop gets to its work, which is what a
+  // replay is moved through by. The driver takes them on the thread it attached
+  // on only.
+  if (recordreplay::IsMainThread()) {
+    recordreplay::NewCheckpoint();
+  }
+
   MessagePumpCFRunLoopBase* self = static_cast<MessagePumpCFRunLoopBase*>(info);
-  base::apple::CallWithEHFrame(^{
+  CallWithEHFrameUnlessRecordReplay(^{
     self->RunWork();
   });
 }
@@ -480,7 +503,7 @@ void MessagePumpCFRunLoopBase::RunIdleWork() {
 // static
 void MessagePumpCFRunLoopBase::RunNestingDeferredWorkSource(void* info) {
   MessagePumpCFRunLoopBase* self = static_cast<MessagePumpCFRunLoopBase*>(info);
-  base::apple::CallWithEHFrame(^{
+  CallWithEHFrameUnlessRecordReplay(^{
     self->RunNestingDeferredWork();
   });
 }
@@ -530,7 +553,7 @@ void MessagePumpCFRunLoopBase::PreWaitObserver(CFRunLoopObserverRef observer,
                                                CFRunLoopActivity activity,
                                                void* info) {
   MessagePumpCFRunLoopBase* self = static_cast<MessagePumpCFRunLoopBase*>(info);
-  base::apple::CallWithEHFrame(^{
+  CallWithEHFrameUnlessRecordReplay(^{
     // Current work item tracking needs to go away since execution will stop.
     // Matches the PushWorkItemScope() in AfterWaitObserver() (with an arbitrary
     // amount of matching Pop/Push in between when running work items).
@@ -558,7 +581,7 @@ void MessagePumpCFRunLoopBase::AfterWaitObserver(CFRunLoopObserverRef observer,
                                                  CFRunLoopActivity activity,
                                                  void* info) {
   MessagePumpCFRunLoopBase* self = static_cast<MessagePumpCFRunLoopBase*>(info);
-  base::apple::CallWithEHFrame(^{
+  CallWithEHFrameUnlessRecordReplay(^{
     // Emerging from sleep, any work happening after this (outside of a
     // RunWork()) should be considered native work. Matching PopWorkItemScope()
     // is in BeforeWait().
@@ -583,7 +606,7 @@ void MessagePumpCFRunLoopBase::PreSourceObserver(CFRunLoopObserverRef observer,
   // level did not sleep or exit, nesting-deferred work may have accumulated
   // if a nested loop ran.  Schedule nesting-deferred work for processing if
   // appropriate.
-  base::apple::CallWithEHFrame(^{
+  CallWithEHFrameUnlessRecordReplay(^{
     self->MaybeScheduleNestingDeferredWork();
   });
 }
@@ -624,7 +647,7 @@ void MessagePumpCFRunLoopBase::EnterExitObserver(CFRunLoopObserverRef observer,
       // to sleep or exiting.  It must be called before decrementing the
       // value so that the value still corresponds to the level of the exiting
       // loop.
-      base::apple::CallWithEHFrame(^{
+      CallWithEHFrameUnlessRecordReplay(^{
         self->MaybeScheduleNestingDeferredWork();
       });
 
@@ -644,7 +667,7 @@ void MessagePumpCFRunLoopBase::EnterExitObserver(CFRunLoopObserverRef observer,
       break;
   }
 
-  base::apple::CallWithEHFrame(^{
+  CallWithEHFrameUnlessRecordReplay(^{
     self->EnterExitRunLoop(activity);
   });
 }

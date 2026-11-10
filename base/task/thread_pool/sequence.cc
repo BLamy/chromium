@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/task/thread_pool/sequence.h"
 
 #include <utility>
@@ -352,7 +353,14 @@ Sequence::Sequence(const TaskTraits& traits,
                  execution_mode,
                  originating_thread_type,
                  inherit_by_default),
-      task_runner_(task_runner) {}
+      task_runner_(task_runner) {
+  // Leak sequences when recording/replaying to avoid problems with destructor
+  // behavior running at non-deterministic points due to the threadsafe refcount.
+  if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                           "Sequence::Sequence")) {
+    AddRef();
+  }
+}
 
 Sequence::~Sequence() = default;
 

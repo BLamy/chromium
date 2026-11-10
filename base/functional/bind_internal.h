@@ -14,6 +14,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "base/base_export.h"
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/functional/callback_internal.h"
@@ -67,6 +68,11 @@ class ComPtr;
 #endif
 
 namespace base {
+
+// Records a value when recording, and gives the recorded one back when
+// replaying. In callback_helpers.cc, to keep base/record_replay.h out of here.
+BASE_EXPORT uintptr_t CallbackRecordReplayValue(const char* why,
+                                                uintptr_t value);
 
 template <typename T>
 struct IsWeakReceiver;
@@ -1994,7 +2000,10 @@ struct CallbackCancellationTraits<Functor, std::tuple<BoundArgs...>> {
   static bool IsCancelled(const Functor&,
                           const Receiver& receiver,
                           const Args&...) {
-    return !receiver;
+    // Weak pointers can be cleared non-deterministically when recording/replaying,
+    // so record/replay whether they are present so that callers checking the status
+    // like TaskQueueImpl behave consistently.
+    return CallbackRecordReplayValue("WeakMethodIsCancelled", !receiver);
   }
 
   template <typename Receiver, typename... Args>

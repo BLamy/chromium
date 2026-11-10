@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/pending_task.h"
 
 #include "base/task/task_features.h"
@@ -19,7 +20,12 @@ TaskMetadata::TaskMetadata(const Location& posted_from,
       queue_time(queue_time),
       delayed_run_time(delayed_run_time),
       leeway(leeway),
-      delay_policy(delay_policy) {}
+      delay_policy(delay_policy) {
+  if (!recordreplay::AreEventsUnavailable() &&
+      !recordreplay::AreEventsPassedThrough()) {
+    record_replay_id = recordreplay::NewIdAnyThread("PendingTask");
+  }
+}
 
 TaskMetadata::TaskMetadata(TaskMetadata&& other) = default;
 TaskMetadata::TaskMetadata(const TaskMetadata& other) = default;

@@ -83,6 +83,8 @@ struct AutoOrderedLock {
 
 void InvalidateRecording(const char* why);
 void NewCheckpoint();
+// V8 calls this side of things ready: checkpoints are taken from here on.
+void OnV8Initialized();
 void NewCheckpointFlushed();
 void SetScriptAlive(bool alive);
 
@@ -106,6 +108,12 @@ void EndDisallowEvents();
 // Whether we are in a code path that we have explicitely identified as
 // divergent.
 bool AreEventsDisallowed(const char* why = nullptr);
+
+// The name to give a base::Lock made now, for it to be ordered: none while
+// events are disallowed, as what's made then isn't part of the recording.
+inline const char* OrderedLockName(const char* name) {
+  return AreEventsDisallowed() ? nullptr : name;
+}
 
 void EnterReplayCode();
 void ExitReplayCode();

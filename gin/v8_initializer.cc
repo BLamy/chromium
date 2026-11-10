@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/bits.h"
 #include "base/check.h"
 #include "base/check_op.h"
@@ -545,6 +546,10 @@ void V8Initializer::Initialize(IsolateHolder::ScriptMode mode,
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA
 
   v8::V8::Initialize();
+
+  // V8 has attached to the driver and taken the first checkpoint by now, if
+  // this process is recording or replaying.
+  recordreplay::OnV8Initialized();
 
   v8_is_initialized = true;
 

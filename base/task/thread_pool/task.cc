@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/task/thread_pool/task.h"
 
 #include <utility>
@@ -36,6 +37,19 @@ Task::Task(const Location& posted_from,
                   leeway,
                   delay_policy) {
   this->sequence_num = sequence_num;
+
+  // DelayedTaskManager and Sequence break ties between equal delayed run times
+  // (common for WebRTC task queues, which snap to metronome ticks) with
+  // |sequence_num|, so the replay needs the numbers the recording handed out
+  // across threads. Immediate tasks are never compared by it.
+  if (!this->delayed_run_time.is_null() &&
+      recordreplay::IsRecordingOrReplaying("values",
+                                           "ThreadPoolTaskSequenceNum") &&
+      !recordreplay::AreEventsDisallowed()) {
+    this->sequence_num = static_cast<int>(recordreplay::RecordReplayValue(
+        "ThreadPoolTaskSequenceNum",
+        static_cast<uintptr_t>(this->sequence_num)));
+  }
 }
 
 Task::Task(const TaskMetadata& metadata, OnceClosure task)

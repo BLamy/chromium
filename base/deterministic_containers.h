@@ -11,7 +11,13 @@
 // this. This file defines replacements for these containers that have the
 // same interface but always iterate their contents in insertion order.
 
-#include "third_party/abseil-cpp/absl/types/optional.h"
+#include <functional>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "base/memory/raw_ptr_exclusion.h"
+#include <optional>
 
 namespace base {
 
@@ -24,7 +30,7 @@ class deterministic_unordered_map {
   // are empty. If the map has many erasures over time then this vector will
   // grow without bound. It would be nice to occasionally clean out these old
   // entries.
-  typedef std::vector<absl::optional<std::pair<Key, T>>> InnerVector;
+  typedef std::vector<std::optional<std::pair<Key, T>>> InnerVector;
   InnerVector vector_;
 
   // Map all keys in the map to indexes in vector_.
@@ -34,7 +40,7 @@ class deterministic_unordered_map {
  public:
   struct iterator {
     size_t index_;
-    InnerVector& vector_;
+    RAW_PTR_EXCLUSION InnerVector& vector_;
     iterator(size_t index, InnerVector& vector)
       : index_(index), vector_(vector) {}
 
@@ -73,7 +79,7 @@ class deterministic_unordered_map {
 
   struct const_iterator {
     size_t index_;
-    const InnerVector& vector_;
+    RAW_PTR_EXCLUSION const InnerVector& vector_;
     const_iterator(size_t index, const InnerVector& vector)
       : index_(index), vector_(vector) {}
 
@@ -109,6 +115,8 @@ class deterministic_unordered_map {
       return &vector_[index_].value();
     }
   };
+
+  bool contains(const Key& k) const { return map_.find(k) != map_.end(); }
 
   bool empty() const {
     return map_.empty();

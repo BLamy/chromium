@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/synchronization/lock_impl.h"
 
 #include <pthread.h>
@@ -33,6 +34,8 @@ int __attribute__((weak)) pthread_mutexattr_setprotocol(
     int __protocol);
 }
 #endif
+
+#include <dlfcn.h>
 
 namespace base {
 
@@ -103,7 +106,38 @@ void LogUnlockFailure(int rv) {
 #define PRIORITY_INHERITANCE_LOCKS_POSSIBLE() 1
 #endif
 
-LockImpl::LockImpl() {
+static void (*gAddOrderedPthreadMutexFn)(const char*, pthread_mutex_t*);
+
+static void RecordReplayAddOrderedPthreadMutex(const char* name,
+                                               pthread_mutex_t* mutex) {
+  if (!gAddOrderedPthreadMutexFn) {
+    void* fnptr = dlsym(RTLD_DEFAULT, "RecordReplayAddOrderedPthreadMutex");
+    if (!fnptr) {
+      return;
+    }
+    gAddOrderedPthreadMutexFn = reinterpret_cast<void(*)(const char*, pthread_mutex_t*)>(fnptr);
+  }
+
+  gAddOrderedPthreadMutexFn(name, mutex);
+}
+
+// Whether a lock made without a name is ordered too. Chromium 108's port named
+// the locks whose order it found to matter, one by one. 158 has many more
+// shared between threads (a thread's name is set under one while an observer
+// is added under it, for a start), so unless this is turned off, every lock
+// made while events are allowed is ordered.
+static bool RecordReplayOrderUnnamedLocks() {
+  static const bool order = !getenv("RECORD_REPLAY_ONLY_NAMED_LOCKS");
+  return order;
+}
+
+LockImpl::LockImpl(const char* ordered_name) {
+  if (!ordered_name && recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreEventsDisallowed() &&
+      !recordreplay::AreEventsPassedThrough() &&
+      RecordReplayOrderUnnamedLocks()) {
+    ordered_name = "base::Lock";
+  }
   pthread_mutexattr_t mta;
   int rv = pthread_mutexattr_init(&mta);
   DCHECK_EQ(rv, 0) << ". " << SystemErrorCodeToString(rv);
@@ -125,6 +159,10 @@ LockImpl::LockImpl() {
   DCHECK_EQ(rv, 0) << ". " << SystemErrorCodeToString(rv);
   rv = pthread_mutexattr_destroy(&mta);
   DCHECK_EQ(rv, 0) << ". " << SystemErrorCodeToString(rv);
+
+  if (ordered_name) {
+    RecordReplayAddOrderedPthreadMutex(ordered_name, &native_handle_);
+  }
 }
 
 LockImpl::~LockImpl() {

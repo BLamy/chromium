@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/metrics/field_trial.h"
 
 #include <algorithm>
@@ -659,6 +660,13 @@ bool FieldTrialList::CreateTrialsFromFieldTrialStates(
 void FieldTrialList::CreateTrialsInChildProcess(const CommandLine& cmd_line) {
   CHECK(!global_->create_trials_in_child_process_called_);
   global_->create_trials_in_child_process_called_ = true;
+
+  // Field trials are disabled when recording/replaying. The set of trials are
+  // read from shared memory and won't be consistent when replaying, and there
+  // isn't much point getting them working.
+  if (recordreplay::IsRecordingOrReplaying("no-field-trials")) {
+    return;
+  }
 
 #if BUILDFLAG(USE_BLINK)
   // TODO(crbug.com/41403903): Change to a CHECK.

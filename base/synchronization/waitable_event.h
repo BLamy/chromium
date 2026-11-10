@@ -239,6 +239,9 @@ class BASE_EXPORT WaitableEvent {
   apple::ScopedMachSendRight send_right_;
 
   mutable std::atomic<bool> signal_estimate_{false};
+
+  // When recording/replaying, this is used to order wait/signal calls.
+  int record_replay_ordered_lock_id_ = 0;
 #elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
   // On Windows, you must not close a HANDLE which is currently being waited on.
   // The MSDN documentation says that the resulting behaviour is 'undefined'.

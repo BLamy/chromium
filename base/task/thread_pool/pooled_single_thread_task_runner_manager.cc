@@ -259,7 +259,7 @@ class WorkerThreadDelegate : public WorkerThread::Delegate {
     return task_tracker_;
   }
 
-  CheckedLock lock_;
+  CheckedLock lock_{"WorkerThreadDelegate.lock_"};
   bool worker_awake_ GUARDED_BY(lock_) = false;
 
   const TrackedRef<TaskTracker> task_tracker_;

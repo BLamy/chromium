@@ -8,6 +8,7 @@
 #include <functional>
 #include <optional>
 
+#include "base/record_replay.h"
 #include "base/base_export.h"
 #include "base/containers/intrusive_heap.h"
 #include "base/functional/callback.h"
@@ -121,7 +122,7 @@ class BASE_EXPORT DelayedTaskManager {
   // it is never modified. It is therefore safe to access
   // |service_thread_task_runner_| without synchronization once it is observed
   // that it is non-null.
-  mutable CheckedLock queue_lock_{UniversalSuccessor()};
+  mutable CheckedLock queue_lock_{"DelayedTaskManager.queue_lock_"};
 
   scoped_refptr<SequencedTaskRunner> service_thread_task_runner_;
 

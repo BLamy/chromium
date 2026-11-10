@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/time/time.h"
 
 #import <Foundation/Foundation.h>
@@ -100,6 +101,11 @@ int64_t ComputeCurrentRealTicks() {
 }
 
 int64_t ComputeThreadTicks() {
+  // A thread's CPU time isn't the same on a replay, and nothing a page can see
+  // should come from it.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return 0;
+  }
   struct timespec ts = {};
   CHECK(clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) == 0);
   base::CheckedNumeric<int64_t> absolute_micros(ts.tv_sec);

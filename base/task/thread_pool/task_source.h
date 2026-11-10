@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#include "base/record_replay.h"
 #include "base/base_export.h"
 #include "base/containers/intrusive_heap.h"
 #include "base/dcheck_is_on.h"
@@ -259,7 +260,7 @@ class BASE_EXPORT TaskSource : public RefCountedThreadSafe<TaskSource> {
   const bool inherit_by_default_;
 
   // Synchronizes access to all members.
-  mutable CheckedLock lock_{UniversalPredecessor()};
+  mutable CheckedLock lock_{recordreplay::OrderedLockName("TaskSource.lock_")};
 
  private:
   friend class RefCountedThreadSafe<TaskSource>;

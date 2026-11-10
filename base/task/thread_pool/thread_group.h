@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/base_export.h"
 #include "base/compiler_specific.h"
 #include "base/dcheck_is_on.h"
@@ -460,7 +461,7 @@ class BASE_EXPORT ThreadGroup {
   // atomic, nor immutable after start. Since this lock is a bottleneck to post
   // and schedule work, only simple data structure manipulations are allowed
   // within its scope (no thread creation or wake up).
-  mutable CheckedLock lock_{};
+  mutable CheckedLock lock_{recordreplay::OrderedLockName("ThreadGroup.lock_")};
 
   bool disable_fair_scheduling_ GUARDED_BY(lock_){false};
 

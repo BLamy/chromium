@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/task/sequence_manager/thread_controller_with_message_pump_impl.h"
 
 #include <algorithm>
@@ -86,6 +87,8 @@ void ThreadControllerWithMessagePumpImpl::ResetFeaturesForTesting() {
 ThreadControllerWithMessagePumpImpl::ThreadControllerWithMessagePumpImpl(
     const SequenceManager::Settings& settings)
     : ThreadController(settings.clock),
+      task_runner_lock_(
+          "ThreadControllerWithMessagePumpImpl.task_runner_lock_"),
       work_deduplicator_(associated_thread_),
       can_run_tasks_by_batches_(settings.can_run_tasks_by_batches),
       is_main_thread_(settings.is_main_thread) {}
@@ -178,8 +181,12 @@ void ThreadControllerWithMessagePumpImpl::ScheduleWork() {
 void ThreadControllerWithMessagePumpImpl::BeginNativeWorkBeforeDoWork() {
   do_work_needed_before_wait_ = true;
 
-  if (!g_avoid_schedule_calls_during_native_event_processing.load(
-          std::memory_order_relaxed)) {
+  // The main thread sets this from a feature while other threads are already
+  // pumping, so which of them see it set is recorded.
+  if (!recordreplay::RecordReplayValue(
+          "g_avoid_schedule_calls_during_native_event_processing",
+          g_avoid_schedule_calls_during_native_event_processing.load(
+              std::memory_order_relaxed))) {
     return;
   }
 
@@ -443,6 +450,9 @@ std::optional<WakeUp> ThreadControllerWithMessagePumpImpl::DoWorkImpl(
       OnEndWorkItemImpl(lazy_now_task_selected, run_depth);
       break;
     }
+
+    // A checkpoint before each task. Only the main thread takes them.
+    recordreplay::NewCheckpoint();
 
     // Execute the task and assume the worst: it is probably not reentrant.
     AutoReset<bool> ban_nested_application_tasks(

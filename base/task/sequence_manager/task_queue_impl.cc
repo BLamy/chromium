@@ -250,6 +250,9 @@ TaskQueueImpl::TaskQueueImpl(SequenceManagerImpl* sequence_manager,
                              ? sequence_manager->associated_thread()
                              : AssociatedThreadId::CreateBound()),
       task_poster_(MakeRefCounted<GuardedTaskPoster>(this)),
+      // Ordered when recording or replaying, so that tasks from other threads
+      // are queued in the same order on both sides.
+      any_thread_lock_("TaskQueueImpl.any_thread_lock_"),
       main_thread_only_(this, wake_up_queue),
       empty_queues_to_reload_handle_(
           sequence_manager

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/base_export.h"
 #include "base/memory/raw_ptr.h"
 #include "base/task/common/checked_lock.h"
@@ -141,7 +142,7 @@ class BASE_EXPORT PooledSingleThreadTaskRunnerManager final {
   // function. Set in Start() and never modified afterwards.
   raw_ptr<WorkerThreadObserver> worker_thread_observer_ = nullptr;
 
-  CheckedLock lock_;
+  CheckedLock lock_{"PooledSingleThreadTaskRunnerManager.lock_"};
   std::vector<scoped_refptr<WorkerThread>> workers_ GUARDED_BY(lock_);
   int next_worker_id_ GUARDED_BY(lock_) = 0;
 

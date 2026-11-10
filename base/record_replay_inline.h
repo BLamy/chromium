@@ -1,6 +1,9 @@
 // For use in situations when the recordreplay:: namespace isn't available
 // due to build dependency ordering.
 
+#include "base/memory/raw_ptr_exclusion.h"
+#include "build/build_config.h"
+
 #if !BUILDFLAG(IS_WIN)
 #include <dlfcn.h>
 #else
@@ -18,8 +21,8 @@ static void* LookupRecordReplaySymbol(const char* name) {
 }
 
 struct RecordReplayAutoPassThroughEvents {
-  void *fnBegin;
-  void *fnEnd;
+  RAW_PTR_EXCLUSION void* fnBegin;
+  RAW_PTR_EXCLUSION void* fnEnd;
   bool didBegin;
 
   RecordReplayAutoPassThroughEvents() {
