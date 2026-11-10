@@ -8,6 +8,7 @@
 
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/abseil-cpp/absl/synchronization/mutex.h"
+#include "util/ordered_mutex.h"
 
 namespace ipcz {
 
@@ -28,17 +29,17 @@ class TrackedObjectSet {
   ~TrackedObjectSet() = default;
 
   void Add(APIObject* object) {
-    absl::MutexLock lock(&mutex_);
+    OrderedMutexLock lock(&mutex_);
     tracked_objects_.insert(reinterpret_cast<uintptr_t>(object));
   }
 
   void Remove(APIObject* object) {
-    absl::MutexLock lock(&mutex_);
+    OrderedMutexLock lock(&mutex_);
     tracked_objects_.erase(reinterpret_cast<uintptr_t>(object));
   }
 
  private:
-  absl::Mutex mutex_;
+  OrderedMutex mutex_;
 
   // Use a uintptr_t to track since these aren't meant to be usable as pointers.
   absl::flat_hash_set<uintptr_t> tracked_objects_ ABSL_GUARDED_BY(mutex_);

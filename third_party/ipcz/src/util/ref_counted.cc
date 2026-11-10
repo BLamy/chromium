@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "util/record_replay.h"
 #include "util/ref_counted.h"
 
 #include "third_party/abseil-cpp/absl/base/macros.h"
@@ -13,6 +14,7 @@ RefCountedBase::RefCountedBase() = default;
 RefCountedBase::~RefCountedBase() = default;
 
 void RefCountedBase::AcquireImpl() {
+  recordreplay::AutoOrderedAtomics ordered;
   ref_count_.fetch_add(1, std::memory_order_relaxed);
 }
 
@@ -22,6 +24,7 @@ bool RefCountedBase::ReleaseImpl() {
   // whether std::memory_order_acq_rel here will produce more or less efficient
   // code compared to a plain std::memory_order_release followed by an acquire
   // fence in the conditional block below.
+  recordreplay::AutoOrderedAtomics ordered;
   int last_count = ref_count_.fetch_sub(1, std::memory_order_acq_rel);
   ABSL_ASSERT(last_count > 0);
   return last_count == 1;

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "util/record_replay.h"
 #include "ipcz/parcel.h"
 
 #include <cctype>
@@ -86,10 +87,20 @@ bool Parcel::AdoptDataFragment(Ref<NodeLinkMemory> memory,
   // producer of this data.
   const auto& header =
       *reinterpret_cast<const FragmentHeader*>(fragment.bytes().data());
-  const uint32_t data_size = header.size.load(std::memory_order_acquire);
+  // The other node wrote this fragment, so its size and contents are recorded,
+  // and a replay fills its own copy of the memory with them.
+  const uint32_t data_size = static_cast<uint32_t>(
+      recordreplay::Value("ipcz Parcel::AdoptDataFragment size",
+                          header.size.load(std::memory_order_acquire)));
   const size_t max_data_size = fragment.size() - sizeof(FragmentHeader);
   if (data_size > max_data_size) {
     return false;
+  }
+  if (data_size) {
+    recordreplay::Bytes(
+        "ipcz Parcel::AdoptDataFragment",
+        fragment.mutable_bytes().subspan(sizeof(FragmentHeader)).data(),
+        data_size);
   }
 
   data_.storage.emplace<DataFragment>(std::move(memory), fragment);

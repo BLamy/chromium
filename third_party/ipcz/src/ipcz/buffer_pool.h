@@ -16,6 +16,7 @@
 #include "ipcz/fragment_descriptor.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/abseil-cpp/absl/synchronization/mutex.h"
+#include "util/ordered_mutex.h"
 #include "third_party/abseil-cpp/absl/types/span.h"
 
 namespace ipcz {
@@ -94,7 +95,14 @@ class BufferPool {
   void DropPendingBufferCallbacks();
 
  private:
-  absl::Mutex mutex_;
+  // What the three above do, when this process isn't replaying. See
+  // RecordReplayAllocatedBlock().
+  Fragment AllocateBlockInternal(size_t block_size);
+  Fragment AllocateBlockBestEffortInternal(size_t preferred_block_size);
+  bool FreeBlockInternal(const Fragment& fragment);
+  Fragment RecordReplayAllocatedBlock(const Fragment& fragment);
+
+  OrderedMutex mutex_;
   absl::flat_hash_map<BufferId, DriverMemoryMapping> mappings_
       ABSL_GUARDED_BY(mutex_);
 

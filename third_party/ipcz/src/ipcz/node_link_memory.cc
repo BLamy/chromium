@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "util/record_replay.h"
 #include "ipcz/node_link_memory.h"
 
 #include <atomic>
@@ -20,6 +21,7 @@
 #include "third_party/abseil-cpp/absl/base/macros.h"
 #include "third_party/abseil-cpp/absl/numeric/bits.h"
 #include "third_party/abseil-cpp/absl/synchronization/mutex.h"
+#include "util/ordered_mutex.h"
 #include "util/log.h"
 #include "util/ref_counted.h"
 
@@ -187,7 +189,7 @@ NodeLinkMemory::~NodeLinkMemory() = default;
 void NodeLinkMemory::SetNodeLink(Ref<NodeLink> link) {
   std::vector<size_t> block_sizes_needed;
   {
-    absl::MutexLock lock(&mutex_);
+    OrderedMutexLock lock(&mutex_);
     node_link_ = std::move(link);
     if (!node_link_) {
       return;
@@ -256,23 +258,31 @@ BufferId NodeLinkMemory::AllocateNewBufferId() {
   if (available_features_.mem_v2()) {
     const uint64_t side_bit =
         link_side_.is_side_b() ? 1ull << kLinkSideBIdBit : 0;
-    return BufferId{next_buffer_id_.fetch_add(1, std::memory_order_relaxed) |
-                    side_bit};
+    return BufferId{recordreplay::Value(
+        "ipcz NodeLinkMemory::AllocateNewBufferId",
+        next_buffer_id_.fetch_add(1, std::memory_order_relaxed) | side_bit)};
   }
-  return BufferId{primary_buffer_.header.next_buffer_id.fetch_add(
-      1, std::memory_order_relaxed)};
+  // A counter both nodes take from.
+  return BufferId{recordreplay::Value(
+      "ipcz NodeLinkMemory::AllocateNewBufferId",
+      primary_buffer_.header.next_buffer_id.fetch_add(
+          1, std::memory_order_relaxed))};
 }
 
 SublinkId NodeLinkMemory::AllocateSublinkIds(size_t count) {
   if (available_features_.mem_v2()) {
     const uint64_t side_bit =
         link_side_.is_side_b() ? 1ull << kLinkSideBIdBit : 0;
-    return SublinkId{
+    return SublinkId{recordreplay::Value(
+        "ipcz NodeLinkMemory::AllocateSublinkIds",
         next_sublink_id_.fetch_add(count, std::memory_order_relaxed) |
-        side_bit};
+            side_bit)};
   }
-  return SublinkId{primary_buffer_.header.next_sublink_id.fetch_add(
-      count, std::memory_order_relaxed)};
+  // A counter both nodes take from.
+  return SublinkId{recordreplay::Value(
+      "ipcz NodeLinkMemory::AllocateSublinkIds",
+      primary_buffer_.header.next_sublink_id.fetch_add(
+          count, std::memory_order_relaxed))};
 }
 
 FragmentRef<RouterLinkState> NodeLinkMemory::GetInitialRouterLinkState(
@@ -437,7 +447,7 @@ void NodeLinkMemory::RequestBlockCapacity(
 
   Ref<NodeLink> link;
   {
-    absl::MutexLock lock(&mutex_);
+    OrderedMutexLock lock(&mutex_);
     auto [it, need_new_request] =
         capacity_callbacks_.emplace(block_size, CapacityCallbackList());
     it->second.push_back(std::move(callback));
@@ -492,7 +502,7 @@ void NodeLinkMemory::OnCapacityRequestComplete(size_t block_size,
                                                bool success) {
   CapacityCallbackList callbacks;
   {
-    absl::MutexLock lock(&mutex_);
+    OrderedMutexLock lock(&mutex_);
     auto it = capacity_callbacks_.find(block_size);
     if (it == capacity_callbacks_.end()) {
       return;

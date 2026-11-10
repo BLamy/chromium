@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "util/ordered_mutex.h"
+#include "util/record_replay.h"
 #include "ipcz/application_object.h"
 #include "ipcz/box.h"
 #include "ipcz/node_link.h"
@@ -82,8 +84,9 @@ void RemoteRouterLink::SetLinkState(FragmentRef<RouterLinkState> state) {
 
   std::vector<std::function<void()>> callbacks;
   {
-    absl::MutexLock lock(&mutex_);
+    OrderedMutexLock lock(&mutex_);
     // This store-release is balanced by a load-acquire in GetLinkState().
+    recordreplay::AutoOrderedAtomics ordered;
     link_state_.store(link_state_fragment_.get(), std::memory_order_release);
     link_state_callbacks_.swap(callbacks);
   }
@@ -97,7 +100,12 @@ void RemoteRouterLink::SetLinkState(FragmentRef<RouterLinkState> state) {
   // case, set the stable bit in RouterLinkState immediately. This may unblock
   // some routing work. The acquire here is balanced by a release in
   // MarkSideStable().
-  if (side_is_stable_.load(std::memory_order_acquire)) {
+  bool side_is_stable;
+  {
+    recordreplay::AutoOrderedAtomics ordered;
+    side_is_stable = side_is_stable_.load(std::memory_order_acquire);
+  }
+  if (side_is_stable) {
     MarkSideStable();
   }
 }
@@ -107,12 +115,13 @@ LinkType RemoteRouterLink::GetType() const {
 }
 
 RouterLinkState* RemoteRouterLink::GetLinkState() const {
+  recordreplay::AutoOrderedAtomics ordered;
   return link_state_.load(std::memory_order_acquire);
 }
 
 void RemoteRouterLink::WaitForLinkStateAsync(std::function<void()> callback) {
   {
-    absl::MutexLock lock(&mutex_);
+    OrderedMutexLock lock(&mutex_);
     if (!link_state_.load(std::memory_order_relaxed)) {
       link_state_callbacks_.push_back(std::move(callback));
       return;
@@ -386,7 +395,10 @@ void RemoteRouterLink::AcceptRouteDisconnected() {
 }
 
 void RemoteRouterLink::MarkSideStable() {
-  side_is_stable_.store(true, std::memory_order_release);
+  {
+    recordreplay::AutoOrderedAtomics ordered;
+    side_is_stable_.store(true, std::memory_order_release);
+  }
   if (RouterLinkState* state = GetLinkState()) {
     state->SetSideStable(side_);
   }
@@ -433,8 +445,11 @@ bool RemoteRouterLink::CanNodeRequestBypass(
   }
 
   NodeName allowed_source = state->allowed_bypass_request_source.LoadAcquire();
-  return state->is_locked_by(side_.opposite()) &&
-         allowed_source == bypass_request_source;
+  const bool locked = state->is_locked_by(side_.opposite());
+  // The name is read from memory the other node writes.
+  return recordreplay::Value("ipcz RemoteRouterLink::CanNodeRequestBypass",
+                             locked && allowed_source == bypass_request_source) !=
+         0;
 }
 
 void RemoteRouterLink::Deactivate() {

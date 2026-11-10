@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "util/record_replay.h"
 #include "ipcz/router_link_state.h"
 
 #include <cstring>
@@ -33,6 +34,13 @@ T& SelectBySide(LinkSide side, T& for_a, T& for_b) {
 }  // namespace
 
 RouterLinkState::RouterLinkState() = default;
+
+bool RouterLinkState::is_locked_by(LinkSide side) const {
+  Status s = status.load(std::memory_order_relaxed);
+  const bool locked = side == LinkSide::kA ? (s & kLockedBySideA) != 0
+                                           : (s & kLockedBySideB) != 0;
+  return recordreplay::Value("ipcz RouterLinkState::is_locked_by", locked) != 0;
+}
 
 // static
 RouterLinkState& RouterLinkState::Initialize(void* where) {
@@ -86,7 +94,8 @@ bool RouterLinkState::TryLock(LinkSide from_side) {
     }
   }
 
-  return desired_bit == kLockedByThisSide;
+  return recordreplay::Value("ipcz RouterLinkState::TryLock",
+                             desired_bit == kLockedByThisSide) != 0;
 }
 
 void RouterLinkState::Unlock(LinkSide from_side) {
@@ -113,7 +122,8 @@ bool RouterLinkState::ResetWaitingBit(LinkSide side) {
         (expected & kLockedByEitherSide) != 0) {
       // If the link isn't stable yet, or `side` wasn't waiting on it, or the
       // link is already locked, there's no point changing the status here.
-      return false;
+      return recordreplay::Value("ipcz RouterLinkState::ResetWaitingBit",
+                                 false) != 0;
     }
 
     // At this point we know the link is stable, the identified side is waiting,
@@ -122,7 +132,8 @@ bool RouterLinkState::ResetWaitingBit(LinkSide side) {
     desired = expected & ~kThisSideWaiting;
   }
 
-  return true;
+  return recordreplay::Value("ipcz RouterLinkState::ResetWaitingBit", true) !=
+         0;
 }
 
 }  // namespace ipcz
