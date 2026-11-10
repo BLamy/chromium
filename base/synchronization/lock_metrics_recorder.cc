@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/synchronization/lock_metrics_recorder.h"
 
 #include <algorithm>
@@ -203,6 +204,13 @@ void LockMetricsRecorder::ReportLockAcquisitionTimes() {
 void LockMetricsRecorder::EnableRecordingOnCurrentThread(
     std::string_view histogram_suffix) {
   CHECK(!histogram_suffix.empty());
+
+  // Lock metrics are off when recording or replaying. Workers starting
+  // together race to initialize the statics below, and the one that does it
+  // reads a feature's parameters, which isn't the same thread twice.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
 
   if (!base::FeatureList::IsEnabled(
           base::features::kRecordLockAcquisitionTime)) {

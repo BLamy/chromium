@@ -46,7 +46,16 @@ class ABSL_SCOPED_LOCKABLE MultiMutexLock {
 
  private:
   void SortAndLock() ABSL_NO_THREAD_SAFETY_ANALYSIS {
-    std::sort(mutexes_.begin(), mutexes_.end());
+    // By the driver's lock where there is one, and by address otherwise, as
+    // upstream has it. Addresses aren't the same on a replay, and the order
+    // these are taken in has to be.
+    std::sort(mutexes_.begin(), mutexes_.end(),
+              [](OrderedMutex* a, OrderedMutex* b) {
+                if (a->ordered_lock() != b->ordered_lock()) {
+                  return a->ordered_lock() < b->ordered_lock();
+                }
+                return a < b;
+              });
     for (OrderedMutex* mutex : mutexes_) {
       mutex->Lock();
     }

@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/record_replay.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/functional/bind.h"
@@ -106,6 +107,10 @@ DLLEXPORT int __cdecl ChromeMain(HINSTANCE instance,
                                  int64_t preread_end_ticks) {
 #elif BUILDFLAG(IS_POSIX)
 int ChromeMain(int argc, const char** argv) {
+  // Looks for Replay's driver, which main() has attached by now if this
+  // process is to be recorded.
+  recordreplay::Initialize();
+
 #else
 #error Unknown platform.
 #endif

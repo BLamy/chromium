@@ -37,6 +37,10 @@ class ABSL_LOCKABLE OrderedMutex {
 
   void AssertHeld() const ABSL_ASSERT_EXCLUSIVE_LOCK() { mutex_.AssertHeld(); }
 
+  // The driver's lock for this mutex, or 0. The same number when a recording
+  // replays as when it was made, which this mutex's address isn't.
+  int ordered_lock() const { return ordered_lock_; }
+
  private:
   absl::Mutex mutex_;
   const int ordered_lock_;

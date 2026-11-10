@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/rand_util.h"
 
 #include <limits.h>
@@ -221,6 +222,12 @@ MetricsSubSampler::ScopedNeverSampleForTesting::~ScopedNeverSampleForTesting() {
 }
 
 bool ShouldRecordSubsampledMetric(double probability) {
+  // Nothing is sampled when recording or replaying. Threads share the
+  // sampler, and whether one of them is picked decides whether it reads the
+  // clock: a mojo message is timestamped one time in a thousand.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return false;
+  }
   return MetricsSubSampler::GetSharedMetricsSubsampler().ShouldSample(
       probability);
 }
