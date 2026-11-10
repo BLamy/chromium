@@ -49,6 +49,7 @@ static void (*gRecordReplayAttach)(const char* buildId);
 static void (*gRecordReplayProfileExecution)(const char* path);
 static void (*gRecordReplayRecordCommandLineArguments)(int*, char***);
 static void (*gRecordReplaySaveRecording)(const char* dir);
+static void (*gRecordReplayRememberRecording)();
 
 template <typename Src, typename Dst>
 static inline void CastPointer(const Src src, Dst* dst) {
@@ -364,8 +365,19 @@ static void* RecordReplayAttach(int* pargc, const char*** pargv) {
   RecordReplayLoadSymbol(handle, "RecordReplayRecordCommandLineArguments",
                          gRecordReplayRecordCommandLineArguments);
 
+  RecordReplayLoadSymbol(handle, "RecordReplayRememberRecording",
+                         gRecordReplayRememberRecording);
+
   gRecordReplayAttach(recordreplay::gBuildId);
   gRecordReplaySaveRecording(nullptr);
+
+  // Every recorded renderer keeps its recording. On Chromium 108, Replay's V8
+  // asked for this once a renderer had loaded a page's own script, so that
+  // renderers with nothing of interest left no file. V8 15.8's port leaves it
+  // to whatever attaches the driver.
+  if (gRecordReplayRememberRecording) {
+    gRecordReplayRememberRecording();
+  }
 
 #if BUILDFLAG(IS_WIN)
   // On windows we don't need to explicitly record/replay the arguments because

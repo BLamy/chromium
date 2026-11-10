@@ -91,7 +91,13 @@ base::FilePath ChildProcessHost::GetChildPath(int flags,
 #if BUILDFLAG(IS_MAC)
   if (base::apple::AmIBundled()) {
     std::string_view child_suffix;
-    if (base::FeatureList::IsEnabled(features::kAperitifHelpers)) {
+    // Renderers never use an Aperitif helper in Replay's build. An Aperitif
+    // helper links the framework, so the framework's initializers have run
+    // before main(). The plain helper loads it from main() with dlopen, after
+    // chrome/app/record_replay_main.cc has attached the driver, which is what
+    // a recording needs.
+    if (base::FeatureList::IsEnabled(features::kAperitifHelpers) &&
+        flags != CHILD_RENDERER) {
       if (flags == CHILD_NORMAL) {
         child_suffix = " (Aperitif)";
       } else if (flags == CHILD_RENDERER) {

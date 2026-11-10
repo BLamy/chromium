@@ -37,6 +37,7 @@
 #include "base/path_service.h"
 #include "base/process/process.h"
 #include "base/process/process_metrics.h"
+#include "base/record_replay.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -477,6 +478,9 @@ RenderThreadImpl::RenderThreadImpl(
 }
 
 void RenderThreadImpl::Init() {
+  recordreplay::SetMainThreadTaskRunner(
+      base::SingleThreadTaskRunner::GetCurrentDefault());
+
   TRACE_EVENT0("startup", "RenderThreadImpl::Init");
 
   SCOPED_UMA_HISTOGRAM_TIMER("Renderer.RenderThreadImpl.Init");

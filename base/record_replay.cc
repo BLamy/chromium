@@ -16,11 +16,15 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <atomic>
 #include <sstream>
 
 #include "base/check.h"
+#include "base/functional/bind.h"
+#include "base/location.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/json/json_writer.h"
 #include "base/values.h"
 
@@ -158,10 +162,48 @@ char* GetRecordingId() {
              : nullptr;
 }
 
-void FinishRecording() {
-  if (Active() && gRecordReplayFinishRecording) {
-    gRecordReplayFinishRecording();
+namespace {
+
+// The main thread's task runner, as only that thread can finish a recording.
+base::SingleThreadTaskRunner* gMainThreadTaskRunner;
+
+void DoFinishRecording() {
+  Print("DoFinishRecording");
+  gRecordReplayFinishRecording();
+  Print("RecordingFinished");
+  _exit(0);
+}
+
+}  // namespace
+
+void SetMainThreadTaskRunner(
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+  if (!Active() || gMainThreadTaskRunner) {
+    return;
   }
+  // Never released: it's needed for as long as the process lives.
+  gMainThreadTaskRunner = task_runner.release();
+}
+
+void FinishRecording() {
+  if (!Active() || !gRecordReplayFinishRecording) {
+    return;
+  }
+  if (IsMainThread()) {
+    DoFinishRecording();
+  }
+  // The driver flushes the recording from the main thread only. A renderer
+  // usually ends on its IO thread, when the channel to the browser closes, so
+  // this hands over and waits to be ended, as Replay's V8 did on Chromium 108.
+  Print("PendingFinishRecording");
+  if (!gMainThreadTaskRunner ||
+      !gMainThreadTaskRunner->PostTask(FROM_HERE,
+                                       base::BindOnce(&DoFinishRecording))) {
+    // There's no main thread to ask. The recording ends where it was last
+    // flushed.
+    return;
+  }
+  sleep(UINT32_MAX);
 }
 
 bool HadMismatch() {
@@ -515,21 +557,21 @@ AutoLockMaybeEventsDisallowed::AutoLockMaybeEventsDisallowed(base::Lock& lock)
 }
 
 AutoLockMaybeEventsDisallowed::~AutoLockMaybeEventsDisallowed() {
-  lock_.Release();
+  lock_->Release();
 }
 
 AutoUnlockMaybeEventsDisallowed::AutoUnlockMaybeEventsDisallowed(
     base::Lock& lock)
     : lock_(lock) {
-  lock_.Release();
+  lock_->Release();
 }
 
 AutoUnlockMaybeEventsDisallowed::~AutoUnlockMaybeEventsDisallowed() {
   if (AreEventsDisallowed()) {
     AutoPassThroughEvents pt;
-    lock_.Acquire();
+    lock_->Acquire();
   } else {
-    lock_.Acquire();
+    lock_->Acquire();
   }
 }
 

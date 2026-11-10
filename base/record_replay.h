@@ -8,6 +8,7 @@
 #define BASE_RECORD_REPLAY_H_
 
 #include "base/check.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
@@ -23,6 +24,7 @@
 
 namespace base {
 class DictValue;
+class SingleThreadTaskRunner;
 }
 
 namespace recordreplay {
@@ -38,6 +40,11 @@ bool IsRecording();
 bool IsReplaying();
 char* GetRecordingId();
 void FinishRecording();
+
+// The task runner of the thread the driver attached on. FinishRecording goes
+// through it when called from another thread.
+void SetMainThreadTaskRunner(
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner);
 
 void Print(const char* format, ...);
 void Diagnostic(const char* format, ...);
@@ -320,7 +327,7 @@ class SCOPED_LOCKABLE AutoLockMaybeEventsDisallowed {
   ~AutoLockMaybeEventsDisallowed() UNLOCK_FUNCTION();
 
  private:
-  base::Lock& lock_;
+  const raw_ref<base::Lock> lock_;
 };
 
 // For releasing ordered locks when events might be disallowed. Passes through
@@ -331,7 +338,7 @@ class SCOPED_LOCKABLE AutoUnlockMaybeEventsDisallowed {
   ~AutoUnlockMaybeEventsDisallowed();
 
  private:
-  base::Lock& lock_;
+  const raw_ref<base::Lock> lock_;
 };
 
 // Returns whether dependency graph APIs need to be called.

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/memory/protected_memory.h"
 
 #include <sys/mman.h>
@@ -25,6 +26,12 @@ namespace {
 
 bool SetMemory(void* start, void* end, int prot) {
   CHECK(end > start);
+  // The protected section stays writable when recording or replaying: the
+  // engine maps the framework itself, and the driver doesn't report what a
+  // region's protection is.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return true;
+  }
   const uintptr_t page_start =
       bits::AlignDown(reinterpret_cast<uintptr_t>(start), GetPageSize());
   return mprotect(reinterpret_cast<void*>(page_start),
@@ -47,6 +54,9 @@ void CheckMemoryReadOnly(const void* ptr) {
 }
 #elif BUILDFLAG(IS_MAC)
 void CheckMemoryReadOnly(const void* ptr) {
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
   mach_port_t object_name;
   vm_region_basic_info_64 region_info;
   mach_vm_size_t size = 1;
