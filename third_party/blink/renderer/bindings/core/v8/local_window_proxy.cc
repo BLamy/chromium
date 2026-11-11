@@ -30,6 +30,7 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/local_window_proxy.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_page_scripts.h"
 #include <tuple>
 
 #include "base/debug/crash_logging.h"
@@ -297,6 +298,10 @@ void LocalWindowProxy::Initialize() {
     origin = world_->IsolatedWorldSecurityOrigin(
         GetFrame()->DomWindow()->GetAgentClusterID());
     SetSecurityToken(origin.get());
+  }
+
+  if (world_->IsMainWorld()) {
+    RecordReplayInstallPageScripts(GetIsolate(), context);
   }
 
   {

@@ -51,6 +51,8 @@ blink_core_sources_bindings =
                     "core/v8/js_event_listener.cc",
                     "core/v8/js_event_listener.h",
                     "core/v8/local_window_proxy.cc",
+                    "core/v8/record_replay_page_scripts.cc",
+                    "core/v8/record_replay_page_scripts.h",
                     "core/v8/local_window_proxy.h",
                     "core/v8/maplike.h",
                     "core/v8/module_record.cc",
