@@ -27,6 +27,7 @@ extern "C" void V8RecordReplaySetPageCommandHandler(
     v8::Local<v8::Context> context,
     v8::Local<v8::Function> function);
 extern "C" uint64_t V8RecordReplayProgressCounter();
+extern "C" const char* V8RecordReplayPendingPrivilegedEvaluation(size_t index);
 
 namespace blink {
 
@@ -73,6 +74,16 @@ const commands = {
   },
 };
 
+// What was asked for before there was a page, which is how whoever replays
+// sets itself up: it registers its root frame scripts this way.
+for (const paramsText of args.takePendingEvaluations()) {
+  try {
+    commands["Target.evaluatePrivileged"](JSON.parse(paramsText));
+  } catch (e) {
+    args.log(`Error: an early evaluation threw ${e && e.stack || e}`);
+  }
+}
+
 args.setCommandCallback((method, paramsText) => {
   const command = commands[method];
   if (!command) {
@@ -113,6 +124,23 @@ void ArgsRegisterRootFrameScript(
   if (*script) {
     RootFrameScripts().emplace_back(*script);
   }
+}
+
+// Each is run once, by the first root frame there is.
+void ArgsTakePendingEvaluations(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  static size_t taken = 0;
+  v8::Isolate* isolate = args.GetIsolate();
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  v8::Local<v8::Array> pending = v8::Array::New(isolate);
+  uint32_t count = 0;
+  while (const char* params = V8RecordReplayPendingPrivilegedEvaluation(taken)) {
+    taken++;
+    if (pending->Set(context, count++, V8String(isolate, params)).IsNothing()) {
+      break;
+    }
+  }
+  args.GetReturnValue().Set(pending);
 }
 
 void ArgsSetCommandCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -565,6 +593,8 @@ void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
                  ArgsRegisterRootFrameScript) ||
       !SetNative(isolate, context, args, "setCommandCallback",
                  ArgsSetCommandCallback) ||
+      !SetNative(isolate, context, args, "takePendingEvaluations",
+                 ArgsTakePendingEvaluations) ||
       !SetHidden(isolate, context, context->Global(), kArgumentsName, args) ||
       !SetHidden(isolate, context, context->Global(), kApiName, api)) {
     return;
