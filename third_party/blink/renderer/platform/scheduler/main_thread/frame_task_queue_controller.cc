@@ -37,7 +37,15 @@ FrameTaskQueueController::FrameTaskQueueController(
   DCHECK(delegate_);
 }
 
-FrameTaskQueueController::~FrameTaskQueueController() = default;
+FrameTaskQueueController::~FrameTaskQueueController() {
+  // The voters go in the order they were made. The map that owns them goes by
+  // the queues' addresses, which aren't the same on a replay as when
+  // recording, and a voter that goes can wake the thread up, which takes a
+  // lock the recording has an order for.
+  for (const TaskQueueAndEnabledVoterPair& pair : all_task_queues_and_voters_) {
+    task_queue_enabled_voters_.erase(pair.first);
+  }
+}
 
 scoped_refptr<MainThreadTaskQueue>
 FrameTaskQueueController::GetTaskQueue(
