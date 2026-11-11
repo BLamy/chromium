@@ -437,9 +437,16 @@ void TaskQueueImpl::PostImmediateTaskImpl(PostedTask task,
       (recordreplay::AreEventsDisallowed() ||
        recordreplay::AreEventsPassedThrough())) {
     // See record_replay_unordered_incoming_queue_.
-    base::AutoLock lock(record_replay_unordered_lock_);
-    record_replay_unordered_incoming_queue_.push_back(
-        Task(std::move(task), EnqueueOrder(), EnqueueOrder(), TimeTicks()));
+    {
+      base::AutoLock lock(record_replay_unordered_lock_);
+      record_replay_unordered_incoming_queue_.push_back(
+          Task(std::move(task), EnqueueOrder(), EnqueueOrder(), TimeTicks()));
+      sequence_manager_->record_replay_unordered_pending_.fetch_add(
+          1, std::memory_order_relaxed);
+    }
+    // Wakes the queue's thread if it's waiting. From here that goes straight
+    // to the pump: see ThreadControllerWithMessagePumpImpl::ScheduleWork().
+    sequence_manager_->ScheduleWork();
     return;
   }
 
@@ -590,6 +597,13 @@ void TaskQueueImpl::ReloadEmptyImmediateWorkQueue() {
   }
 }
 
+}  // namespace base::sequence_manager::internal
+namespace recordreplay {
+// In base/record_replay.cc.
+BASE_EXPORT void MaybeFinishRecording();
+}  // namespace recordreplay
+namespace base::sequence_manager::internal {
+
 void TaskQueueImpl::RecordReplayRunUnorderedTasks() {
   if (!recordreplay::IsRecordingOrReplaying()) {
     return;
@@ -598,6 +612,8 @@ void TaskQueueImpl::RecordReplayRunUnorderedTasks() {
   {
     base::AutoLock lock(record_replay_unordered_lock_);
     tasks.swap(record_replay_unordered_incoming_queue_);
+    sequence_manager_->record_replay_unordered_pending_.fetch_sub(
+        static_cast<int>(tasks.size()), std::memory_order_relaxed);
   }
   if (tasks.empty()) {
     return;
@@ -621,7 +637,10 @@ void TaskQueueImpl::TakeImmediateIncomingQueueTasks(TaskDeque* queue) {
   DCHECK(queue->empty());
   // Declared before the lock, so that it runs once the lock is released.
   struct RunUnorderedTasks {
-    ~RunUnorderedTasks() { queue->RecordReplayRunUnorderedTasks(); }
+    ~RunUnorderedTasks() {
+      queue->RecordReplayRunUnorderedTasks();
+      recordreplay::MaybeFinishRecording();
+    }
     RAW_PTR_EXCLUSION TaskQueueImpl* const queue;
   } run_unordered_tasks{this};
   base::internal::CheckedAutoLock lock(any_thread_lock_);

@@ -45,6 +45,11 @@
 #include "build/build_config.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 
+namespace recordreplay {
+// In base/record_replay.cc.
+BASE_EXPORT void MaybeFinishRecording();
+}  // namespace recordreplay
+
 namespace base::sequence_manager {
 namespace {
 
@@ -480,6 +485,19 @@ SequenceManagerImpl::SelectNextTaskImpl(LazyNow& lazy_now,
   DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("sequence_manager"),
                "SequenceManagerImpl::SelectNextTask");
+
+  if (record_replay_unordered_pending_.load(std::memory_order_relaxed) > 0) {
+    // A copy, as a task that runs can add or remove a queue.
+    std::vector<internal::TaskQueueImpl*> queues(
+        main_thread_only().active_queues.begin(),
+        main_thread_only().active_queues.end());
+    for (internal::TaskQueueImpl* queue : queues) {
+      if (main_thread_only().active_queues.contains(queue)) {
+        queue->RecordReplayRunUnorderedTasks();
+      }
+    }
+    recordreplay::MaybeFinishRecording();
+  }
 
   ReloadEmptyWorkQueues();
   MoveReadyDelayedTasksToWorkQueues(&lazy_now);

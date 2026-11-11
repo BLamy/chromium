@@ -168,6 +168,15 @@ void ThreadControllerWithMessagePumpImpl::WillQueueTask(
 
 void ThreadControllerWithMessagePumpImpl::ScheduleWork() {
   base::internal::CheckedLock::AssertNoLockHeldOnCurrentThread();
+  // Asked for from outside the recording, for a task that is too. Whether work
+  // has been asked for already is state the recording's own requests go by,
+  // so this one leaves it alone and wakes the thread regardless.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      (recordreplay::AreEventsDisallowed() ||
+       recordreplay::AreEventsPassedThrough())) {
+    pump_->ScheduleWork();
+    return;
+  }
   if (work_deduplicator_.OnWorkRequested() ==
       ShouldScheduleWork::kScheduleImmediate) {
     if (!associated_thread_->IsBoundToCurrentThread()) {

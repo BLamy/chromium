@@ -175,7 +175,24 @@ void DoFinishRecording() {
   _exit(0);
 }
 
+// Set when another thread has asked the main thread to finish the recording.
+std::atomic<bool> gFinishRecordingRequested{false};
+
 }  // namespace
+
+// Finishes the recording if it's been asked for, on the main thread, and only
+// with events allowed: the driver writes nothing of a recording's end with
+// them disallowed. The task that asks for it can be run that way, when it was
+// posted from somewhere outside the recording (see TaskQueueImpl's unordered
+// tasks), so the task queue also calls this once those have run.
+BASE_EXPORT void MaybeFinishRecording() {
+  if (!gFinishRecordingRequested.load(std::memory_order_acquire) ||
+      !Active() || !IsMainThread() || AreEventsDisallowed() ||
+      AreEventsPassedThrough()) {
+    return;
+  }
+  DoFinishRecording();
+}
 
 void SetMainThreadTaskRunner(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
@@ -197,9 +214,10 @@ void FinishRecording() {
   // usually ends on its IO thread, when the channel to the browser closes, so
   // this hands over and waits to be ended, as Replay's V8 did on Chromium 108.
   Print("PendingFinishRecording");
+  gFinishRecordingRequested.store(true, std::memory_order_release);
   if (!gMainThreadTaskRunner ||
       !gMainThreadTaskRunner->PostTask(FROM_HERE,
-                                       base::BindOnce(&DoFinishRecording))) {
+                                       base::BindOnce(&MaybeFinishRecording))) {
     // There's no main thread to ask. The recording ends where it was last
     // flushed.
     return;

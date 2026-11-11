@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <stdlib.h>
+
 #include "content/browser/child_process_launcher_helper.h"
 
 #include "base/apple/mach_port_rendezvous.h"
@@ -229,6 +231,13 @@ void ChildProcessLauncherHelper::ForceNormalProcessTerminationSync(
   CHECK(CurrentlyOnProcessLauncherTaskRunner(), base::NotFatalUntil::M159);
   // Client has gone away, so just kill the process.  Using exit code 0 means
   // that UMA won't treat this as a crash.
+  // A recorded child writes the end of its recording when it finds its client
+  // gone, and exits by itself. Killing it here, at once or after the two
+  // seconds EnsureProcessTerminated() allows, leaves a recording that stops at
+  // its last checkpoint. Upstream Replay's Chromium 108 leaves it alone too.
+  if (getenv("RECORD_ALL_CONTENT")) {
+    return;
+  }
   process.process.Terminate(RESULT_CODE_NORMAL_EXIT, false);
   base::EnsureProcessTerminated(std::move(process.process));
 }

@@ -79,6 +79,10 @@ class WakeUpQueue;
 // tasks (normally the most common type) don't starve out immediate work.
 class BASE_EXPORT TaskQueueImpl : public TaskQueue {
  public:
+  // Replay: runs the tasks posted to this queue from outside the recording,
+  // with events disallowed. See record_replay_unordered_incoming_queue_.
+  void RecordReplayRunUnorderedTasks();
+
   // Initializes the state of all the task queue features. Must be invoked
   // after FeatureList initialization and while Chrome is still single-threaded.
   static void InitializeFeatures();
@@ -560,7 +564,6 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
   base::Lock record_replay_unordered_lock_{""};
   TaskDeque record_replay_unordered_incoming_queue_
       GUARDED_BY(record_replay_unordered_lock_);
-  void RecordReplayRunUnorderedTasks();
 
   struct AnyThread {
     // Mirrored from MainThreadOnly. These are only used for tracing.
