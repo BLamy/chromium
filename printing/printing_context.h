@@ -208,6 +208,9 @@ class COMPONENT_EXPORT(PRINTING) PrintingContext {
 
   bool PrintingAborted() const { return abort_printing_; }
 
+  // Reinitializes the settings for object reuse.
+  void ResetSettings();
+
   int job_id() const { return job_id_; }
 
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
@@ -226,9 +229,6 @@ class COMPONENT_EXPORT(PRINTING) PrintingContext {
   static std::unique_ptr<PrintingContext> CreateImpl(
       Delegate* delegate,
       OutOfProcessBehavior out_of_process_behavior);
-
-  // Reinitializes the settings for object reuse.
-  void ResetSettings();
 
   // Does bookkeeping when an error occurs.
   virtual mojom::ResultCode OnError();

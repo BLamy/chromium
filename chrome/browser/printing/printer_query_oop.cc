@@ -127,7 +127,7 @@ void PrinterQueryOop::OnDidAskUserForSettings(
     std::unique_ptr<PrintSettings> new_settings,
     mojom::ResultCode result) {
   CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
-  if (result == mojom::ResultCode::kSuccess) {
+  if (result == mojom::ResultCode::kSuccess && query_with_ui_client_id_) {
     // Want the same PrintBackend service as the query so that we use the same
     // device context.
     print_document_client_id_ =
@@ -190,6 +190,28 @@ void PrinterQueryOop::GetSettingsWithUI(uint32_t document_page_count,
   //       browser process.
   //   - Other platforms don't have a system print UI or do not use OOP
   //     printing, so this does not matter.
+
+  // Apply cached settings to the local printing context so that the in-browser
+  // system print dialog is prefilled with user-specified options (e.g. copies,
+  // collate, duplex). OOP UpdatePrintSettings only applies settings to the
+  // remote service context, not the local one used by the native dialog.
+  if (settings().dpi()) {
+    printing_context()->SetPrintSettings(settings());
+    if (printing_context()->UpdatePrinterSettings(
+            PrintingContext::PrinterSettings{
+#if BUILDFLAG(IS_MAC)
+                .external_preview = false,
+#endif
+                .show_system_dialog = false,
+            }) != mojom::ResultCode::kSuccess) {
+      // Prefilling failed (e.g. the printer does not support the requested
+      // resolution).  Reinitialize with defaults so that AskUserForSettings
+      // does not crash due to a null print_info_.  The dialog will simply
+      // open without prefilled values.
+      printing_context()->UseDefaultSettings();
+    }
+  }
+
   PrinterQuery::GetSettingsWithUI(
       document_page_count, has_selection, is_scripted,
       base::BindOnce(&PrinterQueryOop::OnDidAskUserForSettings,

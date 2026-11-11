@@ -51,6 +51,8 @@ namespace printing {
 class PrintQueriesQueue;
 class PrinterQuery;
 
+using CompletionCallback = base::OnceCallback<void(bool, const std::string&)>;
+
 // Base class for managing the print commands for a WebContents.
 class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
  public:
@@ -81,7 +83,9 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
   // Prints the current document immediately. Since the rendering is
   // asynchronous, the actual printing will not be completed on the return of
   // this function. Returns false if printing is impossible at the moment.
-  virtual bool PrintNow(content::RenderFrameHost* rfh);
+  virtual bool PrintNow(content::RenderFrameHost* rfh,
+                        base::DictValue settings = {},
+                        CompletionCallback callback = {});
 #if BUILDFLAG(IS_ANDROID)
   virtual bool PrintNow(content::RenderFrameHost* rfh,
                         bool print_selection_only);
@@ -132,14 +136,24 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
   void IsPrintingEnabled(IsPrintingEnabledCallback callback) override;
   void ScriptedPrint(mojom::ScriptedPrintParamsPtr params,
                      ScriptedPrintCallback callback) override;
+  void ShowInvalidPrinterSettingsError() override;
   void PrintingFailed(int32_t cookie,
                       mojom::PrintFailureReason reason) override;
+  void UserInitCanceled();
 
   // Adds and removes observers for `PrintViewManagerBase` events. The order in
   // which notifications are sent to observers is undefined. Observers must be
   // sure to remove the observer before they go away.
   void AddTestObserver(TestObserver& observer);
   void RemoveTestObserver(TestObserver& observer);
+
+  enum class PrintStatus {
+    kSucceeded,
+    kCanceled,
+    kFailed,
+    kInvalid,
+    kUnknown
+  };
 
  protected:
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
@@ -224,7 +238,7 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
                                      mojom::ScriptedPrintParamsPtr params,
                                      ScriptedPrintCallback callback);
 
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if 0
   // Helper method bound to `content_analysis_before_printing_document_` when
   // content analysis should happen right before the document is to be printed.
   // This method is virtual for testing purposes.
@@ -366,13 +380,19 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
       bool allowed);
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
-  bool PrintNowImpl(content::RenderFrameHost* rfh, bool print_selection_only);
+  bool PrintNowImpl(content::RenderFrameHost* rfh,
+                    bool print_selection_only,
+                    base::DictValue settings = {},
+                    CompletionCallback callback = {});
 
   // The current RFH that is printing with a system printing dialog.
   raw_ptr<content::RenderFrameHost> printing_rfh_ = nullptr;
 
+  // Respond with success of the print job.
+  CompletionCallback callback_;
+
   // Indication of success of the print job.
-  bool printing_succeeded_ = false;
+  PrintStatus printing_status_ = PrintStatus::kUnknown;
 
   // Indication that the job is getting canceled.
   bool canceling_job_ = false;

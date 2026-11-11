@@ -97,6 +97,7 @@ bool PrintWithReducedRasterization(PrefService* prefs) {
   return base::FeatureList::IsEnabled(features::kPrintWithReducedRasterization);
 }
 
+#if 0
 PrefService* GetPrefsForWebContents(content::WebContents* web_contents) {
   // TODO(thestig): Figure out why crbug.com/40692772 occurred, which is likely
   // because `web_contents` was null. As a result, this section has many more
@@ -111,6 +112,7 @@ content::WebContents* GetWebContents(content::GlobalRenderFrameHostId rfh_id) {
   auto* rfh = content::RenderFrameHost::FromID(rfh_id);
   return rfh ? content::WebContents::FromRenderFrameHost(rfh) : nullptr;
 }
+#endif
 
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -206,10 +208,8 @@ void PrintJob::Initialize(std::unique_ptr<PrinterQuery> query,
 
 #if BUILDFLAG(IS_WIN)
   pdf_page_mapping_ = PageNumber::GetPages(settings->ranges(), page_count);
-  PrefService* prefs = GetPrefsForWebContents(GetWebContents(rfh_id_));
-  if (prefs && prefs->IsManagedPreference(prefs::kPdfUseSkiaRendererEnabled)) {
-    use_skia_ = prefs->GetBoolean(prefs::kPdfUseSkiaRendererEnabled);
-  }
+  // TODO(codebytere): should we enable this later?
+  use_skia_ = false;
 #endif
 
   auto new_doc = base::MakeRefCounted<PrintedDocument>(std::move(settings),
@@ -409,8 +409,10 @@ void PrintJob::StartPdfToEmfConversion(
 
   const PrintSettings& settings = document()->settings();
 
+#if 0
   PrefService* prefs = GetPrefsForWebContents(GetWebContents(rfh_id_));
-  bool print_with_reduced_rasterization = PrintWithReducedRasterization(prefs);
+#endif
+  bool print_with_reduced_rasterization = PrintWithReducedRasterization(nullptr);
 
   using RenderMode = PdfRenderSettings::Mode;
   RenderMode mode = print_with_reduced_rasterization
@@ -502,8 +504,10 @@ void PrintJob::StartPdfToPostScriptConversion(
   if (ps_level2) {
     mode = PdfRenderSettings::Mode::POSTSCRIPT_LEVEL2;
   } else {
+#if 0
     PrefService* prefs = GetPrefsForWebContents(GetWebContents(rfh_id_));
-    mode = PrintWithPostScriptType42Fonts(prefs)
+#endif
+    mode = PrintWithPostScriptType42Fonts(nullptr)
                ? PdfRenderSettings::Mode::POSTSCRIPT_LEVEL3_WITH_TYPE42_FONTS
                : PdfRenderSettings::Mode::POSTSCRIPT_LEVEL3;
   }

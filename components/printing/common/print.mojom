@@ -296,7 +296,7 @@ enum PrintFailureReason {
 interface PrintRenderFrame {
   // Tells the RenderFrame to switch the CSS to print media type, render every
   // requested page, and then switch back the CSS to display media type.
-  PrintRequestedPages();
+  PrintRequestedPages(mojo_base.mojom.DictionaryValue settings);
 
   // Requests the frame to be printed with specified parameters. This is used
   // to programmatically produce PDF by request from the browser (e.g. over
@@ -396,6 +396,9 @@ interface PrintManagerHost {
   [Sync]
   ScriptedPrint(ScriptedPrintParams params) => (PrintPagesParams? settings);
 
+  // Tells the browser that there are invalid printer settings.
+  ShowInvalidPrinterSettingsError();
+
   // Tells the browser printing failed.
   PrintingFailed(int32 cookie, PrintFailureReason reason);
 
@@ -403,6 +406,14 @@ interface PrintManagerHost {
   // error occurs, the browser returns null.
   [EnableIf=enable_print_preview, Sync]
   GetPrintPreviewParams() => (PrintPagesParams? current_settings);
+
+  // Electron only: Updates the current print settings with `job_settings` and
+  // returns the resulting `PrintPagesParams`. Used by `InitPrintSettings` when
+  // settings are supplied by `webContents.print(options)` and need to be
+  // resolved by the browser. If an error occurs, returns null.
+  [EnableIf=enable_print_preview, Sync]
+  UpdatePrintSettings(mojo_base.mojom.DictionaryValue job_settings)
+      => (PrintPagesParams? current_settings);
 
   // Tells the browser to set up the print preview requested by the script. It
   // runs a nested run loop in the renderer until print preview for

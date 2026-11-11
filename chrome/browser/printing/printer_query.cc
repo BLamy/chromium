@@ -360,17 +360,19 @@ void PrinterQuery::UpdatePrintSettings(base::DictValue new_settings,
 #endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(USE_CUPS)
   }
 
-  mojom::ResultCode result;
   {
 #if BUILDFLAG(IS_WIN)
     // Blocking is needed here because Windows printer drivers are oftentimes
     // not thread-safe and have to be accessed on the UI thread.
     base::ScopedAllowBlocking allow_blocking;
 #endif
-    result = printing_context_->UpdatePrintSettings(std::move(new_settings));
+    // Reset settings from previous print job
+    printing_context_->ResetSettings();
+    mojom::ResultCode result_code = printing_context_->UseDefaultSettings();
+    if (result_code == mojom::ResultCode::kSuccess)
+      result_code = printing_context_->UpdatePrintSettings(std::move(new_settings));
+    InvokeSettingsCallback(std::move(callback), result_code);
   }
-
-  InvokeSettingsCallback(std::move(callback), result);
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
