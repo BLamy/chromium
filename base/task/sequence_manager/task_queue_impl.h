@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/synchronization/lock.h"
 #include "base/base_export.h"
 #include "base/compiler_specific.h"
 #include "base/containers/flat_map.h"
@@ -549,6 +550,17 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
   const scoped_refptr<GuardedTaskPoster> task_poster_;
 
   mutable base::internal::CheckedLock any_thread_lock_;
+
+  // Replay: immediate tasks posted while the poster's events are disallowed or
+  // passed through, which is work a recording doesn't have in it, such as a
+  // garbage collector's. When one is posted isn't the same on a replay, so
+  // these have no place in the order of the queue's other tasks. They wait
+  // here, under a lock that's never ordered, and the queue's thread runs them
+  // with its events disallowed whenever it takes its incoming tasks.
+  base::Lock record_replay_unordered_lock_{""};
+  TaskDeque record_replay_unordered_incoming_queue_
+      GUARDED_BY(record_replay_unordered_lock_);
+  void RecordReplayRunUnorderedTasks();
 
   struct AnyThread {
     // Mirrored from MainThreadOnly. These are only used for tracing.

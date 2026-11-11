@@ -2,8 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/memory/raw_ptr_exclusion.h"
+#include "base/record_replay.h"
 #include "base/task/sequence_manager/task_queue_impl.h"
 
+#include <stdlib.h>
+#include <stdio.h>
 #include <inttypes.h>
 
 #include <algorithm>
@@ -384,7 +388,16 @@ void TaskQueueImpl::PostTask(PostedTask task) {
           ? TaskQueueImpl::CurrentThread::kMainThread
           : TaskQueueImpl::CurrentThread::kNotMainThread;
 
-  if (!task.is_delayed()) {
+  // A delayed task posted outside the recording, as a garbage collection at a
+  // pause in a replay posts one to release pages, would come due as one of the
+  // queue's recorded tasks, where the recording has none. It goes the way of
+  // the immediate ones, without its delay: see
+  // record_replay_unordered_incoming_queue_.
+  const bool unordered =
+      recordreplay::IsRecordingOrReplaying() &&
+      (recordreplay::AreEventsDisallowed() ||
+       recordreplay::AreEventsPassedThrough());
+  if (!task.is_delayed() || unordered) {
     PostImmediateTaskImpl(std::move(task), current_thread);
   } else {
     PostDelayedTaskImpl(std::move(task), current_thread);
@@ -419,6 +432,16 @@ void TaskQueueImpl::PostImmediateTaskImpl(PostedTask task,
   // Use CHECK instead of DCHECK to crash earlier. See http://crbug.com/711167
   // for details.
   CHECK(task.callback);
+
+  if (recordreplay::IsRecordingOrReplaying() &&
+      (recordreplay::AreEventsDisallowed() ||
+       recordreplay::AreEventsPassedThrough())) {
+    // See record_replay_unordered_incoming_queue_.
+    base::AutoLock lock(record_replay_unordered_lock_);
+    record_replay_unordered_incoming_queue_.push_back(
+        Task(std::move(task), EnqueueOrder(), EnqueueOrder(), TimeTicks()));
+    return;
+  }
 
   bool should_schedule_work = false;
   {
@@ -567,8 +590,40 @@ void TaskQueueImpl::ReloadEmptyImmediateWorkQueue() {
   }
 }
 
+void TaskQueueImpl::RecordReplayRunUnorderedTasks() {
+  if (!recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
+  TaskDeque tasks;
+  {
+    base::AutoLock lock(record_replay_unordered_lock_);
+    tasks.swap(record_replay_unordered_incoming_queue_);
+  }
+  if (tasks.empty()) {
+    return;
+  }
+  recordreplay::AutoDisallowEvents disallow(
+      "TaskQueueImpl::RecordReplayRunUnorderedTasks");
+  while (!tasks.empty()) {
+    Task pending_task = std::move(tasks.front());
+    tasks.pop_front();
+    // REPLAY_LOG_UNORDERED_TASKS says where each one was posted from.
+    static const bool log = !!getenv("REPLAY_LOG_UNORDERED_TASKS");
+    if (log) {
+      fprintf(stderr, "[replay] unordered task from %s\n",
+              pending_task.posted_from.ToString().c_str());
+    }
+    std::move(pending_task.task).Run();
+  }
+}
+
 void TaskQueueImpl::TakeImmediateIncomingQueueTasks(TaskDeque* queue) {
   DCHECK(queue->empty());
+  // Declared before the lock, so that it runs once the lock is released.
+  struct RunUnorderedTasks {
+    ~RunUnorderedTasks() { queue->RecordReplayRunUnorderedTasks(); }
+    RAW_PTR_EXCLUSION TaskQueueImpl* const queue;
+  } run_unordered_tasks{this};
   base::internal::CheckedAutoLock lock(any_thread_lock_);
   queue->swap(any_thread_.immediate_incoming_queue);
 

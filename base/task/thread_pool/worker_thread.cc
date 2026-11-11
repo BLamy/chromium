@@ -305,6 +305,12 @@ bool WorkerThread::ShouldExit() const {
 }
 
 void WorkerThread::ThreadMain() {
+  // Nothing an unordered group's worker does is in the recording.
+  std::optional<recordreplay::AutoDisallowEvents> disallow;
+  if (record_replay_unordered_) {
+    disallow.emplace("WorkerThread::ThreadMain");
+  }
+
 #if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
   DCHECK(io_thread_task_runner_);
   FileDescriptorWatcher file_descriptor_watcher(io_thread_task_runner_);

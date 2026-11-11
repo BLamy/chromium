@@ -7,6 +7,7 @@
 
 #include <optional>
 
+#include "base/record_replay.h"
 #include "base/base_export.h"
 #include "base/compiler_specific.h"
 #include "base/memory/raw_ptr.h"
@@ -209,6 +210,10 @@ class BASE_EXPORT WorkerThread : public RefCountedThreadSafe<WorkerThread>,
   // this WorkerThread is currently in-use. Thread-safe.
   TimeTicks GetLastUsedTime() const;
 
+  // Whether this worker is one of an unordered group's: see
+  // ThreadGroup::RecordReplayUnordered().
+  bool RecordReplayUnordered() const { return record_replay_unordered_; }
+
   size_t sequence_num() const { return sequence_num_; }
 
  protected:
@@ -296,6 +301,8 @@ class BASE_EXPORT WorkerThread : public RefCountedThreadSafe<WorkerThread>,
 
   // Set once JoinForTesting() has been called.
   AtomicFlag join_called_for_testing_;
+
+  const bool record_replay_unordered_ = recordreplay::AreEventsDisallowed();
 };
 
 }  // namespace internal

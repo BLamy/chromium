@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/task/thread_pool/thread_pool_impl.h"
 
 #include <algorithm>
@@ -115,6 +116,18 @@ ThreadPoolImpl::ThreadPoolImpl(
         tracked_ref_factory_.GetTrackedRef(), monitor_worker_thread_priorities,
         record_lock_contention);
   }
+
+  if (recordreplay::IsRecordingOrReplaying()) {
+    // See ThreadGroup::RecordReplayUnordered().
+    recordreplay::AutoDisallowEvents disallow("ThreadPoolImpl::ThreadPoolImpl");
+    record_replay_unordered_thread_group_ = std::make_unique<ThreadGroupImpl>(
+        std::string(), kForegroundPoolEnvironmentParams.name_suffix,
+        kForegroundPoolEnvironmentParams.thread_type_hint,
+        ThreadGroupType::FOREGROUND, task_tracker_->GetTrackedRef(),
+        tracked_ref_factory_.GetTrackedRef(),
+        /*monitor_worker_thread_priorities=*/false,
+        ThreadPoolInstance::RecordLockContention::kDisabled);
+  }
 }
 
 ThreadPoolImpl::~ThreadPoolImpl() {
@@ -123,6 +136,7 @@ ThreadPoolImpl::~ThreadPoolImpl() {
 #endif
 
   // Reset thread groups to release held TrackedRefs, which block teardown.
+  record_replay_unordered_thread_group_.reset();
   foreground_thread_group_.reset();
   utility_thread_group_.reset();
   background_thread_group_.reset();
@@ -239,6 +253,16 @@ void ThreadPoolImpl::Start(const ThreadPoolInstance::InitParams& init_params,
       worker_thread_observer, worker_environment,
       g_synchronous_thread_start_for_testing,
       /*may_block_threshold_for_testing=*/{});
+
+  if (record_replay_unordered_thread_group_) {
+    static_cast<ThreadGroupImpl*>(record_replay_unordered_thread_group_.get())
+        ->Start(ThreadGroup::kRecordReplayUnorderedWorkers,
+                ThreadGroup::kRecordReplayUnorderedWorkers,
+                init_params.suggested_reclaim_time, service_thread_task_runner,
+                worker_thread_observer, worker_environment,
+                g_synchronous_thread_start_for_testing,
+                /*may_block_threshold_for_testing=*/{});
+  }
 
   if (utility_thread_group_) {
     utility_thread_group_.get()->Start(
@@ -702,6 +726,11 @@ const ThreadGroup* ThreadPoolImpl::GetThreadGroup(ThreadType thread_type,
 
 ThreadGroup* ThreadPoolImpl::GetThreadGroup(ThreadType thread_type,
                                             ThreadPolicy policy) {
+  if (record_replay_unordered_thread_group_ &&
+      recordreplay::AreEventsDisallowed()) {
+    return record_replay_unordered_thread_group_.get();
+  }
+
   if (thread_type == ThreadType::kBackground &&
       policy == ThreadPolicy::PREFER_BACKGROUND && background_thread_group_) {
     return background_thread_group_.get();
@@ -741,6 +770,9 @@ void ThreadPoolImpl::UpdateCanRunPolicy(CanRunPolicy can_run_policy) {
   task_tracker_->SetCanRunPolicy(can_run_policy);
 
   foreground_thread_group_->DidUpdateCanRunPolicy();
+  if (record_replay_unordered_thread_group_) {
+    record_replay_unordered_thread_group_->DidUpdateCanRunPolicy();
+  }
   if (utility_thread_group_) {
     utility_thread_group_->DidUpdateCanRunPolicy();
   }

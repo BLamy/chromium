@@ -511,6 +511,12 @@ size_t ThreadGroup::NumberOfIdleWorkersForTesting() const {
 }
 
 size_t ThreadGroup::GetDesiredNumAwakeWorkersLockRequired() const {
+  // An unordered group's workers are all made when it starts, as a worker
+  // can't be made at a time that a replay wouldn't make it at too.
+  if (record_replay_unordered_) {
+    return kRecordReplayUnorderedWorkers;
+  }
+
   // Number of BEST_EFFORT task sources that are running or queued and allowed
   // to run by the CanRunPolicy.
   const size_t num_running_or_queued_can_run_best_effort_task_sources =

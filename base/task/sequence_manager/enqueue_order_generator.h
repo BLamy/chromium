@@ -9,6 +9,7 @@
 
 #include <atomic>
 
+#include "base/record_replay.h"
 #include "base/base_export.h"
 #include "base/task/sequence_manager/enqueue_order.h"
 
@@ -26,9 +27,29 @@ class BASE_EXPORT EnqueueOrderGenerator {
   ~EnqueueOrderGenerator();
 
   // Can be called from any thread.
+  //
+  // When recording, the number each caller gets is recorded. Threads post to a
+  // thread's queues under one lock per queue, and the thread itself numbers a
+  // delayed task that has come due under none, so which of two tasks gets the
+  // lower number is a race, and the lower one runs first. A replay hands back
+  // the recorded numbers, and keeps its own counter ahead of them for callers
+  // that aren't in the recording.
   EnqueueOrder GenerateNext() {
-    return EnqueueOrder(std::atomic_fetch_add_explicit(
-        &counter_, uint64_t(1), std::memory_order_relaxed));
+    uint64_t next = std::atomic_fetch_add_explicit(&counter_, uint64_t(1),
+                                                   std::memory_order_relaxed);
+    if (recordreplay::IsRecordingOrReplaying()) {
+      const uint64_t recorded = static_cast<uint64_t>(
+          recordreplay::RecordReplayValueIfAllowed("EnqueueOrder", next));
+      if (recorded != next) {
+        next = recorded;
+        uint64_t current = counter_.load(std::memory_order_relaxed);
+        while (current <= recorded &&
+               !counter_.compare_exchange_weak(current, recorded + 1,
+                                               std::memory_order_relaxed)) {
+        }
+      }
+    }
+    return EnqueueOrder(next);
   }
 
  private:

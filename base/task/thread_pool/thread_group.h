@@ -178,6 +178,14 @@ class BASE_EXPORT ThreadGroup {
 
   virtual void OnShutdownStarted() = 0;
 
+  // Whether this group is for work that isn't in a recording: what's posted
+  // while events are disallowed, such as V8's garbage collection jobs. Such a
+  // group is made while events are disallowed. Its lock isn't ordered and its
+  // workers run with events disallowed, so that when they run, and which of
+  // them runs what, doesn't have to be the same on a replay.
+  bool RecordReplayUnordered() const { return record_replay_unordered_; }
+  static constexpr size_t kRecordReplayUnorderedWorkers = 4;
+
   // Returns true if a thread group is registered in TLS. Used by diagnostic
   // code to check whether it's inside a ThreadPool task.
   static bool CurrentThreadHasGroup();
@@ -462,6 +470,8 @@ class BASE_EXPORT ThreadGroup {
   // and schedule work, only simple data structure manipulations are allowed
   // within its scope (no thread creation or wake up).
   mutable CheckedLock lock_{recordreplay::OrderedLockName("ThreadGroup.lock_")};
+
+  const bool record_replay_unordered_ = recordreplay::AreEventsDisallowed();
 
   bool disable_fair_scheduling_ GUARDED_BY(lock_){false};
 
