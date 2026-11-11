@@ -94,6 +94,9 @@ class MojoTrap : public Object<MojoTrap> {
   using TriggerMap = base::flat_map<uintptr_t, scoped_refptr<Trigger>>;
   TriggerMap triggers_ GUARDED_BY(lock_);
 
+  // Counts the triggers ever added: see Trigger::added_order.
+  uint64_t last_added_order_ GUARDED_BY(lock_) = 0;
+
   // Trigger prioritization proceeds in a round-robin fashion across consecutive
   // Arm() invocations. This iterator caches the most recently prioritized
   // entry.

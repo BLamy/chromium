@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/main_thread_scheduler_impl.h"
 
 #include <algorithm>
@@ -1662,7 +1663,12 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
       find_in_page_budget_pool_controller_->CurrentTaskPriority();
 
   new_policy.should_prioritize_ipc_tasks =
-      num_pending_urgent_ipc_messages_.load(std::memory_order_relaxed) > 0;
+      // Another thread counts these as they arrive, so what's read here is
+      // recorded: the policy, and so which task runs next, goes by it.
+      recordreplay::RecordReplayValueIfAllowed(
+          "MainThreadSchedulerImpl.num_pending_urgent_ipc_messages_",
+          num_pending_urgent_ipc_messages_.load(std::memory_order_relaxed) >
+              0) != 0;
 
   const bool are_all_pages_frozen = AllPagesFrozen();
   new_policy.should_freeze_compositor_task_queue = are_all_pages_frozen;
@@ -2829,7 +2835,12 @@ void MainThreadSchedulerImpl::MaybeUpdatePolicyOnTaskCompleted(
   bool needs_policy_update = false;
 
   bool should_prioritize_ipc_tasks =
-      num_pending_urgent_ipc_messages_.load(std::memory_order_relaxed) > 0;
+      // Another thread counts these as they arrive, so what's read here is
+      // recorded: the policy, and so which task runs next, goes by it.
+      recordreplay::RecordReplayValueIfAllowed(
+          "MainThreadSchedulerImpl.num_pending_urgent_ipc_messages_",
+          num_pending_urgent_ipc_messages_.load(std::memory_order_relaxed) >
+              0) != 0;
   if (should_prioritize_ipc_tasks !=
       main_thread_only().current_policy.should_prioritize_ipc_tasks) {
     needs_policy_update = true;

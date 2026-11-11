@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -600,8 +601,17 @@ void Node::ShutDown() {
     assigned_name_ = {};
   }
 
+  // In order of their names. A hash map's own order comes from addresses, which
+  // aren't the same on a replay, and deactivating a link takes its locks.
+  std::vector<std::pair<NodeName, Ref<NodeLink>>> links;
+  links.reserve(connections.size());
   for (const auto& entry : connections) {
-    entry.second.link->Deactivate();
+    links.emplace_back(entry.first, entry.second.link);
+  }
+  std::sort(links.begin(), links.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+  for (const auto& link : links) {
+    link.second->Deactivate();
   }
 
   CancelAllIntroductions();
@@ -613,8 +623,16 @@ void Node::CancelAllIntroductions() {
     OrderedMutexLock lock(&mutex_);
     introductions.swap(pending_introductions_);
   }
+  // In order of their names, as in ShutDown().
+  std::vector<std::pair<NodeName, PendingIntroduction*>> pending;
+  pending.reserve(introductions.size());
   for (auto& [name, intro] : introductions) {
-    intro->Finish(nullptr);
+    pending.emplace_back(name, intro.get());
+  }
+  std::sort(pending.begin(), pending.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+  for (auto& entry : pending) {
+    entry.second->Finish(nullptr);
   }
 }
 

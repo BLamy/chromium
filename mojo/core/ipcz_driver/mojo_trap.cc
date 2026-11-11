@@ -4,16 +4,19 @@
 
 #include "mojo/core/ipcz_driver/mojo_trap.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/memory/ref_counted.h"
 #include "base/notreached.h"
+#include "base/record_replay.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "mojo/core/ipcz_api.h"
@@ -189,6 +192,9 @@ struct MojoTrap::Trigger : public base::RefCountedThreadSafe<Trigger> {
   bool armed = false;
   bool removed = false;
 
+  // Which trigger this was among those added to its trap, counting from one.
+  uint64_t added_order = 0;
+
  private:
   friend class base::RefCountedThreadSafe<Trigger>;
 
@@ -243,6 +249,7 @@ MojoResult MojoTrap::AddTrigger(MojoHandle handle,
     return MOJO_RESULT_ALREADY_EXISTS;
   }
 
+  trigger->added_order = ++last_added_order_;
   next_trigger_ = triggers_.begin();
 
   // Install an ipcz trap to effectively monitor the lifetime of the watched
@@ -316,6 +323,44 @@ MojoResult MojoTrap::Arm(MojoTrapEvent* blocking_events,
   }
 
   uint32_t num_events_returned = 0;
+
+  if (recordreplay::IsRecordingOrReplaying()) {
+    // `triggers_` is in order of its contexts, which are addresses, and those
+    // aren't the same on a replay. Arming a trigger takes its router's locks,
+    // so the order has to be: the one they were added in.
+    std::vector<Trigger*> ordered;
+    ordered.reserve(triggers_.size());
+    for (auto& [trigger_context, trigger] : triggers_) {
+      ordered.push_back(trigger.get());
+    }
+    std::sort(ordered.begin(), ordered.end(), [](Trigger* a, Trigger* b) {
+      return a->added_order < b->added_order;
+    });
+    for (Trigger* trigger : ordered) {
+      MojoTrapEvent event;
+      const IpczResult result = ArmTrigger(*trigger, event);
+      if (result == IPCZ_RESULT_OK) {
+        continue;
+      }
+      if (result != IPCZ_RESULT_FAILED_PRECONDITION) {
+        NOTREACHED();
+      }
+      if (event_capacity == 0) {
+        return MOJO_RESULT_FAILED_PRECONDITION;
+      }
+      UNSAFE_TODO(blocking_events[num_events_returned++]) = event;
+      if (num_events_returned == event_capacity) {
+        break;
+      }
+    }
+    if (num_events_returned > 0) {
+      *num_blocking_events = num_events_returned;
+      return MOJO_RESULT_FAILED_PRECONDITION;
+    }
+    armed_ = true;
+    return MOJO_RESULT_OK;
+  }
+
   auto increment_wrapped = [this](TriggerMap::iterator it) {
     lock_.AssertAcquired();
     if (++it != triggers_.end()) {

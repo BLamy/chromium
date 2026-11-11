@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/inspector/devtools_session.h"
 
 #include <string>
@@ -426,6 +427,13 @@ void DevToolsSession::SendProtocolNotification(
   if (IsDetached()) {
     return;
   }
+  // The page's own DevTools client, if it was recorded with one, mustn't hear
+  // of what a replay's debugger does at a pause, which runs with events
+  // disallowed: sending it on is IPC the recording doesn't have.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      recordreplay::AreEventsDisallowed()) {
+    return;
+  }
   notification_queue_.push_back(BindOnce(
       [](std::unique_ptr<protocol::Serializable> notification) {
         return notification->Serialize();
@@ -436,6 +444,13 @@ void DevToolsSession::SendProtocolNotification(
 void DevToolsSession::sendNotification(
     std::unique_ptr<v8_inspector::StringBuffer> notification) {
   if (IsDetached()) {
+    return;
+  }
+  // The page's own DevTools client, if it was recorded with one, mustn't hear
+  // of what a replay's debugger does at a pause, which runs with events
+  // disallowed: sending it on is IPC the recording doesn't have.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      recordreplay::AreEventsDisallowed()) {
     return;
   }
   notification_queue_.push_back(BindOnce(
@@ -513,6 +528,34 @@ blink::mojom::blink::DevToolsMessagePtr DevToolsSession::FinalizeMessage(
     }
     CHECK(status.ok()) << status.ToASCIIString();
     message_to_send = std::move(json);
+  }
+  // With assertions on, the start of each message, so that a replay that
+  // sends one the recording didn't says which.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreAssertsDisabled()) {
+    std::string start;
+    for (size_t i = 0; i < message_to_send.size() && start.size() < 90; i++) {
+      const char c = static_cast<char>(message_to_send[i]);
+      if (c >= 0x20 && c < 0x7f && c != '%') {
+        start.push_back(c);
+      }
+    }
+    recordreplay::AssertMaybeEventsDisallowed(
+        "DevToolsSession::FinalizeMessage %d %s", call_id.value_or(-1),
+        start.c_str());
+  }
+  // What a message says can differ on a replay, whose debugger is on when the
+  // recording's wasn't. What's sent on is what was recorded.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreEventsDisallowed() &&
+      !recordreplay::HasDivergedFromRecording()) {
+    const size_t size = recordreplay::RecordReplayValue(
+        "DevToolsSession::FinalizeMessage", message_to_send.size());
+    message_to_send.resize(size);
+    if (size) {
+      recordreplay::RecordReplayBytes("DevToolsSession::FinalizeMessage",
+                                      message_to_send.data(), size);
+    }
   }
   auto mojo_msg = mojom::blink::DevToolsMessage::New();
   mojo_msg->data = {message_to_send};

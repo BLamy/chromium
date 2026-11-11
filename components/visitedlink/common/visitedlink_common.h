@@ -106,6 +106,9 @@ class VisitedLinkCommon {
                  uint64_t salt);
   bool IsVisited(Fingerprint fingerprint) const;
 
+  // The lookup itself, which IsVisited() records the result of when recording.
+  bool IsVisitedInTable(Fingerprint fingerprint) const;
+
 #ifdef UNIT_TEST
   // Returns statistics about DB usage
   void GetUsageStatistics(int32_t* table_size,

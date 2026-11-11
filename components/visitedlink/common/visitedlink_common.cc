@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "components/visitedlink/common/visitedlink_common.h"
 
 #include <string.h>  // for memset()
@@ -40,9 +41,26 @@ VisitedLinkCommon::~VisitedLinkCommon() = default;
 
 // FIXME: this uses linear probing, it should be replaced with quadratic
 // probing or something better. See VisitedLinkWriter::AddFingerprint
+// The table is memory shared with the browser, which writes to it as links
+// are visited, so what a lookup finds is input when recording. A replay has
+// no such table, and a link's style depends on the answer.
+static bool RecordReplayIsVisited(bool visited) {
+  return recordreplay::RecordReplayValueIfAllowed("VisitedLinkCommon::IsVisited",
+                                                  visited);
+}
+
 bool VisitedLinkCommon::IsVisited(std::string_view canonical_url) const {
   if (canonical_url.size() == 0) {
     return false;
+  }
+  if (recordreplay::IsRecordingOrReplaying()) {
+    if (!hash_table_ || table_length_ == 0) {
+      return RecordReplayIsVisited(false);
+    }
+    return RecordReplayIsVisited(IsVisitedInTable(
+        is_pseudo_partitioned_
+            ? ComputePseudoPartitionedFingerprint(canonical_url)
+            : ComputeURLFingerprint(canonical_url)));
   }
   if (!hash_table_ || table_length_ == 0) {
     return false;
@@ -53,11 +71,22 @@ bool VisitedLinkCommon::IsVisited(std::string_view canonical_url) const {
   return IsVisited(ComputeURLFingerprint(canonical_url));
 }
 
+
 bool VisitedLinkCommon::IsVisited(const GURL& url) const {
   return IsVisited(url.spec());
 }
 
 bool VisitedLinkCommon::IsVisited(const VisitedLink& link, uint64_t salt) {
+  if (recordreplay::IsRecordingOrReplaying()) {
+    if (!link.IsValid()) {
+      return false;
+    }
+    if (!hash_table_ || table_length_ == 0) {
+      return RecordReplayIsVisited(false);
+    }
+    return RecordReplayIsVisited(
+        IsVisitedInTable(ComputePartitionedFingerprint(link, salt)));
+  }
   if (!hash_table_ || table_length_ == 0) {
     return false;
   }
@@ -76,6 +105,13 @@ bool VisitedLinkCommon::IsVisited(const GURL& link_url,
 }
 
 bool VisitedLinkCommon::IsVisited(Fingerprint fingerprint) const {
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return RecordReplayIsVisited(IsVisitedInTable(fingerprint));
+  }
+  return IsVisitedInTable(fingerprint);
+}
+
+bool VisitedLinkCommon::IsVisitedInTable(Fingerprint fingerprint) const {
   // Go through the table until we find the item or an empty spot (meaning it
   // wasn't found). This loop will terminate as long as the table isn't full,
   // which should be enforced by AddFingerprint.
