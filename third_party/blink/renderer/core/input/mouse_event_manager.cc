@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/input/mouse_event_manager.h"
 
+#include "base/record_replay.h"
 #include <cmath>
 
 #include "base/metrics/histogram_functions.h"
@@ -219,6 +220,18 @@ MouseEventManager::DispatchMouseEvent(
          mouse_event_type == event_type_names::kContextmenu ||
          mouse_event_type == event_type_names::kClick ||
          mouse_event_type == event_type_names::kAuxclick);
+
+  // Where the pointer went down, came up and moved is in the recording, as
+  // on Chromium 108.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      (mouse_event_type == event_type_names::kMouseup ||
+       mouse_event_type == event_type_names::kMousedown ||
+       mouse_event_type == event_type_names::kMousemove)) {
+    gfx::PointF position = mouse_event.PositionInRootFrame();
+    recordreplay::OnMouseEvent(mouse_event_type.Utf8().c_str(),
+                               static_cast<size_t>(position.x()),
+                               static_cast<size_t>(position.y()), false);
+  }
 
   WebInputEventResult input_event_result = WebInputEventResult::kNotHandled;
 

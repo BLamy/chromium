@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/input/keyboard_event_manager.h"
 
+#include "base/record_replay.h"
 #include <memory>
 
 #include "base/auto_reset.h"
@@ -426,6 +427,14 @@ void KeyboardEventManager::CapsLockStateMayHaveChanged() {
 void KeyboardEventManager::DefaultKeyboardEventHandler(
     KeyboardEvent* event,
     Node* possible_focused_node) {
+  // Keys are in the recording, as on Chromium 108.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      (event->type() == event_type_names::kKeydown ||
+       event->type() == event_type_names::kKeyup ||
+       event->type() == event_type_names::kKeypress)) {
+    recordreplay::OnKeyEvent(event->type().Utf8().c_str(),
+                             event->key().Utf8().c_str(), false);
+  }
   if (event->type() == event_type_names::kKeydown) {
     const String& key = event->key();
     const bool is_process_key = event->keyCode() == kVKeyProcessKey;

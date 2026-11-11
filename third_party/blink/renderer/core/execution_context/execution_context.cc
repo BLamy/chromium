@@ -27,6 +27,7 @@
 
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
@@ -68,6 +69,12 @@
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_proto.h"
+
+extern "C" void V8RecordReplayOnPageError(const char* message,
+                                          const char* url,
+                                          int line,
+                                          int column,
+                                          int script_id);
 
 namespace blink {
 
@@ -278,6 +285,16 @@ void ExecutionContext::AddConsoleMessageImpl(
 void ExecutionContext::DispatchErrorEvent(
     ErrorEvent* error_event,
     SanitizeScriptErrors sanitize_script_errors) {
+  // An uncaught error is one of the recording's messages, as a console call
+  // is. V8 tells the driver, which reads what it says while this is running.
+  if (IsMainThread() && recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreEventsDisallowed()) {
+    V8RecordReplayOnPageError(
+        error_event->message().Utf8().c_str(),
+        error_event->filename().Utf8().c_str(), error_event->lineno(),
+        error_event->colno(),
+        error_event->Location() ? error_event->Location()->ScriptId() : 0);
+  }
   if (is_draining_pending_exceptions_) {
     // Disregard errors reported while draining pending exceptions. This would
     // help to avoid potential infinite recursion and, given this only
