@@ -36,6 +36,7 @@ namespace {
 const char kArgumentsName[] = "__RECORD_REPLAY_ARGUMENTS__";
 const char kApiName[] = "__RECORD_REPLAY__";
 const char kInternalScriptName[] = "record-replay-internal";
+const char kEternalStateName[] = "__RECORD_REPLAY_ETERNAL_STATE__";
 
 // What a replay's own code in the page is given: upstream's
 // __RECORD_REPLAY_ARGUMENTS__, as far as whoever replays uses it. That's code
@@ -103,6 +104,16 @@ args.setCommandCallback((method, paramsText) => {
 std::vector<std::string>& RootFrameScripts() {
   static std::vector<std::string>* scripts = new std::vector<std::string>();
   return *scripts;
+}
+
+// One object for as long as the process lives, which every root frame is
+// given: what whoever replays keeps across navigations.
+v8::Local<v8::Object> EternalState(v8::Isolate* isolate) {
+  static v8::Eternal<v8::Object>* state = nullptr;
+  if (!state) {
+    state = new v8::Eternal<v8::Object>(isolate, v8::Object::New(isolate));
+  }
+  return state->Get(isolate);
 }
 
 void ArgsLog(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -607,6 +618,8 @@ void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
       !SetNative(isolate, context, args, "takePendingEvaluations",
                  ArgsTakePendingEvaluations) ||
       !SetHidden(isolate, context, context->Global(), kArgumentsName, args) ||
+      !SetHidden(isolate, context, context->Global(), kEternalStateName,
+                 EternalState(isolate)) ||
       !SetHidden(isolate, context, context->Global(), kApiName, api)) {
     return;
   }
