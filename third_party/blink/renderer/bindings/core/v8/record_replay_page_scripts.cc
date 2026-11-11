@@ -28,6 +28,8 @@ extern "C" void V8RecordReplaySetPageCommandHandler(
     v8::Local<v8::Function> function);
 extern "C" uint64_t V8RecordReplayProgressCounter();
 extern "C" const char* V8RecordReplayPendingPrivilegedEvaluation(size_t index);
+extern "C" void V8RecordReplayBeginReplayCode(const char* label);
+extern "C" void V8RecordReplayEndReplayCode();
 
 namespace blink {
 
@@ -124,6 +126,16 @@ void ArgsLog(const v8::FunctionCallbackInfo<v8::Value>& args) {
 void ArgsGetProgressCounter(const v8::FunctionCallbackInfo<v8::Value>& args) {
   args.GetReturnValue().Set(v8::Number::New(
       args.GetIsolate(), static_cast<double>(V8RecordReplayProgressCounter())));
+}
+
+// A hook the replay put into the program's code marks what it does as its own.
+void ArgsBeginReplayCode(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::String::Utf8Value label(args.GetIsolate(), args[0]);
+  V8RecordReplayBeginReplayCode(*label ? *label : "ReplayCode");
+}
+
+void ArgsEndReplayCode(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  V8RecordReplayEndReplayCode();
 }
 
 void ArgsRegisterRootFrameScript(
@@ -613,6 +625,9 @@ void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
                  ArgsGetProgressCounter) ||
       !SetNative(isolate, context, args, "registerRootFrameScript",
                  ArgsRegisterRootFrameScript) ||
+      !SetNative(isolate, context, args, "beginReplayCode",
+                 ArgsBeginReplayCode) ||
+      !SetNative(isolate, context, args, "endReplayCode", ArgsEndReplayCode) ||
       !SetNative(isolate, context, args, "setCommandCallback",
                  ArgsSetCommandCallback) ||
       !SetNative(isolate, context, args, "takePendingEvaluations",
