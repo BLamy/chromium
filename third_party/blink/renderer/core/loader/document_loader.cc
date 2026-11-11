@@ -201,6 +201,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_view.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_network.h"
 
 namespace blink {
 namespace {
@@ -1409,6 +1411,7 @@ void DocumentLoader::BodyDataReceivedImpl(BodyData& data) {
                                                   encoded_data.size());
     probe::DidReceiveData(probe::ToCoreProbeSink(GetFrame()),
                           main_resource_identifier_, this, encoded_data);
+    RecordReplayOnNetworkData(main_resource_identifier_, encoded_data);
   }
 
   TRACE_EVENT("loading", "DocumentLoader::HandleData",
@@ -1454,6 +1457,9 @@ void DocumentLoader::BodyLoadingFinished(
         probe::ToCoreProbeSink(GetFrame()), main_resource_identifier_, this,
         completion_time, total_encoded_data_length, total_encoded_body_length,
         total_decoded_body_length);
+    RecordReplayOnNetworkFinished(main_resource_identifier_,
+                                  total_encoded_body_length,
+                                  total_decoded_body_length);
 
     DOMWindowPerformance::performance(*frame_->DomWindow())
         ->OnBodyLoadFinished(total_encoded_body_length,
@@ -1493,6 +1499,7 @@ void DocumentLoader::BodyLoadingFinished(
   probe::DidFailLoading(probe::ToCoreProbeSink(GetFrame()),
                         main_resource_identifier_, this, resource_error,
                         frame_->GetDevToolsFrameToken());
+  RecordReplayOnNetworkFailed(main_resource_identifier_, resource_error);
   GetFrame()->Console().DidFailLoading(this, main_resource_identifier_,
                                        resource_error);
   LoadFailed(resource_error);
@@ -1576,6 +1583,33 @@ void DocumentLoader::FinishedLoading(base::TimeTicks finish_time) {
   }
 }
 
+// The request a navigation made, which the browser sent and this process only
+// has the parts of.
+static ResourceRequest RecordReplayNavigationRequest(
+    const KURL& url,
+    uint64_t inspector_id,
+    const AtomicString& http_method,
+    const scoped_refptr<EncodedFormData>& http_body,
+    const AtomicString& http_content_type,
+    const AtomicString& referrer) {
+  ResourceRequest request(url);
+  if (inspector_id) {
+    request.SetInspectorId(inspector_id);
+  }
+  request.SetHttpMethod(http_method);
+  if (http_body) {
+    request.SetHttpBody(http_body);
+  }
+  if (!http_content_type.IsNull()) {
+    request.SetHTTPContentType(http_content_type);
+  }
+  if (!referrer.IsNull()) {
+    request.SetReferrerString(referrer);
+  }
+  request.SetRequestContext(mojom::blink::RequestContextType::HYPERLINK);
+  return request;
+}
+
 void DocumentLoader::HandleRedirect(
     const WebNavigationParams::RedirectInfo& redirect) {
   const ResourceResponse& redirect_response =
@@ -1597,6 +1631,14 @@ void DocumentLoader::HandleRedirect(
   probe::WillSendNavigationRequest(
       probe::ToCoreProbeSink(GetFrame()), main_resource_identifier_, this,
       url_after_redirect, http_method_, http_body_.get());
+  if (recordreplay::IsRecordingOrReplaying("notify-network")) {
+    RecordReplayOnNetworkNavigationRedirect(
+        main_resource_identifier_, url_after_redirect,
+        RecordReplayNavigationRequest(url_after_redirect, 0, http_method_,
+                                      http_body_, http_content_type_,
+                                      referrer_),
+        redirect_response);
+  }
 
   DCHECK(!GetTiming().FetchStart().is_null());
   GetTiming().AddRedirect(url_before_redirect, url_after_redirect);
@@ -2167,6 +2209,14 @@ void DocumentLoader::StartLoadingInternal() {
   probe::WillSendNavigationRequest(probe::ToCoreProbeSink(GetFrame()),
                                    main_resource_identifier_, this, url_,
                                    http_method_, http_body_.get());
+  if (recordreplay::IsRecordingOrReplaying("notify-network")) {
+    RecordReplayOnNetworkRequest(
+        nullptr, nullptr,
+        RecordReplayNavigationRequest(url_, main_resource_identifier_,
+                                      http_method_, http_body_,
+                                      http_content_type_, referrer_),
+        ResourceResponse());
+  }
 
   for (const WebNavigationParams::RedirectInfo& redirect : params_->redirects) {
     HandleRedirect(redirect);
@@ -2184,6 +2234,7 @@ void DocumentLoader::StartLoadingInternal() {
   probe::DidReceiveResourceResponse(probe::ToCoreProbeSink(GetFrame()),
                                     main_resource_identifier_, this, response_,
                                     nullptr /* resource */);
+  RecordReplayOnNetworkResponse(main_resource_identifier_, response_, false);
 
   HandleResponse();
 
@@ -2237,6 +2288,11 @@ void DocumentLoader::StartLoadingResponse() {
   CHECK_GE(state_, kCommitted);
 
   CreateParserPostCommit();
+
+  // The call above makes the first window of the page, with which what a
+  // replay looks at begins. This is the first thing in it.
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"documentStartLoadingResponse\"}"));
 
   // The main document from an MHTML archive is not loaded from its HTTP
   // response, but from the main resource within the archive (in the response).

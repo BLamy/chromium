@@ -130,6 +130,9 @@ class PLATFORM_EXPORT EventLoop final {
   const raw_ptr<v8::Isolate> isolate_;
   int microtasks_pause_count_ = 0;
   Deque<base::OnceClosure> pending_microtasks_;
+  // For each of them, the node of the dependency graph a replay builds for
+  // its queueing.
+  Deque<int> record_replay_microtask_node_ids_;
   Vector<base::OnceClosure> end_of_checkpoint_tasks_;
   Persistent<v8::MicrotaskQueue> microtask_queue_;
   v8::Global<v8::CppHeapExternal> microtask_data_;

@@ -81,6 +81,7 @@
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -2017,6 +2018,8 @@ bool FocusController::IsDocumentFocused(const Document& document) const {
 }
 
 void FocusController::FocusHasChanged() {
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "ScriptExecution", "FocusController::FocusHasChanged");
   bool focused = IsFocused();
   if (!focused) {
     if (auto* focused_or_main_local_frame =

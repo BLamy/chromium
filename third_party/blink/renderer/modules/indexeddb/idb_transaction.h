@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -282,6 +283,10 @@ class MODULES_EXPORT IDBTransaction final
   // The initial state depends on the type of transaction --- see constructors.
   State state_;
   bool has_pending_activity_ = true;
+  // The node of the dependency graph a replay builds for this transaction's
+  // creation.
+  int record_replay_created_node_id_ = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"newIDBTransaction\"}");
   int64_t num_errors_handled_ = 0;
   Member<DOMException> error_;
 

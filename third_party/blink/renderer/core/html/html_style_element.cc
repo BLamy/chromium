@@ -30,6 +30,8 @@
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -112,6 +114,12 @@ void HTMLStyleElement::DispatchPendingEvent(
   } else {
     DispatchEvent(*Event::Create(event_type_names::kError));
   }
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_load_task_scheduled_node_id_, "scheduler",
+          "{\"kind\":\"styleSheetLoaded\"}"));
+
   // Checks Document's load event synchronously here for performance.
   // This is safe because dispatchPendingEvent() is called asynchronously.
   count->ClearAndCheckLoadEvent();
@@ -120,6 +128,9 @@ void HTMLStyleElement::DispatchPendingEvent(
 void HTMLStyleElement::NotifyLoadedSheetAndAllCriticalSubresources(
     LoadedSheetErrorStatus error_status) {
   bool is_load_event = error_status == kNoErrorLoadingSubresource;
+  record_replay_load_task_scheduled_node_id_ =
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"scheduleStyleSheetLoadedTask\"}");
   // Per the spec this should post on the network task source.
   // https://html.spec.whatwg.org/multipage/semantics.html#the-style-element
   // This guarantees that the <style> will be applied before the next <script>

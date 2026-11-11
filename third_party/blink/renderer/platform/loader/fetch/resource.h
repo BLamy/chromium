@@ -66,6 +66,7 @@
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "base/record_replay.h"
 
 namespace base {
 class Clock;
@@ -271,7 +272,14 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
   bool IsUnusedPreload() const { return is_unused_preload_; }
 
   ResourceStatus GetStatus() const { return status_; }
-  void SetStatus(ResourceStatus status) { status_ = status; }
+  void SetStatus(ResourceStatus status) {
+    status_ = status;
+    if (IsLoaded() && recordreplay::DependencyGraphEnabled()) {
+      record_replay_dependency_node_ids_.push_back(
+          recordreplay::NewDependencyGraphNode(
+              "{\"kind\":\"resourceFinished\"}"));
+    }
+  }
   virtual ResourceStatus GetContentStatus() const { return status_; }
 
   size_t size() const { return EncodedSize() + DecodedSize() + OverheadSize(); }
@@ -601,6 +609,10 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
 
   ResourceType type_;
   ResourceStatus status_ = ResourceStatus::kNotStarted;
+
+  // Nodes of the dependency graph a replay builds for this resource having
+  // finished loading.
+  Vector<int> record_replay_dependency_node_ids_;
 
   std::optional<ResourceError> error_;
 

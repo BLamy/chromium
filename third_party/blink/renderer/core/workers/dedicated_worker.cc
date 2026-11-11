@@ -66,6 +66,7 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -368,6 +369,11 @@ void DedicatedWorker::OnWorkerHostCreated(
         dedicated_worker_host,
     const WebSecurityOrigin& origin) {
   TRACE_EVENT("blink.worker", "DedicatedWorker::OnWorkerHostCreated");
+  // What starting the worker does from here on, network requests included, is
+  // down to the browser's message having arrived.
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"workerHostCreated\"}"));
   base::UmaHistogramTimes("Worker.TopLevelScript.WorkerHostCreatedTime",
                           base::TimeTicks::Now() - start_time_);
   DCHECK(!browser_interface_broker_);
@@ -378,6 +384,11 @@ void DedicatedWorker::OnWorkerHostCreated(
 
 void DedicatedWorker::OnScriptLoadStartFailed() {
   TRACE_EVENT("blink.worker", "DedicatedWorker::OnScriptLoadStartFailed");
+  // What starting the worker does from here on, network requests included, is
+  // down to the browser's message having arrived.
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"workerHostCreated\"}"));
   // Specify empty source code here because scripts will be fetched on the
   context_proxy_->DidFailToFetchScript();
   factory_client_.reset();
@@ -418,6 +429,11 @@ void DedicatedWorker::OnScriptLoadStarted(
   UMA_HISTOGRAM_TIMES("Worker.TopLevelScript.LoadStartedTime",
                       base::TimeTicks::Now() - start_time_);
   TRACE_EVENT("blink.worker", "DedicatedWorker::OnScriptLoadStarted");
+  // What starting the worker does from here on, network requests included, is
+  // down to the browser's message having arrived.
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"workerHostCreated\"}"));
   if (base::FeatureList::IsEnabled(
           features::kDedicatedWorkerAblationStudyEnabled)) {
     CHECK(GetExecutionContext());

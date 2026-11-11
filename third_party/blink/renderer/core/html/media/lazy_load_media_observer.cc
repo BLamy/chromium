@@ -21,6 +21,8 @@
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/network/network_state_notifier.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -123,6 +125,11 @@ void LazyLoadMediaObserver::LoadIfNearViewport(
     if (!entry->isIntersecting()) {
       continue;
     }
+
+    recordreplay::AutoDependencyExecution record_replay_execute(
+        recordreplay::NewDependencyGraphNodeFrom(
+            entry->RecordReplayCreatedNodeId(), "observer",
+            "{\"kind\":\"loadLazyImageNearViewport\"}"));
 
     // Handle image elements.
     if (image_element) {

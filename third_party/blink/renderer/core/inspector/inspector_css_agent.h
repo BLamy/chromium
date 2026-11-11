@@ -252,6 +252,13 @@ class CORE_EXPORT InspectorCSSAgent final
       std::unique_ptr<protocol::Array<String>>* class_names) override;
   protocol::Response getStyleSheetText(const String& style_sheet_id,
                                        String* text) override;
+
+  // For a replay, which asks about styles without a DevTools session: knows
+  // the documents' style sheets as an enabled agent does, without listening
+  // for anything.
+  void RecordReplayEnableStandalone();
+  // The page's own object for a style sheet the agent gave an ID.
+  CSSStyleSheet* RecordReplayStyleSheet(const String& style_sheet_id);
   protocol::Response setStyleSheetText(
       const String& style_sheet_id,
       const String& text,

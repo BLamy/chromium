@@ -51,6 +51,8 @@
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -664,6 +666,11 @@ const char* IDBTransaction::InactiveErrorMessage() const {
 
 DispatchEventResult IDBTransaction::DispatchEventInternal(Event& event) {
   TRACE_EVENT1("IndexedDB", "IDBTransaction::dispatchEvent", "txn.id", id_);
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_created_node_id_, "creator",
+          "{\"kind\":\"enqueueIDBTransactionEvent\"}"));
 
   event.SetTarget(this);
 

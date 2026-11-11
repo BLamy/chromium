@@ -43,6 +43,9 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 
 namespace {
 
@@ -217,7 +220,9 @@ void ScriptRunner::RemoveDelayReasonFromScript(PendingScript* pending_script,
   pending_async_scripts_.erase(it);
   base::OnceClosure task = blink::BindOnce(
       &ScriptRunner::ExecuteAsyncPendingScript, WrapWeakPersistent(this),
-      WrapPersistent(pending_script), base::TimeTicks::Now());
+      WrapPersistent(pending_script), base::TimeTicks::Now(),
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"scheduleExecuteAsyncScript\"}"));
   if (pending_script->IsEligibleForLowPriorityAsyncScriptExecution()) {
     PostTaskWithLowPriorityUntilTimeout(
         FROM_HERE, std::move(task),
@@ -230,7 +235,12 @@ void ScriptRunner::RemoveDelayReasonFromScript(PendingScript* pending_script,
 
 void ScriptRunner::ExecuteAsyncPendingScript(
     PendingScript* pending_script,
-    base::TimeTicks ready_to_evaluate_time) {
+    base::TimeTicks ready_to_evaluate_time,
+    int record_replay_scheduled_node_id) {
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_scheduled_node_id, "scheduler",
+          "{\"kind\":\"executeAsyncScript\"}"));
   base::UmaHistogramMediumTimes(
       "Blink.Script.AsyncScript.FromReadyToStartExecution.Time",
       base::TimeTicks::Now() - ready_to_evaluate_time);
@@ -267,6 +277,10 @@ void ScriptRunner::ExecutePendingScript(PendingScript* pending_script) {
 
   DCHECK(!document_->domWindow() || !document_->domWindow()->IsContextPaused());
   DCHECK(pending_script);
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"executePendingScript\"}"));
 
   pending_script->ExecuteScriptBlock();
 

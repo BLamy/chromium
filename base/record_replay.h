@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <string>
+#include <utility>
 #include <vector>
 #include <memory>
 
@@ -364,6 +365,23 @@ void AddDependencyGraphEdge(int source, int target, const char* json);
 void BeginDependencyExecution(int node);
 void EndDependencyExecution();
 
+// A new node with |json|, which the node |from|, when there is one, leads to
+// by an edge of |edge_kind|.
+int NewDependencyGraphNodeFrom(int from, const char* edge_kind, const char* json);
+
+// The node whose execution is innermost on the main thread, or zero.
+int DependencyGraphExecutionNode();
+
+// The JSON of a node or an edge of |kind| with string properties.
+std::string DependencyGraphJson(
+    const char* kind,
+    std::initializer_list<std::pair<const char*, std::string>> strings = {});
+
+// An ID for a new object a page's scripts can hold, which a replay gives the
+// same object every time. Zero while recording, off the main thread, and for
+// what a replay's own code makes.
+int NewScriptWrappableId();
+
 struct AutoDependencyExecution {
   AutoDependencyExecution(int node) {
     BeginDependencyExecution(node);
@@ -385,6 +403,9 @@ struct AutoMarkerDependencyExecution {
   // |name| is the function whose execution region is being marked.
   AutoMarkerDependencyExecution(const char* reason, const char* name);
   ~AutoMarkerDependencyExecution();
+
+ private:
+  bool began_ = false;
 };
 
 // RAII class to enable recording assertions on dynamic-length buffer 

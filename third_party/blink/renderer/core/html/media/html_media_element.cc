@@ -131,6 +131,8 @@
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/display/screen_info.h"
+#include "base/record_replay.h"
+#include <optional>
 
 #ifndef LOG_MEDIA_EVENTS
 // Default to not logging events because so many are generated they can
@@ -1321,6 +1323,9 @@ void HTMLMediaElement::AddPendingTextTracksFromCurrentList() {
 
 void HTMLMediaElement::SelectMediaResource() {
   DVLOG(3) << "selectMediaResource(" << *this << ")";
+
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "LoadEventDelay", "HTMLMediaElement::SelectMediaResource");
 
   enum Mode { kObject, kAttribute, kChildren, kNothing };
   Mode mode = kNothing;

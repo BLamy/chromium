@@ -944,6 +944,30 @@ void InspectorCSSAgent::ResourceContentLoaded(
   callback->sendSuccess();
 }
 
+void InspectorCSSAgent::RecordReplayEnableStandalone() {
+  if (enable_completed_) {
+    return;
+  }
+  dom_agent_->AddDOMListener(this);
+  HeapVector<Member<Document>> documents = dom_agent_->Documents();
+  for (Document* document : documents) {
+    UpdateActiveStyleSheets(document);
+  }
+  enable_completed_ = true;
+}
+
+CSSStyleSheet* InspectorCSSAgent::RecordReplayStyleSheet(
+    const String& style_sheet_id) {
+  InspectorStyleSheetBase* inspector_style_sheet = nullptr;
+  if (!AssertStyleSheetForId(style_sheet_id, inspector_style_sheet)
+           .IsSuccess() ||
+      inspector_style_sheet->IsInlineStyle()) {
+    return nullptr;
+  }
+  return static_cast<InspectorStyleSheet*>(inspector_style_sheet)
+      ->PageStyleSheet();
+}
+
 void InspectorCSSAgent::CompleteEnabled() {
   instrumenting_agents_->AddInspectorCSSAgent(this);
   dom_agent_->AddDOMListener(this);

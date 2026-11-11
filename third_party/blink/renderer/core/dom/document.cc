@@ -428,6 +428,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
 #include "third_party/blink/renderer/platform/wtf/text/utf16.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include "base/record_replay.h"
+#include <string>
 
 namespace blink {
 
@@ -2886,6 +2888,15 @@ void Document::UpdateStyle() {
   RUNTIME_CALL_TIMER_SCOPE(GetAgent().isolate(),
                            RuntimeCallStats::CounterId::kUpdateStyle);
 
+  // Updating style can start network requests, which are then down to this.
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "documentUpdateStyle", {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
+
   StyleEngine& style_engine = GetStyleEngine();
   unsigned initial_element_count = style_engine.StyleForElementCount();
 
@@ -4354,8 +4365,29 @@ void Document::close() {
   CheckCompleted();
 }
 
+void Document::RecordReplayOnRemoveLoadEventDelay() {
+  if (recordreplay::DependencyGraphEnabled()) {
+    if (int node_id = recordreplay::DependencyGraphExecutionNode()) {
+      record_replay_load_event_dependency_nodes_.push_back(node_id);
+    }
+  }
+}
+
 void Document::DispatchLoadEventAndFinalize() {
   DCHECK(!InStyleRecalc());
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "documentLoaded", {{"url", Url().GetString().Utf8()}})
+            .c_str());
+    for (int parent_node_id : record_replay_load_event_dependency_nodes_) {
+      recordreplay::AddDependencyGraphEdge(parent_node_id, node_id,
+                                           "{\"kind\":\"loadEventDelay\"}");
+    }
+    record_replay_execute.emplace(node_id);
+  }
 
   load_event_progress_ = kLoadEventInProgress;
 
@@ -4574,6 +4606,14 @@ bool Document::DispatchBeforeUnloadEvent(
   if (!body())
     return true;
 
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "documentBeforeUnload", {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
+
   // Prevent re-entrant firing of the beforeunload event.
   // This can occur if a script within the onbeforeunload handler triggers
   // window.close(). Without this check, such script would recursively invoke
@@ -4696,6 +4736,13 @@ void Document::DispatchUnloadEvents(
               perfetto::Flow::FromPointer(this));
   base::ScopedUmaHistogramTimer histogram_timer(
       "Navigation.Document.DispatchUnloadEvents");
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "documentUnloaded", {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
   PageDismissalScope in_page_dismissal;
   if (parser_) {
     parser_->StopParsing();
@@ -5293,6 +5340,10 @@ void Document::DidLoadAllScriptBlockingResources() {
                           BindOnce(&Document::ExecuteScriptsWaitingForResources,
                                    WrapWeakPersistent(this)));
 
+  record_replay_execute_scripts_waiting_for_resources_node_id_ =
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"documentScheduleExecuteScriptsWaitingForResources\"}");
+
   if (IsA<HTMLDocument>(this) && body()) {
     // For HTML if we have no more stylesheets to load and we're past the body
     // tag, we should have something to paint so resume.
@@ -5304,6 +5355,17 @@ void Document::DidLoadAllScriptBlockingResources() {
 }
 
 void Document::ExecuteScriptsWaitingForResources() {
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNodeFrom(
+        record_replay_execute_scripts_waiting_for_resources_node_id_,
+        "scheduler",
+        recordreplay::DependencyGraphJson(
+            "documentExecuteScriptsWaitingForResources",
+            {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
+
   if (!IsScriptExecutionReady())
     return;
   if (ScriptableDocumentParser* parser = GetScriptableDocumentParser())
@@ -8078,6 +8140,15 @@ void Document::FinishedParsing() {
               perfetto::Flow::FromPointer(this));
   DCHECK(!GetScriptableDocumentParser() || !parser_->IsParsing());
   DCHECK(!GetScriptableDocumentParser() || ready_state_ != kLoading);
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "documentFinishedParsing", {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
+
   SetParsingState(kInDOMContentLoaded);
   DocumentParserTiming::From(*this).MarkParserStop();
 
@@ -8917,6 +8988,8 @@ void Document::DecrementLoadEventDelayCount() {
   DCHECK(load_event_delay_count_);
   --load_event_delay_count_;
 
+  RecordReplayOnRemoveLoadEventDelay();
+
   if (!load_event_delay_count_)
     CheckLoadEventSoon();
 }
@@ -8924,6 +8997,8 @@ void Document::DecrementLoadEventDelayCount() {
 void Document::DecrementLoadEventDelayCountAndCheckLoadEvent() {
   DCHECK(load_event_delay_count_);
   --load_event_delay_count_;
+
+  RecordReplayOnRemoveLoadEventDelay();
 
   if (!load_event_delay_count_)
     CheckCompleted();

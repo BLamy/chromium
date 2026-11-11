@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -275,6 +276,17 @@ class CORE_EXPORT MessageEvent final : public Event {
   size_t SizeOfExternalMemoryInBytes();
 
   DataType data_type_;
+  // The node of the dependency graph a replay builds for this event's
+  // creation.
+  int record_replay_dependency_graph_node_id_ =
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"newMessageEvent\"}");
+
+ public:
+  int RecordReplayDependencyGraphNodeId() const {
+    return record_replay_dependency_graph_node_id_;
+  }
+
+ private:
   WorldSafeV8Reference<v8::Value> data_as_v8_value_;
   Member<UnpackedSerializedScriptValue> data_as_serialized_script_value_;
   // Most data are, but in this particular case this refers to data coming

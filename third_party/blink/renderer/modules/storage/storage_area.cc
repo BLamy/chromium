@@ -44,8 +44,34 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
+#include <string>
+#include <sstream>
 
 namespace blink {
+
+namespace {
+
+// Marks this point of the recording with an annotation of |kind|. |fill| says
+// what happened, and only runs when replaying, which is when it's wanted.
+template <typename Fill>
+void RecordReplayAnnotation(const char* kind, Fill fill) {
+  if (!recordreplay::IsRecordingOrReplaying() || !recordreplay::IsMainThread()) {
+    return;
+  }
+  std::string contents;
+  if (recordreplay::IsReplaying()) {
+    base::DictValue info;
+    fill(info);
+    contents = base::WriteJson(info).value_or("{}");
+  }
+  recordreplay::OnAnnotation(kind, contents.c_str());
+}
+
+}  // namespace
+
 
 // static
 const char StorageArea::kAccessDataMessage[] =
@@ -116,13 +142,26 @@ String StorageArea::getItem(const String& key,
     exception_state.ThrowSecurityError(StorageArea::kAccessDeniedMessage);
     return String();
   }
-  return cached_area_->GetItem(key);
+  String result = cached_area_->GetItem(key);
+  RecordReplayAnnotation("StorageArea", [&](base::DictValue& info) {
+    info.Set("kind", "getItem");
+    info.Set("type", static_cast<int>(storage_type_));
+    info.Set("key", key.Utf8());
+    info.Set("result", result.Utf8());
+  });
+  return result;
 }
 
 NamedPropertySetterResult StorageArea::setItem(
     const String& key,
     const String& value,
     ExceptionState& exception_state) {
+  RecordReplayAnnotation("StorageArea", [&](base::DictValue& info) {
+    info.Set("kind", "setItem");
+    info.Set("type", static_cast<int>(storage_type_));
+    info.Set("key", key.Utf8());
+    info.Set("value", value.Utf8());
+  });
   if (!CanAccessStorage()) {
     exception_state.ThrowSecurityError(StorageArea::kAccessDeniedMessage);
     return NamedPropertySetterResult::kIntercepted;
@@ -139,6 +178,11 @@ NamedPropertySetterResult StorageArea::setItem(
 NamedPropertyDeleterResult StorageArea::removeItem(
     const String& key,
     ExceptionState& exception_state) {
+  RecordReplayAnnotation("StorageArea", [&](base::DictValue& info) {
+    info.Set("kind", "removeItem");
+    info.Set("type", static_cast<int>(storage_type_));
+    info.Set("key", key.Utf8());
+  });
   if (!CanAccessStorage()) {
     exception_state.ThrowSecurityError(StorageArea::kAccessDeniedMessage);
     return NamedPropertyDeleterResult::kDidNotDelete;
@@ -148,6 +192,10 @@ NamedPropertyDeleterResult StorageArea::removeItem(
 }
 
 void StorageArea::clear(ExceptionState& exception_state) {
+  RecordReplayAnnotation("StorageArea", [&](base::DictValue& info) {
+    info.Set("kind", "clear");
+    info.Set("type", static_cast<int>(storage_type_));
+  });
   if (!CanAccessStorage()) {
     exception_state.ThrowSecurityError(StorageArea::kAccessDeniedMessage);
     return;

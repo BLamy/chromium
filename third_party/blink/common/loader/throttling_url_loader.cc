@@ -28,6 +28,8 @@
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -679,6 +681,18 @@ void ThrottlingURLLoader::OnReceiveRedirect(
   DCHECK_EQ(DEFERRED_NONE, deferred_stage_);
   DCHECK(!loader_completed_);
   DCHECK(deferring_throttles_.empty());
+
+  // The network requests this starts are down to the redirect.
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "receivedRedirect",
+            {{"original_url", original_url_.spec()},
+             {"new_url", redirect_info.new_url.spec()}})
+            .c_str()));
+  }
+
   if (start_info_ && start_info_->url_request.keepalive) {
     base::UmaHistogramBoolean("FetchKeepAlive.Renderer.Total.Redirected", true);
   }

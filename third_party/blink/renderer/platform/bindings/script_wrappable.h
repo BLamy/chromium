@@ -31,6 +31,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_SCRIPT_WRAPPABLE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_SCRIPT_WRAPPABLE_H_
 
+#include "base/record_replay.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/bindings/trace_wrapper_v8_reference.h"
 #include "third_party/blink/renderer/platform/bindings/wrapper_type_info.h"
@@ -132,8 +133,13 @@ class PLATFORM_EXPORT ScriptWrappable : public v8::Object::Wrappable {
       const WrapperTypeInfo*,
       v8::Local<v8::Object> wrapper);
 
+  // The same for this object every time a recording is replayed, and zero
+  // while recording. What a replay reports about an object goes by it.
+  int RecordReplayId() const { return record_replay_id_; }
+
  protected:
-  ScriptWrappable() = default;
+  ScriptWrappable()
+      : record_replay_id_(recordreplay::NewScriptWrappableId()) {}
 
  private:
   static_assert(
@@ -145,6 +151,7 @@ class PLATFORM_EXPORT ScriptWrappable : public v8::Object::Wrappable {
   // `DOMDataStore::UncheckedInlineStorageForWrappable()` should access this
   // field.
   TraceWrapperV8Reference<v8::Object> wrapper_;
+  const int record_replay_id_;
   friend class DOMDataStore;
 };
 

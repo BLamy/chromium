@@ -44,6 +44,8 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -236,6 +238,13 @@ void RawResource::Trace(Visitor* visitor) const {
 }
 
 void RawResource::ResponseReceived(const ResourceResponse& response) {
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson("resourceResponseReceived", {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
+
   Resource::ResponseReceived(response);
 
   ResourceClientWalker<RawResourceClient> w(Clients());

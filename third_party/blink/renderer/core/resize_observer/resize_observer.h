@@ -102,6 +102,9 @@ class CORE_EXPORT ResizeObserver final
   HeapVector<Member<ResizeObservation>> active_observations_;
   // True if observations were skipped gatherObservations
   bool skipped_observations_;
+  // The node of the dependency graph a replay builds for this observer's
+  // creation.
+  int record_replay_created_node_id_ = 0;
 
   WeakMember<ResizeObserverController> controller_;
 };

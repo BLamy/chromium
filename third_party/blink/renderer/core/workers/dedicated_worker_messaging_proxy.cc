@@ -40,6 +40,8 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -312,6 +314,9 @@ void DedicatedWorkerMessagingProxy::PostMessageToWorkerObject(
   DCHECK(IsParentContextThread());
   if (!worker_object_ || AskedToTerminate())
     return;
+
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "ScriptExecution", "DedicatedWorkerMessagingProxy::PostMessageToWorkerObject");
 
   ThreadDebugger* debugger =
       ThreadDebugger::From(GetExecutionContext()->GetIsolate());

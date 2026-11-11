@@ -58,6 +58,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -808,6 +809,11 @@ ExecutionContext* IDBRequest::GetExecutionContext() const {
 
 DispatchEventResult IDBRequest::DispatchEventInternal(Event& event) {
   TRACE_EVENT0("IndexedDB", "IDBRequest::dispatchEvent");
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_created_node_id_, "creator",
+          "{\"kind\":\"enqueueIDBRequestEvent\"}"));
 
   event.SetTarget(this);
 

@@ -52,6 +52,7 @@
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -353,6 +354,10 @@ class MODULES_EXPORT IDBRequest : public EventTarget,
   Member<IDBTransaction> transaction_;
 
   ReadyState ready_state_ = PENDING;
+  // The node of the dependency graph a replay builds for this request's
+  // creation.
+  int record_replay_created_node_id_ =
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"newIDBRequest\"}");
   bool request_aborted_ = false;  // May be aborted by transaction then receive
                                   // async onsuccess; ignore vs. assert.
   // Maintain the isolate so that all externally allocated memory can be

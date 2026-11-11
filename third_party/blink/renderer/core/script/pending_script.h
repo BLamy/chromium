@@ -209,6 +209,13 @@ class CORE_EXPORT PendingScript : public GarbageCollected<PendingScript>,
   WeakMember<ExecutionContext> original_execution_context_;
 
   const bool created_during_document_write_;
+
+ protected:
+  // Nodes of the dependency graph a replay builds that this script's
+  // execution is down to: its creation, and its becoming ready.
+  Vector<int> record_replay_dependency_node_ids_;
+
+ private:
   probe::AsyncTaskContext async_task_context_;
 
   // The `TaskAttributionInfo` associated with the task that loaded the script.

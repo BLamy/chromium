@@ -8,6 +8,8 @@
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -144,6 +146,8 @@ void V8FrameCallback::Trace(blink::Visitor* visitor) const {
 }
 
 void V8FrameCallback::Invoke(double highResTime) {
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "ScriptExecution", "V8FrameCallback::Invoke");
   callback_->InvokeAndReportException(nullptr, highResTime);
 }
 

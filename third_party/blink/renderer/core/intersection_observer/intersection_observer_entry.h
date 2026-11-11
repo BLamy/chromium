@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -43,6 +44,15 @@ class CORE_EXPORT IntersectionObserverEntry final : public ScriptWrappable {
   IntersectionGeometry geometry_;
   DOMHighResTimeStamp time_;
   Member<Element> target_;
+  // The node of the dependency graph a replay builds for this entry's
+  // creation.
+  int record_replay_created_node_id_ = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"intersectionObserverEntryCreated\"}");
+
+ public:
+  int RecordReplayCreatedNodeId() const {
+    return record_replay_created_node_id_;
+  }
 };
 
 }  // namespace blink

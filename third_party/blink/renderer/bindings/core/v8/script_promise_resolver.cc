@@ -20,6 +20,9 @@
 #if DCHECK_IS_ON()
 #include "base/debug/alias.h"
 #include "components/crash/core/common/crash_key.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 #endif
 
 namespace blink {
@@ -203,14 +206,22 @@ void ScriptPromiseResolverBase::ScheduleResolveOrReject() {
       ->GetTaskRunner(TaskType::kMicrotask)
       ->PostTask(FROM_HERE,
                  BindOnce(&ScriptPromiseResolverBase::ResolveOrRejectDeferred,
-                          WrapPersistent(this)));
+                          WrapPersistent(this),
+                          recordreplay::NewDependencyGraphNode(
+                              "{\"kind\":\"scheduleSettleScriptPromise\"}")));
 }
 
-void ScriptPromiseResolverBase::ResolveOrRejectDeferred() {
+void ScriptPromiseResolverBase::ResolveOrRejectDeferred(
+    int record_replay_scheduled_node_id) {
   DCHECK(state_ == kResolving || state_ == kRejecting);
   if (!GetExecutionContext()) {
     return;
   }
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_scheduled_node_id, "scheduler",
+          "{\"kind\":\"settleScriptPromise\"}"));
 
   ScriptState::Scope scope(script_state_.Get());
   ResolveOrRejectImmediately();

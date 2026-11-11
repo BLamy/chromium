@@ -262,6 +262,7 @@
 
 #include "content/renderer/java/gin_java_bridge_dispatcher.h"
 #include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
+#include "base/record_replay.h"
 #endif
 
 using base::Time;
@@ -2271,6 +2272,9 @@ void RenderFrameImpl::Unload(
                frame_token_);
   DCHECK(!base::RunLoop::IsNestedOnCurrentThread());
 
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"renderFrameUnload\"}"));
+
   // Send an UpdateState message before we get deleted.
   // TODO(dcheng): Improve this comment to clarify why it's important to sent
   // state updates.
@@ -2750,6 +2754,15 @@ void RenderFrameImpl::CommitNavigation(
   DCHECK(navigation_client_impl_);
   DCHECK(!blink::IsRendererDebugURL(common_params->url));
   DCHECK(!NavigationTypeUtils::IsSameDocument(common_params->navigation_type));
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "renderFrameNavigate", {{"url", common_params->url.spec()}})
+            .c_str()));
+  }
+
   LogCommitHistograms(commit_params->commit_sent, is_main_frame_,
                       common_params->url, frame_token_);
 

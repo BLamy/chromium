@@ -147,8 +147,33 @@
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "url/url_features.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
+#include <string>
+#include <sstream>
 
 namespace blink {
+
+namespace {
+
+// Marks this point of the recording with an annotation of |kind|. |fill| says
+// what happened, and only runs when replaying, which is when it's wanted.
+template <typename Fill>
+void RecordReplayAnnotation(const char* kind, Fill fill) {
+  if (!recordreplay::IsRecordingOrReplaying() || !recordreplay::IsMainThread()) {
+    return;
+  }
+  std::string contents;
+  if (recordreplay::IsReplaying()) {
+    base::DictValue info;
+    fill(info);
+    contents = base::WriteJson(info).value_or("{}");
+  }
+  recordreplay::OnAnnotation(kind, contents.c_str());
+}
+
+}  // namespace
+
 
 namespace {
 
@@ -1174,6 +1199,15 @@ void FrameLoader::CommitNavigation(
     // call in this case instead.
     return;
   }
+
+  RecordReplayAnnotation("CommitNavigation", [&](base::DictValue& info) {
+    info.Set("commit_reason", static_cast<int>(commit_reason));
+    info.Set("url", navigation_params->url.GetString().Utf8());
+    info.Set("http_method", navigation_params->http_method.Utf8());
+    info.Set("referrer", navigation_params->referrer.Utf8());
+    info.Set("referrer_policy",
+             static_cast<int>(navigation_params->referrer_policy));
+  });
 
   // The encoding may be inherited from the parent frame if the security context
   // allows it, but we don't have the frame's security context set up yet. In

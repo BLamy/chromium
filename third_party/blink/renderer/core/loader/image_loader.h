@@ -185,7 +185,8 @@ class CORE_EXPORT ImageLoader : public GarbageCollected<ImageLoader>,
   bool HasPendingEvent() const;
 
   void DispatchPendingLoadEvent(std::unique_ptr<IncrementLoadEventDelayCount>);
-  void DispatchPendingErrorEvent(std::unique_ptr<IncrementLoadEventDelayCount>);
+  void DispatchPendingErrorEvent(std::unique_ptr<IncrementLoadEventDelayCount>,
+                                 int record_replay_scheduled_node_id);
 
   LayoutImageResource* GetLayoutImageResource() const;
   void UpdateLayoutObject();
@@ -253,6 +254,11 @@ class CORE_EXPORT ImageLoader : public GarbageCollected<ImageLoader>,
   bool suppress_error_events_ : 1;
 
   LazyImageLoadState lazy_image_load_state_;
+
+  // Nodes of the dependency graph a replay builds: for this loader's
+  // creation, and for the scheduling of the update task now running.
+  int record_replay_created_node_id_ = 0;
+  int record_replay_update_scheduled_node_id_ = 0;
 
   // DecodeRequest represents a single request to the Decode() function. The
   // decode requests have one of the following states:

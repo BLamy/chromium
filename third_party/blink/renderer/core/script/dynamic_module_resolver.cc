@@ -25,6 +25,8 @@
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "v8/include/v8.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -132,6 +134,18 @@ void DynamicImportTreeClient::NotifyModuleTreeLoadFinished(
     // The promise_resolver_ should have ::Detach()-ed at this point,
     // so ::Reject() is not necessary.
     return;
+  }
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        (module_script
+             ? recordreplay::DependencyGraphJson(
+                   "dynamicImportTreeLoadFinished",
+                   {{"url", module_script->SourceUrl().GetString().Utf8()}})
+             : recordreplay::DependencyGraphJson(
+                   "dynamicImportTreeLoadFinished"))
+            .c_str()));
   }
 
   ScriptState* script_state = modulator_->GetScriptState();

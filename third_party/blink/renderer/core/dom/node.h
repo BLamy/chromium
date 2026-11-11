@@ -1439,6 +1439,10 @@ class CORE_EXPORT Node : public EventTarget {
   Member<NodeRareData> data_;
 };
 
+// Reports a change to the DOM as a node of the dependency graph a replay
+// builds, and returns that node's ID, or -1 when no graph is being built.
+CORE_EXPORT int RecordReplayOnDOMMutation(Node& target, const char* type);
+
 inline void Node::SetParentNode(ContainerNode* parent) {
   DCHECK(IsMainThread());
   parent_or_shadow_host_node_.SetAs<ParentNodeTag>(

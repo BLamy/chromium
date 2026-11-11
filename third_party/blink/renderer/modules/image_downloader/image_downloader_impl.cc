@@ -29,6 +29,8 @@
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "ui/gfx/geometry/size.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace {
 
@@ -185,6 +187,14 @@ void ImageDownloaderImpl::DownloadImage(const KURL& image_url,
                                         uint32_t max_bitmap_size,
                                         bool bypass_cache,
                                         DownloadImageCallback callback) {
+  // The network requests this starts are down to the message being handled.
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson("downloadImage", {{"url", image_url.GetString().Utf8()}})
+            .c_str()));
+  }
+
   // Constrain the preferred size by the max bitmap size. This will prevent
   // resizing of the resulting image if the preferred size is used.
   gfx::Size constrained_preferred_size(preferred_size);

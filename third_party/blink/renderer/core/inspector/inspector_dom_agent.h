@@ -94,6 +94,11 @@ class CORE_EXPORT InspectorDOMAgent final
   static ShadowRoot* UserAgentShadowRoot(Node*);
 
   InspectorDOMAgent(v8::Isolate*, InspectedFrames*);
+
+ private:
+  bool record_replay_standalone_ = false;
+
+ public:
   InspectorDOMAgent(const InspectorDOMAgent&) = delete;
   InspectorDOMAgent& operator=(const InspectorDOMAgent&) = delete;
   ~InspectorDOMAgent() override;
@@ -340,6 +345,12 @@ class CORE_EXPORT InspectorDOMAgent final
 
   Node* NodeForId(int node_id) const;
   int BoundNodeId(Node*) const;
+
+  // For a replay, which asks about the DOM without a DevTools session: the
+  // agent is never enabled, and answers what it can as if it were. A node gets
+  // its ID when it's first asked about.
+  void RecordReplaySetStandalone() { record_replay_standalone_ = true; }
+  int RecordReplayBindNode(Node*);
   void AddDOMListener(DOMListener*);
   void RemoveDOMListener(DOMListener*);
   int PushNodePathToFrontend(Node*);

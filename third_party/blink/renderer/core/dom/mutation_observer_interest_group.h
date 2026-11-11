@@ -45,6 +45,7 @@ class MutationObserverInterestGroup final
  public:
   static MutationObserverInterestGroup* CreateForChildListMutation(
       Node& target) {
+    RecordReplayOnDOMMutation(target, "childList");
     if (!target.GetDocument().MayHaveMutationObserversOfType(
             kMutationTypeChildList))
       return nullptr;
@@ -55,6 +56,7 @@ class MutationObserverInterestGroup final
 
   static MutationObserverInterestGroup* CreateForCharacterDataMutation(
       Node& target) {
+    RecordReplayOnDOMMutation(target, "characterData");
     if (!target.GetDocument().MayHaveMutationObserversOfType(
             kMutationTypeCharacterData))
       return nullptr;
@@ -66,6 +68,7 @@ class MutationObserverInterestGroup final
   static MutationObserverInterestGroup* CreateForAttributesMutation(
       Node& target,
       const QualifiedName& attribute_name) {
+    RecordReplayOnDOMMutation(target, "attributes");
     if (!target.GetDocument().MayHaveMutationObserversOfType(
             kMutationTypeAttributes))
       return nullptr;

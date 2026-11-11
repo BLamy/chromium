@@ -44,6 +44,8 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader_options.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_network.h"
+#include "base/record_replay.h"
 
 namespace blink {
 namespace {
@@ -158,6 +160,8 @@ void ResourceLoadObserverForFrame::WillSendRequest(
       fetcher_properties_->GetFetchClientSettingsObject().GlobalObjectUrl(),
       request, redirect_response, options, resource_type,
       render_blocking_behavior, base::TimeTicks::Now());
+  RecordReplayOnNetworkRequest(document_, resource, request,
+                               redirect_response);
   if (auto* idleness_detector = frame->GetIdlenessDetector())
     idleness_detector->OnWillSendRequest(document_->Fetcher());
   if (auto* interactive_detector = InteractiveDetector::From(*document_))
@@ -183,6 +187,10 @@ void ResourceLoadObserverForFrame::DidReceiveResponse(
     ResponseSource response_source) {
   LocalFrame* frame = document_->GetFrame();
   DCHECK(frame);
+
+  RecordReplayOnNetworkResponse(
+      identifier, response,
+      response_source == ResponseSource::kFromMemoryCache);
 
   // Track resource metrics by identifier for byte tracking in DidReceiveData.
   // Only track resources that actually have responses and will send data.
@@ -302,6 +310,7 @@ void ResourceLoadObserverForFrame::DidReceiveData(
   frame->Loader().Progress().IncrementProgress(identifier, chunk.size());
   CheckGuardrailsPolicyForSizeLimit(identifier, chunk.size());
   probe::DidReceiveData(GetProbe(), identifier, document_loader_, chunk);
+  RecordReplayOnNetworkData(identifier, chunk);
 }
 
 void ResourceLoadObserverForFrame::DidReceiveTransferSizeUpdate(
@@ -332,6 +341,8 @@ void ResourceLoadObserverForFrame::DidFinishLoading(
   probe::DidFinishLoading(GetProbe(), identifier, document_loader_, finish_time,
                           encoded_data_length, encoded_body_length,
                           decoded_body_length);
+  RecordReplayOnNetworkFinished(identifier, encoded_body_length,
+                                decoded_body_length);
 
   if (auto* interactive_detector = InteractiveDetector::From(*document_)) {
     interactive_detector->OnResourceLoadEnd(finish_time);
@@ -355,6 +366,7 @@ void ResourceLoadObserverForFrame::DidFailLoading(
 
   probe::DidFailLoading(GetProbe(), identifier, document_loader_, error,
                         frame->GetDevToolsFrameToken());
+  RecordReplayOnNetworkFailed(identifier, error);
 
   // Notification to FrameConsole should come AFTER InspectorInstrumentation
   // call, DevTools front-end relies on this.

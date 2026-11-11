@@ -67,6 +67,8 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
+#include "base/record_replay.h"
+#include <string>
 namespace blink {
 
 namespace {
@@ -112,6 +114,15 @@ DispatchEventResult EventDispatcher::DispatchEvent(Node& node, Event& event) {
 #if DCHECK_IS_ON()
   DCHECK(!EventDispatchForbiddenScope::IsEventDispatchForbidden());
 #endif
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson("dispatchEvent",
+                                          {{"type", event.type().Utf8()}})
+            .c_str()));
+  }
+
   EventDispatcher dispatcher(node, event);
   return event.DispatchEvent(dispatcher);
 }

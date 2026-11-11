@@ -78,6 +78,7 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -303,6 +304,37 @@ void DOMWebSocket::LogError(const String& message) {
   }
 }
 
+// What a socket does is reported to a replay twice: as a node of the
+// dependency graph it builds, and as an annotation, which is in the recording
+// as a point and gets its contents when replaying.
+static int RecordReplaySocketNode(const char* kind, int socket_id) {
+  if (!recordreplay::DependencyGraphEnabled()) {
+    return 0;
+  }
+  std::string json = "{\"kind\":\"";
+  json += kind;
+  json += "\",\"socketId\":" + std::to_string(socket_id) + "}";
+  return recordreplay::NewDependencyGraphNode(json.c_str());
+}
+
+// |numbers| is more JSON properties, each with a comma before it.
+static void RecordReplaySocketAnnotation(
+    const char* kind,
+    int socket_id,
+    std::initializer_list<std::pair<const char*, std::string>> strings,
+    const std::string& numbers = std::string()) {
+  if (!recordreplay::IsRecordingOrReplaying() || !recordreplay::IsMainThread()) {
+    return;
+  }
+  std::string contents;
+  if (recordreplay::IsReplaying()) {
+    contents = recordreplay::DependencyGraphJson(kind, strings);
+    contents.pop_back();
+    contents += ",\"socketId\":" + std::to_string(socket_id) + numbers + "}";
+  }
+  recordreplay::OnAnnotation("DOMWebSocket", contents.c_str());
+}
+
 DOMWebSocket* DOMWebSocket::Create(ExecutionContext* context,
                                    const String& url,
                                    ExceptionState& exception_state) {
@@ -312,6 +344,17 @@ DOMWebSocket* DOMWebSocket::Create(ExecutionContext* context,
   if (exception_state.HadException()) {
     return nullptr;
   }
+
+  if (recordreplay::DependencyGraphEnabled()) {
+    std::string json = recordreplay::DependencyGraphJson(
+        "websocketCreated", {{"url", url.Utf8()}});
+    json.pop_back();
+    json +=
+        ",\"socketId\":" + std::to_string(websocket->RecordReplayId()) + "}";
+    recordreplay::NewDependencyGraphNode(json.c_str());
+  }
+  RecordReplaySocketAnnotation("create", websocket->RecordReplayId(),
+                               {{"url", url.Utf8()}});
 
   return websocket;
 }
@@ -460,6 +503,12 @@ void DOMWebSocket::send(const String& message,
   }
 
   DCHECK(channel_);
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      RecordReplaySocketNode("websocketSendMessage", RecordReplayId()));
+  RecordReplaySocketAnnotation(
+      "send", RecordReplayId(), {{"text", encoded_message}},
+      ",\"binary\":false,\"encodedLength\":" +
+          std::to_string(encoded_message.length()));
   buffered_amount_ += encoded_message.length();
   channel_->Send(encoded_message, /*watcher=*/nullptr);
   NotifyWebSocketActivity();
@@ -479,6 +528,12 @@ void DOMWebSocket::send(DOMArrayBuffer* binary_data,
     return;
   }
   DCHECK(channel_);
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      RecordReplaySocketNode("websocketSendMessage", RecordReplayId()));
+  RecordReplaySocketAnnotation(
+      "send", RecordReplayId(), {},
+      ",\"binary\":true,\"encodedLength\":" +
+          std::to_string(binary_data->ByteLength()));
   buffered_amount_ += binary_data->ByteLength();
   channel_->Send(*binary_data, 0, binary_data->ByteLength(),
                  /*watcher=*/nullptr);
@@ -499,6 +554,12 @@ void DOMWebSocket::send(NotShared<DOMArrayBufferView> array_buffer_view,
     return;
   }
   DCHECK(channel_);
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      RecordReplaySocketNode("websocketSendMessage", RecordReplayId()));
+  RecordReplaySocketAnnotation(
+      "send", RecordReplayId(), {},
+      ",\"binary\":true,\"encodedLength\":" +
+          std::to_string(array_buffer_view->byteLength()));
   buffered_amount_ += array_buffer_view->byteLength();
   channel_->Send(*array_buffer_view->buffer(), array_buffer_view->byteOffset(),
                  array_buffer_view->byteLength(), /*watcher=*/nullptr);
@@ -519,6 +580,11 @@ void DOMWebSocket::send(Blob* blob, ExceptionState& exception_state) {
   }
   buffered_amount_ += blob->size();
   DCHECK(channel_);
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      RecordReplaySocketNode("websocketSendMessage", RecordReplayId()));
+  RecordReplaySocketAnnotation(
+      "send", RecordReplayId(), {},
+      ",\"binary\":true,\"encodedLength\":" + std::to_string(blob->size()));
 
   // In order to maintain the value of |buffered_amount_| correctly, the
   // WebSocket code needs to fix the size of the File at this point.
@@ -634,6 +700,11 @@ void DOMWebSocket::DidConnect(const String& subprotocol,
   common_.SetState(kOpen);
   subprotocol_ = subprotocol;
   extensions_ = extensions;
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      RecordReplaySocketNode("websocketConnected", RecordReplayId()));
+  RecordReplaySocketAnnotation(
+      "connected", RecordReplayId(),
+      {{"subprotocol", subprotocol.Utf8()}, {"extensions", extensions.Utf8()}});
   event_queue_->Dispatch(Event::Create(event_type_names::kOpen));
   NotifyWebSocketActivity();
 }
@@ -645,6 +716,16 @@ void DOMWebSocket::DidReceiveTextMessage(const String& msg) {
   DCHECK_NE(common_.GetState(), kConnecting);
   if (common_.GetState() != kOpen)
     return;
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      RecordReplaySocketNode("websocketNewMessage", RecordReplayId()));
+  if (recordreplay::IsRecordingOrReplaying()) {
+    std::string text = recordreplay::IsReplaying() ? msg.Utf8() : std::string();
+    RecordReplaySocketAnnotation(
+        "newMessage", RecordReplayId(), {{"text", text}},
+        ",\"binary\":false,\"encodedLength\":" +
+            std::to_string(text.length()));
+  }
 
   DCHECK(origin_);
   event_queue_->Dispatch(MessageEvent::Create(msg, origin_));
@@ -665,6 +746,12 @@ void DOMWebSocket::DidReceiveBinaryMessage(
   DCHECK_NE(common_.GetState(), kConnecting);
   if (common_.GetState() != kOpen)
     return;
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      RecordReplaySocketNode("websocketNewMessage", RecordReplayId()));
+  RecordReplaySocketAnnotation(
+      "newMessage", RecordReplayId(), {},
+      ",\"binary\":true,\"encodedLength\":" + std::to_string(size));
 
   switch (binary_type_) {
     case V8BinaryType::Enum::kBlob: {

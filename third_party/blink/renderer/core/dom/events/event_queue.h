@@ -52,7 +52,7 @@ class CORE_EXPORT EventQueue final : public GarbageCollected<EventQueue>,
 
  private:
   bool RemoveEvent(Event&);
-  void DispatchEvent(Event*);
+  void DispatchEvent(Event*, int record_replay_scheduled_node_id);
 
   void ContextDestroyed() override;
   void Close(ExecutionContext*);

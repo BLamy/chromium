@@ -48,6 +48,9 @@
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 
 namespace blink {
 
@@ -278,9 +281,19 @@ void HTMLParserScriptRunner::PendingScriptFinished(
   // yielding for cooperative scheduling. Cooperative scheduling requires that
   // the Blink C++ stack be thin when it executes JavaScript.
   document_->GetTaskRunner(TaskType::kInternalContinueScriptLoading)
-      ->PostTask(FROM_HERE, blink::BindOnce(
-                                &HTMLParserScriptRunnerHost::NotifyScriptLoaded,
-                                WrapPersistent(host_.Get())));
+      ->PostTask(
+          FROM_HERE,
+          blink::BindOnce(
+              [](HTMLParserScriptRunnerHost* host, int scheduled_node_id) {
+                recordreplay::AutoDependencyExecution execute(
+                    recordreplay::NewDependencyGraphNodeFrom(
+                        scheduled_node_id, "scheduler",
+                        "{\"kind\":\"documentNotifyScriptLoaded\"}"));
+                host->NotifyScriptLoaded();
+              },
+              WrapPersistent(host_.Get()),
+              recordreplay::NewDependencyGraphNode(
+                  "{\"kind\":\"scheduleNotifyScriptLoaded\"}")));
 }
 
 // <specdef href="https://html.spec.whatwg.org/C/#scriptEndTag">

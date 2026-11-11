@@ -14,6 +14,8 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observation.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_controller.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_entry.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -39,6 +41,8 @@ ResizeObserver::ResizeObserver(V8ResizeObserverCallback* callback,
     controller_ = ResizeObserverController::From(*window);
     controller_->AddObserver(*this);
   }
+  record_replay_created_node_id_ = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"createResizeObserver\"}");
 }
 
 ResizeObserver::ResizeObserver(Delegate* delegate, LocalDOMWindow* window)
@@ -51,6 +55,8 @@ ResizeObserver::ResizeObserver(Delegate* delegate, LocalDOMWindow* window)
     controller_ = ResizeObserverController::From(*window);
     controller_->AddObserver(*this);
   }
+  record_replay_created_node_id_ = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"createResizeObserver\"}");
 }
 
 ResizeObserverBoxOptions ResizeObserver::V8EnumToBoxOptions(
@@ -156,6 +162,11 @@ size_t ResizeObserver::GatherObservations(size_t deeper_than) {
 void ResizeObserver::DeliverObservations() {
   if (active_observations_.empty())
     return;
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_created_node_id_, "creator",
+          "{\"kind\":\"observeResize\"}"));
 
   HeapVector<Member<ResizeObserverEntry>> entries;
 

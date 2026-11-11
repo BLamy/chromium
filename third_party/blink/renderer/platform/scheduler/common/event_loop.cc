@@ -15,6 +15,9 @@
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
 #include "v8/include/v8-cpp-heap-external.h"
 #include "v8/include/v8.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 
 namespace blink {
 namespace scheduler {
@@ -64,6 +67,8 @@ EventLoop::~EventLoop() {
 
 void EventLoop::EnqueueMicrotask(base::OnceClosure task) {
   pending_microtasks_.push_back(std::move(task));
+  record_replay_microtask_node_ids_.push_back(
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"enqueueMicrotask\"}"));
   v8::HandleScope handle_scope(isolate_);
 
   if (microtask_data_.IsEmpty()) {
@@ -92,6 +97,7 @@ void EventLoop::RunEndOfMicrotaskCheckpointTasks() {
     // execution was interrupted by the debugger. V8 expects that any pending
     // microtasks are discarded here. See https://crbug.com/1394714.
     pending_microtasks_.clear();
+    record_replay_microtask_node_ids_.clear();
   }
 
   if (delegate_) {
@@ -147,6 +153,16 @@ void EventLoop::RunPendingMicrotask(v8::Local<v8::Data> data) {
 
   base::OnceClosure task = std::move(self->pending_microtasks_.front());
   self->pending_microtasks_.pop_front();
+  int record_replay_scheduled_node_id = 0;
+  if (!self->record_replay_microtask_node_ids_.empty()) {
+    record_replay_scheduled_node_id =
+        self->record_replay_microtask_node_ids_.front();
+    self->record_replay_microtask_node_ids_.pop_front();
+  }
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_scheduled_node_id, "scheduler",
+          "{\"kind\":\"runMicrotask\"}"));
   TaskAttributionTracker::MicrotaskTraceScope scope(self->isolate_);
   std::move(task).Run();
 }

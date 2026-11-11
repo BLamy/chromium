@@ -80,6 +80,9 @@
 #include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "v8/include/v8.h"
+#include "base/record_replay.h"
+#include <optional>
+#include "third_party/blink/renderer/core/inspector/record_replay_dom.h"
 
 namespace blink {
 
@@ -242,6 +245,8 @@ void LocalWindowProxy::DisposeContext(Lifecycle next_status,
 }
 
 void LocalWindowProxy::Initialize() {
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "ScriptExecution", "LocalWindowProxy::Initialize");
   TRACE_EVENT2("v8", "LocalWindowProxy::Initialize", "IsMainFrame",
                GetFrame()->IsMainFrame(), "IsOutermostMainFrame",
                GetFrame()->IsOutermostMainFrame());
@@ -302,6 +307,9 @@ void LocalWindowProxy::Initialize() {
 
   if (world_->IsMainWorld()) {
     if (GetFrame()->IsMainFrame()) {
+      if (recordreplay::IsRecordingOrReplaying()) {
+        RecordReplaySetDomRootFrame(GetFrame());
+      }
       RecordReplayInstallRootFrameScripts(GetIsolate(), context);
     }
     RecordReplayInstallPageScripts(GetIsolate(), context);

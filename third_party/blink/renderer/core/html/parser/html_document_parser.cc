@@ -88,6 +88,9 @@
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include <optional>
+#include <string>
+#include "third_party/blink/renderer/core/inspector/record_replay_dom.h"
 
 namespace blink {
 
@@ -430,6 +433,9 @@ HTMLDocumentParser::HTMLDocumentParser(Document& document,
                      : nullptr) {
   TRACE_EVENT("blink", "HTMLDocumentParser::HTMLDocumentParser",
               perfetto::Flow::FromPointer(this));
+  RecordReplayOnHTMLParseStart(this,
+                               document.Url().GetString().Utf8().c_str());
+
   // Make sure the preload scanner thread will be ready when needed.
   if (ThreadedPreloadScannerEnabled() && !task_runner_state_->IsSynchronous()) {
     GetPreloadScannerThread();
@@ -466,6 +472,7 @@ HTMLDocumentParser::HTMLDocumentParser(Document& document,
 }
 
 HTMLDocumentParser::~HTMLDocumentParser() {
+  RecordReplayOnHTMLParseFinish(this);
   TRACE_EVENT("blink", "HTMLDocumentParser::~HTMLDocumentParser",
               perfetto::TerminatingFlow::FromPointer(this));
 }
@@ -761,6 +768,15 @@ bool HTMLDocumentParser::PumpTokenizer() {
   DCHECK(!GetDocument()->IsPrefetchOnly());
   DCHECK(!IsStopped());
 
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "documentPumpTokenizer",
+            {{"url", GetDocument()->Url().GetString().Utf8()}})
+            .c_str()));
+  }
+
   did_pump_tokenizer_ = true;
 
   NestingLevelIncrementer session = task_runner_state_->ScopedPumpSession();
@@ -941,9 +957,19 @@ void HTMLDocumentParser::SchedulePumpTokenizer(bool from_finish_append) {
   }
   loading_task_runner_->PostDelayedTask(
       FROM_HERE,
-      blink::BindOnce(&HTMLDocumentParser::DeferredPumpTokenizerIfPossible,
-                      WrapPersistent(this), from_finish_append,
-                      base::TimeTicks::Now()),
+      blink::BindOnce(
+          [](HTMLDocumentParser* self, bool from_finish_append,
+             base::TimeTicks schedule_time, int scheduled_node_id) {
+            recordreplay::AutoDependencyExecution execute(
+                recordreplay::NewDependencyGraphNodeFrom(
+                    scheduled_node_id, "scheduler",
+                    "{\"kind\":\"deferredDocumentPumpTokenizer\"}"));
+            self->DeferredPumpTokenizerIfPossible(from_finish_append,
+                                                  schedule_time);
+          },
+          WrapPersistent(this), from_finish_append, base::TimeTicks::Now(),
+          recordreplay::NewDependencyGraphNode(
+              "{\"kind\":\"documentSchedulePumpTokenizer\"}")),
       delay);
   task_runner_state_->SetState(
       HTMLDocumentParserState::DeferredParserState::kScheduled);
@@ -962,9 +988,19 @@ void HTMLDocumentParser::ScheduleEndIfDelayed() {
   if (!task_runner_state_->IsScheduled()) {
     loading_task_runner_->PostTask(
         FROM_HERE,
-        blink::BindOnce(&HTMLDocumentParser::DeferredPumpTokenizerIfPossible,
-                        WrapPersistent(this),
-                        /*from_finish_append=*/false, base::TimeTicks::Now()));
+        blink::BindOnce(
+            [](HTMLDocumentParser* self, base::TimeTicks schedule_time,
+               int scheduled_node_id) {
+              recordreplay::AutoDependencyExecution execute(
+                  recordreplay::NewDependencyGraphNodeFrom(
+                      scheduled_node_id, "scheduler",
+                      "{\"kind\":\"deferredDocumentPumpTokenizer\"}"));
+              self->DeferredPumpTokenizerIfPossible(
+                  /*from_finish_append=*/false, schedule_time);
+            },
+            WrapPersistent(this), base::TimeTicks::Now(),
+            recordreplay::NewDependencyGraphNode(
+                "{\"kind\":\"documentScheduleEndIfDelayed\"}")));
     yield_timer_ = std::make_unique<base::ElapsedTimer>();
   }
   // If a pump is already scheduled, it's OK to just upgrade it to one
@@ -1040,6 +1076,22 @@ void HTMLDocumentParser::Append(const String& input_source) {
 
   if (IsStopped()) {
     return;
+  }
+
+  if (recordreplay::IsReplaying()) {
+    RecordReplayOnHTMLParseData(this, input_source.Utf8().c_str());
+  }
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    std::string json = "{\"kind\":\"documentAppendString\",\"length\":" +
+                       std::to_string(input_source.length()) + ",\"url\":";
+    // DependencyGraphJson quotes the URL; take its value part.
+    std::string with_url = recordreplay::DependencyGraphJson(
+        "u", {{"url", GetDocument()->Url().GetString().Utf8()}});
+    json += with_url.substr(with_url.find("\"url\":") + 6);
+    record_replay_execute.emplace(
+        recordreplay::NewDependencyGraphNode(json.c_str()));
   }
 
   const SegmentedString source(input_source);

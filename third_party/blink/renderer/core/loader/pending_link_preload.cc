@@ -12,6 +12,8 @@
 #include "third_party/blink/renderer/core/timing/render_blocking_metrics_reporter.h"
 #include "third_party/blink/renderer/platform/heap/prefinalizer.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_finish_observer.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -84,6 +86,8 @@ void PendingLinkPreload::NotifyModuleLoadFinished(ModuleScript* module,
 }
 
 void PendingLinkPreload::NotifyFinished() {
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "ScriptExecution", "PendingLinkPreload::NotifyFinished");
   UnblockRendering();
   DCHECK(finish_observer_);
   if (loader_)

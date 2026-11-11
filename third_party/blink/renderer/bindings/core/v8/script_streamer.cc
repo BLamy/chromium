@@ -72,6 +72,9 @@
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "v8/include/v8-wasm.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 
 namespace blink {
 
@@ -1097,6 +1100,14 @@ bool ResourceScriptStreamer::TryStartStreamingTask() {
   // This reset will also cancel the watcher.
   watcher_.reset();
 
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_scheduled_node_id_ = recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson(
+            "scheduleScriptStreamingTask",
+            {{"url", ScriptURLString().Utf8()}})
+            .c_str());
+  }
+
   // Script streaming tasks are high priority, as they can block the parser,
   // and they can (and probably will) block during their own execution as
   // they wait for more input.
@@ -1266,6 +1277,11 @@ void ResourceScriptStreamer::StreamingComplete(LoadingState loading_state) {
   // The background task is completed; do the necessary ramp-down in the main
   // thread.
   DCHECK(IsMainThread());
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_scheduled_node_id_, "scheduler",
+          "{\"kind\":\"scriptStreamingComplete\"}"));
 
   AdvanceLoadingState(loading_state);
 

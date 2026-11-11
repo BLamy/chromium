@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -453,6 +454,9 @@ void HTMLLinkElement::DispatchPendingEvent(
   DispatchEventWithTaskState(
       link_->HasLoaded() ? event_type_names::kLoad : event_type_names::kError,
       task_state);
+
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "LoadEventDelay", "HTMLLinkElement::DispatchPendingEvent");
 
   // Checks Document's load event synchronously here for performance.
   // This is safe because dispatchPendingEvent() is called asynchronously.

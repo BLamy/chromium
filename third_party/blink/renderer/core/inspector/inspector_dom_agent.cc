@@ -569,6 +569,10 @@ void InspectorDOMAgent::ReleaseDanglingNodes() {
   dangling_node_to_id_maps_.clear();
 }
 
+int InspectorDOMAgent::RecordReplayBindNode(Node* node) {
+  return Bind(node, document_node_to_id_map_.Get());
+}
+
 int InspectorDOMAgent::Bind(Node* node, NodeToIdMap* nodes_map) {
   if (!nodes_map)
     return 0;
@@ -1066,6 +1070,9 @@ int InspectorDOMAgent::PushNodePathToFrontend(Node* node_to_push,
   // InspectorDOMAgent might have been resetted already. See crbug.com/450491
   if (!document_)
     return 0;
+  if (record_replay_standalone_) {
+    return RecordReplayBindNode(node_to_push);
+  }
   if (!BoundNodeId(document_))
     return 0;
 
@@ -1429,7 +1436,7 @@ protocol::Response InspectorDOMAgent::performSearch(
     std::optional<bool> optional_include_user_agent_shadow_dom,
     String* search_id,
     int* result_count) {
-  if (!enabled_.Get())
+  if (!enabled_.Get() && !record_replay_standalone_)
     return protocol::Response::ServerError("DOM agent is not enabled");
 
   // FIXME: Few things are missing here:

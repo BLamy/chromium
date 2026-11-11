@@ -63,6 +63,10 @@ class CORE_EXPORT HTMLStyleElement final : public HTMLElement,
   void DispatchPendingEvent(std::unique_ptr<IncrementLoadEventDelayCount>,
                             bool is_load_event);
 
+  // The node of the dependency graph a replay builds for the scheduling of
+  // the task that says this sheet loaded.
+  int record_replay_load_task_scheduled_node_id_ = 0;
+
   // override from HTMLElement
   void ParseAttribute(const AttributeModificationParams&) override;
   InsertionNotificationRequest InsertedInto(ContainerNode&) override;

@@ -118,6 +118,11 @@
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "v8/include/v8.h"
+#include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
+#include <string>
+#include <sstream>
 
 using network::mojom::CredentialsMode;
 using network::mojom::FetchResponseType;
@@ -125,6 +130,27 @@ using network::mojom::RedirectMode;
 using network::mojom::RequestMode;
 
 namespace blink {
+
+namespace {
+
+// Marks this point of the recording with an annotation of |kind|. |fill| says
+// what happened, and only runs when replaying, which is when it's wanted.
+template <typename Fill>
+void RecordReplayAnnotation(const char* kind, Fill fill) {
+  if (!recordreplay::IsRecordingOrReplaying() || !recordreplay::IsMainThread()) {
+    return;
+  }
+  std::string contents;
+  if (recordreplay::IsReplaying()) {
+    base::DictValue info;
+    fill(info);
+    contents = base::WriteJson(info).value_or("{}");
+  }
+  recordreplay::OnAnnotation(kind, contents.c_str());
+}
+
+}  // namespace
+
 
 namespace {
 
@@ -896,6 +922,17 @@ void FetchManager::Loader::DidFail(uint64_t identifier,
     GetExecutionContext()->MaybeRecordFetchError(error.ErrorCode(),
                                                  GetFetchRequestData());
   }
+
+  RecordReplayAnnotation("FetchManagerFailed", [&](base::DictValue& info) {
+    info.Set("error_code", error.ErrorCode());
+    info.Set("failing_url", error.FailingURL().Utf8());
+    info.Set("error_message", error.LocalizedDescription().Utf8());
+    if (error.CorsErrorStatus()) {
+      std::ostringstream cors;
+      cors << *error.CorsErrorStatus();
+      info.Set("cors_error_status", cors.str());
+    }
+  });
 
   // Record the failures for blob fetch request.
   if (GetFetchRequestData() &&

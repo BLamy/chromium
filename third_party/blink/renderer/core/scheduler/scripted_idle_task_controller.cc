@@ -20,6 +20,8 @@
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "base/record_replay.h"
+#include <optional>
 
 using DecrementOnDelete = blink::ScriptedIdleTaskController::DecrementOnDelete;
 
@@ -314,6 +316,9 @@ void ScriptedIdleTaskController::RunIdleTask(
     base::TimeTicks deadline,
     IdleDeadline::CallbackType callback_type) {
   DCHECK(!paused_);
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"executeIdleCallback\"}"));
 
   // Keep the idle task in |idle_tasks_| so that it's still wrapper-traced.
   // TODO(https://crbug.com/796145): Remove this hack once on-stack objects

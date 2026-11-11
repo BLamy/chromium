@@ -172,6 +172,7 @@
 #include "third_party/blink/renderer/platform/wtf/uuid.h"
 #include "ui/display/screen_info.h"
 #include "v8/include/v8.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -1378,6 +1379,11 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
     SourceLocation* location,
     const base::UnguessableToken& source_agent_cluster_id) {
   TRACE_EVENT0("blink", "LocalDOMWindow::DispatchMessageEventWithOriginCheck");
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          event->RecordReplayDependencyGraphNodeId(), "messageEventCreated",
+          "{\"kind\":\"dispatchMessageEvent\"}"));
   if (intended_target_origin) {
     bool valid_target =
         intended_target_origin->IsSameOriginWith(GetSecurityOrigin());

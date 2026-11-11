@@ -50,6 +50,9 @@
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/scheduler/public/scheduling_policy.h"
 #include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 
 namespace blink {
 
@@ -328,6 +331,15 @@ DOMTimer::DOMTimer(ExecutionContext& context,
       action_(action) {
   DCHECK_GT(timeout_id_, 0);
 
+  if (recordreplay::DependencyGraphEnabled()) {
+    std::string json = "{\"kind\":\"timerScheduled\",\"duration\":" +
+                       std::to_string(timeout.InMillisecondsF()) +
+                       ",\"singleShot\":" + (single_shot ? "true" : "false") +
+                       "}";
+    record_replay_dependency_graph_node_id_ =
+        recordreplay::NewDependencyGraphNode(json.c_str());
+  }
+
   // Step 10:
   if (timeout.is_negative()) {
     timeout = base::TimeDelta();
@@ -429,6 +441,11 @@ void DOMTimer::Fired() {
   DCHECK(!context->IsContextPaused());
   // Only the first execution of a multi-shot timer should get an affirmative
   // user gesture indicator.
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_dependency_graph_node_id_, "baseTimer",
+          "{\"kind\":\"timerFired\"}"));
 
   DEVTOOLS_TIMELINE_TRACE_EVENT("TimerFire", inspector_timer_fire_event::Data,
                                 context, timeout_id_);

@@ -47,6 +47,8 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
+#include "base/record_replay.h"
+#include <string>
 
 namespace blink {
 
@@ -78,6 +80,9 @@ PendingScript::PendingScript(ScriptElementBase* element,
       created_during_document_write_(
           element->GetDocument().IsInDocumentWrite()),
       task_state_(task_state) {
+  record_replay_dependency_node_ids_.push_back(
+      recordreplay::NewDependencyGraphNode(
+          "{\"kind\":\"pendingScriptCreated\"}"));
   async_task_context_.Schedule(original_execution_context_, "PendingScript",
                                probe::AsyncTaskContext::StackOptions::kScan);
 }
@@ -186,6 +191,23 @@ void PendingScript::ExecuteScriptBlock() {
           task_state_, context, TaskScopeType::kScriptExecution));
 
   Script* script = GetSource();
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode(
+        (script ? recordreplay::DependencyGraphJson(
+                      "executeScriptBlock",
+                      {{"url", script->SourceUrl().GetString().Utf8()}})
+                : recordreplay::DependencyGraphJson("executeScriptBlock"))
+            .c_str());
+    for (int other_node_id : record_replay_dependency_node_ids_) {
+      if (other_node_id > 0) {
+        recordreplay::AddDependencyGraphEdge(
+            other_node_id, node_id, "{\"kind\":\"pendingScript\"}");
+      }
+    }
+    record_replay_execute.emplace(node_id);
+  }
 
   const bool created_during_document_write = WasCreatedDuringDocumentWrite();
   std::optional<scheduler::TaskAttributionTracker::TaskScope>

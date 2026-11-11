@@ -107,6 +107,12 @@ int gReplayCodeDepth;
 
 bool gHasAsserts;
 
+// With RECORD_REPLAY_DEPENDENCY_GRAPH_ASSERTS set, a recording process goes
+// through the motions of building the graph too, and what it would have added
+// is asserted, so a replay that builds a different graph says where.
+bool gDependencyGraphAsserts;
+
+
 int InitializeSlow() {
   // The driver is loaded by main() before anything else when this process is
   // to be recorded (chrome/app/record_replay_main.cc). When replaying, dlsym
@@ -121,6 +127,7 @@ int InitializeSlow() {
 #undef LoadDriverSymbol
   gMainThread = pthread_self();
   gHasAsserts = !!getenv("RECORD_REPLAY_ENABLE_ASSERTS");
+  gDependencyGraphAsserts = !!getenv("RECORD_REPLAY_DEPENDENCY_GRAPH_ASSERTS");
   gState.store(2, std::memory_order_release);
   return 2;
 }
@@ -649,27 +656,139 @@ AutoUnlockMaybeEventsDisallowed::~AutoUnlockMaybeEventsDisallowed() {
   }
 }
 
-// The dependency graph is off: the driver built from backend/src/cpp ignores
-// its edges and executions.
+// The dependency graph is built while replaying only: whoever replays supplies
+// the functions that take its nodes, edges and executions, and the driver's
+// own, which a recording process has, do nothing. Nothing here may change what
+// a replay does next, so no recorded call is made on the way.
+static int gDependencyGraphFeature;  // 0 not looked at, 1 off, 2 on.
+
 bool DependencyGraphEnabled() {
-  return false;
+  if (!IsMainThread() || (!IsReplaying() && !gDependencyGraphAsserts)) {
+    return false;
+  }
+  if (!gDependencyGraphFeature) {
+    gDependencyGraphFeature = FeatureEnabled("dependency-graph") ? 2 : 1;
+  }
+  return gDependencyGraphFeature == 2;
 }
 
 int NewDependencyGraphNode(const char* json) {
-  return 0;
+  if (!DependencyGraphEnabled()) {
+    return 0;
+  }
+  int id = gRecordReplayNewDependencyGraphNode(json);
+  if (gDependencyGraphAsserts) {
+    Assert("NewDependencyGraphNode id=%d %s", id, json ? json : "");
+  }
+  return id;
 }
 
-void AddDependencyGraphEdge(int source, int target, const char* json) {}
+void AddDependencyGraphEdge(int source, int target, const char* json) {
+  if (DependencyGraphEnabled()) {
+    gRecordReplayAddDependencyGraphEdge(source, target, json);
+    if (gDependencyGraphAsserts) {
+      Assert("NewDependencyGraphEdge source=%d target=%d %s", source, target,
+             json ? json : "");
+    }
+  }
+}
 
-void BeginDependencyExecution(int node) {}
+int NewDependencyGraphNodeFrom(int from, const char* edge_kind, const char* json) {
+  if (!DependencyGraphEnabled()) {
+    return 0;
+  }
+  int node = NewDependencyGraphNode(json);
+  if (from > 0) {
+    std::string edge = "{\"kind\":\"";
+    edge += edge_kind;
+    edge += "\"}";
+    AddDependencyGraphEdge(from, node, edge.c_str());
+  }
+  return node;
+}
 
-void EndDependencyExecution() {}
+// The nodes whose executions are open on the main thread, innermost last.
+static std::vector<int>* gDependencyExecutionStack;
+
+int DependencyGraphExecutionNode() {
+  if (!IsMainThread() || !gDependencyExecutionStack ||
+      gDependencyExecutionStack->empty()) {
+    return 0;
+  }
+  return gDependencyExecutionStack->back();
+}
+
+void BeginDependencyExecution(int node) {
+  if (!DependencyGraphEnabled()) {
+    return;
+  }
+  if (!gDependencyExecutionStack) {
+    gDependencyExecutionStack = new std::vector<int>();
+  }
+  gDependencyExecutionStack->push_back(node);
+  gRecordReplayBeginDependencyExecution(node);
+  if (gDependencyGraphAsserts) {
+    Assert("BeginDependencyExecution id=%d", node);
+  }
+}
+
+void EndDependencyExecution() {
+  // An execution that began is ended even if the graph was since turned off,
+  // and one that never began is not.
+  if (!IsMainThread() || !gDependencyExecutionStack ||
+      gDependencyExecutionStack->empty()) {
+    return;
+  }
+  gDependencyExecutionStack->pop_back();
+  gRecordReplayEndDependencyExecution();
+  if (gDependencyGraphAsserts) {
+    Assert("EndDependencyExecution");
+  }
+}
+
+static std::string JsonQuote(const char* text) {
+  std::string out = "\"";
+  for (const char* p = text ? text : ""; *p; p++) {
+    unsigned char c = static_cast<unsigned char>(*p);
+    if (c == '"' || c == '\\') {
+      out += '\\';
+      out += *p;
+    } else if (c < 0x20) {
+      char buf[8];
+      snprintf(buf, sizeof(buf), "\\u%04x", c);
+      out += buf;
+    } else {
+      out += *p;
+    }
+  }
+  return out + "\"";
+}
+
+std::string DependencyGraphJson(
+    const char* kind,
+    std::initializer_list<std::pair<const char*, std::string>> strings) {
+  std::string json = "{\"kind\":" + JsonQuote(kind);
+  for (const auto& [key, value] : strings) {
+    json += "," + JsonQuote(key) + ":" + JsonQuote(value.c_str());
+  }
+  return json + "}";
+}
 
 AutoMarkerDependencyExecution::AutoMarkerDependencyExecution(const char* reason,
                                                              const char* name) {
+  if (DependencyGraphEnabled()) {
+    std::string json =
+        DependencyGraphJson("marker", {{"reason", reason}, {"name", name}});
+    began_ = true;
+    BeginDependencyExecution(NewDependencyGraphNode(json.c_str()));
+  }
 }
 
-AutoMarkerDependencyExecution::~AutoMarkerDependencyExecution() {}
+AutoMarkerDependencyExecution::~AutoMarkerDependencyExecution() {
+  if (began_) {
+    EndDependencyExecution();
+  }
+}
 
 bool IsMainThread() {
   return Active() && pthread_equal(gMainThread, pthread_self());
@@ -707,6 +826,16 @@ int NewIdMainThread(const char* name) {
     CHECK(IsMainThread());
   }
   return gNextMainThreadId++;
+}
+
+static int gNextScriptWrappableId = 1;
+
+int NewScriptWrappableId() {
+  if (!IsMainThread() || (!IsReplaying() && !gDependencyGraphAsserts) ||
+      AreEventsDisallowed()) {
+    return 0;
+  }
+  return gNextScriptWrappableId++;
 }
 
 static std::atomic<int> gNextAnyThreadId{1};

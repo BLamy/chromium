@@ -32,6 +32,9 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 
 namespace blink {
 
@@ -67,9 +70,11 @@ bool EventQueue::EnqueueEvent(const base::Location& from_here, Event& event) {
 
   // Pass the event as a weak persistent so that GC can collect an event-related
   // object like IDBTransaction as soon as possible.
+  int record_replay_node_id = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"eventQueueSchedule\"}");
   task_runner->PostTask(
       from_here, BindOnce(&EventQueue::DispatchEvent, WrapPersistent(this),
-                          WrapWeakPersistent(&event)));
+                          WrapWeakPersistent(&event), record_replay_node_id));
 
   return true;
 }
@@ -90,11 +95,17 @@ bool EventQueue::RemoveEvent(Event& event) {
   return true;
 }
 
-void EventQueue::DispatchEvent(Event* event) {
+void EventQueue::DispatchEvent(Event* event,
+                               int record_replay_scheduled_node_id) {
   if (!event || !RemoveEvent(*event))
     return;
 
   DCHECK(GetExecutionContext());
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_scheduled_node_id, "scheduler",
+          "{\"kind\":\"eventQueueDispatch\"}"));
 
   probe::AsyncTask async_task(GetExecutionContext(),
                               event->async_task_context());

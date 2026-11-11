@@ -37,6 +37,8 @@
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -87,7 +89,17 @@ class LockManager::LockRequestImpl final
     receiver_.Bind(
         std::move(receiver),
         manager->GetExecutionContext()->GetTaskRunner(TaskType::kWebLocks));
+    if (recordreplay::DependencyGraphEnabled()) {
+      record_replay_dependency_graph_node_id_ =
+          recordreplay::NewDependencyGraphNode(
+              recordreplay::DependencyGraphJson("lockManagerRequest",
+                                                {{"name", name.Utf8()}})
+                  .c_str());
+    }
   }
+
+  // The node of the dependency graph a replay builds for this request.
+  int record_replay_dependency_graph_node_id_ = 0;
 
   LockRequestImpl(const LockRequestImpl&) = delete;
   LockRequestImpl& operator=(const LockRequestImpl&) = delete;
@@ -182,6 +194,11 @@ class LockManager::LockRequestImpl final
         script_state, name_, mode_, std::move(handle_remote),
         std::move(lock_lifetime_), manager_);
     manager_->held_locks_.insert(lock);
+
+    recordreplay::AutoDependencyExecution record_replay_execute(
+        recordreplay::NewDependencyGraphNodeFrom(
+            record_replay_dependency_graph_node_id_, "creator",
+            "{\"kind\":\"lockRequestGranted\"}"));
 
     // Note that either invoking `callback` or calling
     // ToResolvedPromise to convert the resulting value to a Promise

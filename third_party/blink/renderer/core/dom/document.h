@@ -2824,6 +2824,13 @@ class CORE_EXPORT Document : public ContainerNode,
   bool compatibility_mode_locked_ = false;
 
   TaskHandle execute_scripts_waiting_for_resources_task_handle_;
+
+  // For the dependency graph a replay builds: the node that scheduled
+  // ExecuteScriptsWaitingForResources(), and the nodes that were executing
+  // when something stopped delaying the load event.
+  void RecordReplayOnRemoveLoadEventDelay();
+  int record_replay_execute_scripts_waiting_for_resources_node_id_ = 0;
+  Vector<int> record_replay_load_event_dependency_nodes_;
   TaskHandle javascript_url_task_handle_;
   class PendingJavascriptUrl final
       : public GarbageCollected<PendingJavascriptUrl> {

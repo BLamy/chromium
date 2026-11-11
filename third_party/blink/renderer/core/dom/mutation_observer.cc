@@ -47,6 +47,8 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -135,6 +137,8 @@ class MutationObserverAgentData
   }
 
   void DeliverMutations() {
+    recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+        "ScriptExecution", "MutationObserverAgentData::DeliverMutations");
     // These steps are defined in DOM Standard's "notify mutation observers".
     // https://dom.spec.whatwg.org/#notify-mutation-observers
     DCHECK(IsMainThread());

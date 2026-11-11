@@ -32,6 +32,8 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -74,6 +76,8 @@ class BodyConsumerBase : public GarbageCollected<BodyConsumerBase>,
   // TODO(yhirano): Fix this problem in a more sophisticated way.
   template <typename IDLType, typename T>
   void ResolveLater(const T& object) {
+    record_replay_scheduled_node_id_ = recordreplay::NewDependencyGraphNode(
+        "{\"kind\":\"scheduleResolveBodyConsumer\"}");
     task_runner_->PostTask(FROM_HERE,
                            BindOnce(&BodyConsumerBase::ResolveNow<IDLType, T>,
                                     WrapPersistent(this), object));
@@ -98,23 +102,38 @@ class BodyConsumerBase : public GarbageCollected<BodyConsumerBase>,
     requires(!std::is_same<IDLType, IDLAny>::value &&
              !IsNotShared<IDLType>::value)
   void ResolveNow(const T& object) {
+    recordreplay::AutoDependencyExecution record_replay_execute(
+        RecordReplayResolveNode());
     resolver_->DowncastTo<IDLType>()->Resolve(object);
   }
 
   template <typename IDLType, typename T>
     requires std::is_same<IDLType, IDLAny>::value
   void ResolveNow(const Persistent<DisallowNewWrapper<ScriptValue>>& object) {
+    recordreplay::AutoDependencyExecution record_replay_execute(
+        RecordReplayResolveNode());
     resolver_->DowncastTo<IDLType>()->Resolve(object->Value());
   }
 
   template <typename IDLType, typename T>
     requires IsNotShared<IDLType>::value
   void ResolveNow(const T& object) {
+    recordreplay::AutoDependencyExecution record_replay_execute(
+        RecordReplayResolveNode());
     resolver_->DowncastTo<IDLType>()->Resolve(NotShared<DOMUint8Array>(object));
+  }
+
+  // A node of the dependency graph a replay builds for the resolving that
+  // ResolveLater() scheduled.
+  int RecordReplayResolveNode() {
+    return recordreplay::NewDependencyGraphNodeFrom(
+        record_replay_scheduled_node_id_, "scheduler",
+        "{\"kind\":\"resolveBodyConsumer\"}");
   }
 
   const Member<ScriptPromiseResolverBase> resolver_;
   const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+  int record_replay_scheduled_node_id_ = 0;
 };
 class BodyBlobConsumer final : public BodyConsumerBase {
  public:

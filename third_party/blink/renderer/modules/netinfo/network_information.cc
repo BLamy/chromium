@@ -22,6 +22,8 @@
 #include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -182,6 +184,9 @@ void NetworkInformation::ConnectionChange(
     const std::optional<double>& downlink_mbps,
     bool save_data) {
   DCHECK(GetExecutionContext()->IsContextThread());
+
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"networkConnectionChange\"}"));
 
   const String host = Host();
   uint32_t new_http_rtt_msec =

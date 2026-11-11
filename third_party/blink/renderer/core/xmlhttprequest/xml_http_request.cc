@@ -108,6 +108,7 @@
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -572,6 +573,13 @@ void XMLHttpRequest::ChangeState(State new_state) {
 void XMLHttpRequest::DispatchReadyStateChangeEvent() {
   if (!GetExecutionContext())
     return;
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson("xhrReadyStateChangeEvent", {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
 
   if (async_ || (state_ <= kOpened || state_ == kDone)) {
     DEVTOOLS_TIMELINE_TRACE_EVENT("XHRReadyStateChange",
@@ -1767,6 +1775,13 @@ void XMLHttpRequest::NotifyParserStopped() {
 
 void XMLHttpRequest::EndLoading() {
   probe::DidFinishXHR(GetExecutionContext(), this);
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
+        recordreplay::DependencyGraphJson("xhrEndLoading", {{"url", Url().GetString().Utf8()}})
+            .c_str()));
+  }
 
   if (loader_) {
     // Set |m_error| in order to suppress the cancel notification (see

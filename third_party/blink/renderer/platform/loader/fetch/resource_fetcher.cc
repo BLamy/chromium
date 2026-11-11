@@ -111,6 +111,7 @@
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -3233,10 +3234,18 @@ void ResourceFetcher::ScheduleStaleRevalidate(Resource* stale_resource) {
   freezable_task_runner_->PostTask(
       FROM_HERE, blink::BindOnce(&ResourceFetcher::RevalidateStaleResource,
                                  WrapWeakPersistent(this),
-                                 WrapPersistent(stale_resource)));
+                                 WrapPersistent(stale_resource),
+                                 recordreplay::NewDependencyGraphNode(
+                                     "{\"kind\":\"scheduleRevalidateStaleResource\"}")));
 }
 
-void ResourceFetcher::RevalidateStaleResource(Resource* stale_resource) {
+void ResourceFetcher::RevalidateStaleResource(
+    Resource* stale_resource,
+    int record_replay_scheduled_node_id) {
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNodeFrom(
+          record_replay_scheduled_node_id, "scheduler",
+          "{\"kind\":\"revalidateStaleResource\"}"));
   // Creating FetchParams from Resource::GetResourceRequest doesn't create
   // the exact same request as the original one, while for revalidation
   // purpose this is probably fine.

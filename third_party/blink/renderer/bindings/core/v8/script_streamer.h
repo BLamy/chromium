@@ -274,6 +274,9 @@ class CORE_EXPORT ResourceScriptStreamer final : public ScriptStreamer {
   // Fields active during asynchronous (non-streaming) reads.
   mojo::ScopedDataPipeConsumerHandle data_pipe_;
   std::unique_ptr<mojo::SimpleWatcher> watcher_;
+  // The node of the dependency graph a replay builds for the scheduling of
+  // the streaming task. Only the main thread uses it.
+  int record_replay_scheduled_node_id_ = 0;
 
   // Fields active during streaming.
   SourceStream* stream_ = nullptr;

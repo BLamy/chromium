@@ -103,6 +103,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "v8/include/v8-metrics.h"
+#include "base/record_replay.h"
 
 namespace blink {
 
@@ -1302,6 +1303,8 @@ void Performance::SuspendObserver(PerformanceObserver& observer) {
 }
 
 void Performance::DeliverObservationsTimerFired(TimerBase*) {
+  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
+      "ScriptExecution", "Performance::DeliverObservationsTimerFired");
   if (HasObserverFor(PerformanceEntry::kContainer)) {
     PopulateContainerTimingEntries();
   }

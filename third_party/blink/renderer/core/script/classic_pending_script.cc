@@ -50,6 +50,9 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include "base/record_replay.h"
+#include <optional>
+#include <string>
 
 namespace blink {
 namespace {
@@ -676,6 +679,12 @@ void ClassicPendingScript::AdvanceReadyState(ReadyState new_ready_state) {
   DCHECK(!StateIsReady(ready_state_));
 
   ready_state_ = new_ready_state;
+
+  if (IsReady() && recordreplay::DependencyGraphEnabled()) {
+    record_replay_dependency_node_ids_.push_back(
+        recordreplay::NewDependencyGraphNode(
+            "{\"kind\":\"pendingScriptReady\"}"));
+  }
 
   // Did we transition into a 'ready' state?
   if (IsReady() && IsWatchingForLoad()) {

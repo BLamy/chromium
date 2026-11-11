@@ -34,6 +34,8 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/timer.h"
+#include "base/record_replay.h"
+#include <optional>
 
 namespace blink {
 
@@ -481,6 +483,8 @@ IntersectionObserver::GetDeliveryBehavior() const {
 void IntersectionObserver::Deliver() {
   if (!NeedsDelivery())
     return;
+  recordreplay::AutoDependencyExecution record_replay_execute(
+      recordreplay::NewDependencyGraphNode("{\"kind\":\"intersectionChanged\"}"));
   HeapVector<Member<IntersectionObserverEntry>> entries;
   for (auto& observation : observations_)
     observation->TakeRecords(entries);

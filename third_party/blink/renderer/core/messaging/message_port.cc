@@ -62,6 +62,9 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
+#include "base/record_replay.h"
+#include "base/process/process_handle.h"
+#include <string>
 
 namespace blink {
 
@@ -180,6 +183,21 @@ void MessagePort::postMessage(ScriptState* script_state,
   msg.sender_agent_cluster_id = GetExecutionContext()->GetAgentClusterID();
   msg.locked_to_sender_agent_cluster = msg.message->IsLockedToAgentCluster();
   msg.task_state_id = std::nullopt;
+
+  // The ID travels with the message, so it is given while recording too, and
+  // is the same when replaying.
+  if (recordreplay::IsRecordingOrReplaying() && recordreplay::IsMainThread()) {
+    msg.record_replay_message_id =
+        recordreplay::NewIdMainThread("MessagePort::postMessage");
+    msg.record_replay_process_id = static_cast<int>(base::GetCurrentProcId());
+    if (recordreplay::DependencyGraphEnabled()) {
+      std::string json =
+          "{\"kind\":\"postMessage\",\"messageId\":" +
+          std::to_string(msg.record_replay_message_id) + ",\"processId\":" +
+          std::to_string(msg.record_replay_process_id) + "}";
+      recordreplay::NewDependencyGraphNode(json.c_str());
+    }
+  }
 
   // Only pass the task state if the port is still entangled to its initially
   // entangled port. This is meant to enable propagating task state for
@@ -386,6 +404,18 @@ bool MessagePort::Accept(mojo::Message* mojo_message) {
   if (!mojom::blink::TransferableMessage::DeserializeFromMessage(
           std::move(*mojo_message), &message)) {
     return false;
+  }
+
+  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    std::string json =
+        "{\"kind\":\"acceptMessage\",\"messageId\":" +
+        std::to_string(message.record_replay_message_id) + ",\"processId\":" +
+        std::to_string(message.record_replay_process_id) +
+        ",\"currentProcessId\":" +
+        std::to_string(static_cast<int>(base::GetCurrentProcId())) + "}";
+    record_replay_execute.emplace(
+        recordreplay::NewDependencyGraphNode(json.c_str()));
   }
 
   ExecutionContext* context = GetExecutionContext();

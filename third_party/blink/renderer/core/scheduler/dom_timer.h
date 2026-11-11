@@ -113,6 +113,9 @@ class CORE_EXPORT DOMTimer final : public GarbageCollected<DOMTimer>,
 
   int timeout_id_;
   int nesting_level_;
+  // The node of the dependency graph a replay builds for this timer's
+  // scheduling.
+  int record_replay_dependency_graph_node_id_ = 0;
   probe::AsyncTaskContext async_task_context_;
   Member<ScheduledAction> action_;
   SEQUENCE_CHECKER(sequence_checker_);
