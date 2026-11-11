@@ -562,7 +562,18 @@ bool RunPageScript(v8::Isolate* isolate,
   if (!v8::Script::Compile(context, V8String(isolate, source_chars), &origin)
            .ToLocal(&script) ||
       !script->Run(context).ToLocal(&result)) {
-    recordreplay::Print("[RuntimeError] %s didn't run", name);
+    v8::String::Utf8Value error(isolate, try_catch.Exception());
+    v8::Local<v8::Value> stack;
+    std::string where;
+    if (try_catch.StackTrace(context).ToLocal(&stack) && stack->IsString()) {
+      v8::String::Utf8Value text(isolate, stack);
+      if (*text) {
+        where = *text;
+      }
+    }
+    recordreplay::Print("[RuntimeError] %s didn't run: %s %.600s (source starts %.80s)",
+                        name, *error ? *error : "", where.c_str(),
+                        source_chars);
     return false;
   }
   return true;
