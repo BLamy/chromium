@@ -13,13 +13,137 @@
 
 #include <stdlib.h>
 
+#include <string>
+#include <vector>
+
 #include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding.h"
 #include "v8/include/v8.h"
 
+// V8's record/replay port keeps to itself, and exports these for its embedder
+// (v8/src/replay/replay-glue.cc).
+extern "C" void V8RecordReplaySetPageCommandHandler(
+    v8::Isolate* isolate,
+    v8::Local<v8::Context> context,
+    v8::Local<v8::Function> function);
+extern "C" uint64_t V8RecordReplayProgressCounter();
+
 namespace blink {
 
 namespace {
+
+const char kArgumentsName[] = "__RECORD_REPLAY_ARGUMENTS__";
+const char kApiName[] = "__RECORD_REPLAY__";
+const char kInternalScriptName[] = "record-replay-internal";
+
+// What a replay's own code in the page is given: upstream's
+// __RECORD_REPLAY_ARGUMENTS__, as far as whoever replays uses it. That's code
+// evaluated with Target.evaluatePrivileged, and scripts it registers to run in
+// every new root frame before the page's own. This runs with events
+// disallowed, on both sides, and isn't instrumented.
+const char kPageApiScript[] = R""""(
+(() => {
+"use strict";
+const args = __RECORD_REPLAY_ARGUMENTS__;
+
+// IDs for objects, the same for as long as the object lives.
+const persistentIds = new WeakMap();
+let nextPersistentId = 1;
+function isObject(value) {
+  return value !== null && (typeof value === "object" || typeof value === "function");
+}
+args.getPersistentId = value => {
+  if (!isObject(value)) {
+    return 0;
+  }
+  let id = persistentIds.get(value);
+  if (!id) {
+    id = nextPersistentId++;
+    persistentIds.set(value, id);
+  }
+  return id;
+};
+args.checkPersistentId = value => (isObject(value) && persistentIds.get(value)) || 0;
+args.internal = {};
+
+const commands = {
+  "Target.evaluatePrivileged": ({ expression }) => {
+    const result = eval(expression);
+    return { result };
+  },
+};
+
+args.setCommandCallback((method, paramsText) => {
+  const command = commands[method];
+  if (!command) {
+    return undefined;
+  }
+  try {
+    return JSON.stringify(command(JSON.parse(paramsText || "{}")) || {});
+  } catch (e) {
+    args.log(`Error: page command ${method} threw ${e && e.stack || e}`);
+    return JSON.stringify({ error: String(e) });
+  }
+});
+})();
+)"""";
+
+// Scripts whoever replays wants run in each new root frame, before the page's.
+std::vector<std::string>& RootFrameScripts() {
+  static std::vector<std::string>* scripts = new std::vector<std::string>();
+  return *scripts;
+}
+
+void ArgsLog(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::String::Utf8Value text(args.GetIsolate(), args[0]);
+  recordreplay::Print("%s", *text ? *text : "");
+}
+
+void ArgsGetProgressCounter(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  args.GetReturnValue().Set(v8::Number::New(
+      args.GetIsolate(), static_cast<double>(V8RecordReplayProgressCounter())));
+}
+
+void ArgsRegisterRootFrameScript(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  if (args.Length() != 1 || !args[0]->IsString()) {
+    return;
+  }
+  v8::String::Utf8Value script(args.GetIsolate(), args[0]);
+  if (*script) {
+    RootFrameScripts().emplace_back(*script);
+  }
+}
+
+void ArgsSetCommandCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  if (args.Length() != 1 || !args[0]->IsFunction()) {
+    return;
+  }
+  v8::Isolate* isolate = args.GetIsolate();
+  V8RecordReplaySetPageCommandHandler(isolate, isolate->GetCurrentContext(),
+                                      args[0].As<v8::Function>());
+}
+
+bool SetHidden(v8::Isolate* isolate,
+               v8::Local<v8::Context> context,
+               v8::Local<v8::Object> object,
+               const char* name,
+               v8::Local<v8::Value> value) {
+  return object
+      ->DefineOwnProperty(context, V8AtomicString(isolate, name), value,
+                          v8::DontEnum)
+      .FromMaybe(false);
+}
+
+bool SetNative(v8::Isolate* isolate,
+               v8::Local<v8::Context> context,
+               v8::Local<v8::Object> object,
+               const char* name,
+               v8::FunctionCallback callback) {
+  v8::Local<v8::Function> function;
+  return v8::Function::New(context, callback).ToLocal(&function) &&
+         SetHidden(isolate, context, object, name, function);
+}
 
 const char kAnnotationHookName[] = "__RECORD_REPLAY_ANNOTATION_HOOK__";
 
@@ -422,6 +546,38 @@ bool Disabled(const char* name) {
 }
 
 }  // namespace
+
+void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
+                                         v8::Local<v8::Context> context) {
+  if (!recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
+  v8::HandleScope handle_scope(isolate);
+  v8::Context::Scope context_scope(context);
+  // None of this is the page's, so none of it is in the recording.
+  recordreplay::AutoDisallowEvents disallow("RecordReplayRootFrameScripts");
+  v8::Local<v8::Object> args = v8::Object::New(isolate);
+  v8::Local<v8::Object> api = v8::Object::New(isolate);
+  if (!SetNative(isolate, context, args, "log", ArgsLog) ||
+      !SetNative(isolate, context, args, "getProgressCounter",
+                 ArgsGetProgressCounter) ||
+      !SetNative(isolate, context, args, "registerRootFrameScript",
+                 ArgsRegisterRootFrameScript) ||
+      !SetNative(isolate, context, args, "setCommandCallback",
+                 ArgsSetCommandCallback) ||
+      !SetHidden(isolate, context, context->Global(), kArgumentsName, args) ||
+      !SetHidden(isolate, context, context->Global(), kApiName, api)) {
+    return;
+  }
+  if (!RunPageScript(isolate, context, kPageApiScript, kInternalScriptName)) {
+    return;
+  }
+  // By index: a script may register another.
+  for (size_t i = 0; i < RootFrameScripts().size(); i++) {
+    std::string script = RootFrameScripts()[i];
+    RunPageScript(isolate, context, script.c_str(), kInternalScriptName);
+  }
+}
 
 void RecordReplayInstallPageScripts(v8::Isolate* isolate,
                                     v8::Local<v8::Context> context) {

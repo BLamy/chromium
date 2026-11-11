@@ -301,6 +301,9 @@ void LocalWindowProxy::Initialize() {
   }
 
   if (world_->IsMainWorld()) {
+    if (GetFrame()->IsMainFrame()) {
+      RecordReplayInstallRootFrameScripts(GetIsolate(), context);
+    }
     RecordReplayInstallPageScripts(GetIsolate(), context);
   }
 

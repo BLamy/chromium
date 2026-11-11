@@ -9,6 +9,12 @@
 
 namespace blink {
 
+// Gives a root frame's new main-world window what a replay's own code in the
+// page uses: __RECORD_REPLAY_ARGUMENTS__, the commands answered in the page,
+// and the scripts registered to run in every root frame.
+void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
+                                         v8::Local<v8::Context> context);
+
 // Gives a new main-world window the annotation hook and the devtools
 // stand-ins, when the page is being recorded or replayed.
 void RecordReplayInstallPageScripts(v8::Isolate* isolate,
