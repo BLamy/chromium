@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <fstream>
 #include <sstream>
@@ -447,7 +448,16 @@ void ReturnText(const v8::FunctionCallbackInfo<v8::Value>& args,
 }
 
 void ArgsGetRecordingId(const v8::FunctionCallbackInfo<v8::Value>& args) {
-  if (const char* id = recordreplay::GetRecordingId()) {
+  // What the page's script does next depends on this, and whoever replays
+  // doesn't have the ID the recording was made under: the answer is recorded.
+  char id[128] = {};
+  if (!recordreplay::IsReplaying()) {
+    if (const char* recording_id = recordreplay::GetRecordingId()) {
+      strncpy(id, recording_id, sizeof(id) - 1);
+    }
+  }
+  recordreplay::RecordReplayBytes("GetRecordingId", id, sizeof(id));
+  if (id[0]) {
     ReturnText(args, id);
   } else {
     args.GetReturnValue().SetNull();
@@ -534,8 +544,8 @@ void OnNewScriptWithSourceMap(v8::Isolate* isolate,
   frame->DomWindow()->GetAgent()->event_loop()->EnqueueMicrotask(BindOnce(
       [](LocalFrame* frame, int script_id, const std::string& url,
          const std::string& source_map_url) {
-        ScriptState* script_state = ToScriptStateForMainWorld(frame);
-        if (!script_state || !script_state->ContextIsValid()) {
+        ScriptState* script_state = RecordReplayMainWorldIfInitialized(frame);
+        if (!script_state) {
           return;
         }
         ScriptState::Scope scope(script_state);

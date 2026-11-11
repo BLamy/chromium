@@ -337,6 +337,11 @@ void SoftwareRenderer::BeginDrawingRenderPass(
 }
 
 bool SoftwareRenderer::IsSoftwareResource(ResourceId resource_id) {
+  // A recorded process draws its frames with no resource provider, and all of
+  // a frame's resources are in software.
+  if (!resource_provider()) {
+    return true;
+  }
   return resource_provider()->IsResourceSoftwareBacked(resource_id);
 }
 
@@ -536,8 +541,10 @@ void SoftwareRenderer::DrawTextureQuad(const TextureDrawQuad* quad) {
   SkRect sk_uv_rect = gfx::RectFToSkRect(visible_uv_rect);
   SkRect quad_rect = gfx::RectToSkRect(quad->visible_rect);
 
-  const bool y_flipped = resource_provider()->GetOrigin(quad->resource_id) ==
-                         kBottomLeft_GrSurfaceOrigin;
+  const bool y_flipped =
+      resource_provider() &&
+      resource_provider()->GetOrigin(quad->resource_id) ==
+          kBottomLeft_GrSurfaceOrigin;
   if (y_flipped) {
     current_canvas_->translate(0, quad->rect.height());
     current_canvas_->scale(1, -1);

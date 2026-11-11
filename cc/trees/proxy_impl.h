@@ -127,6 +127,10 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
 
   void ClearHistory() override;
   size_t CommitDurationSampleCountForTesting() const override;
+
+  // [RecordReplay] Draws a frame now, for a replay that has left its recording
+  // and is asked what the page looks like.
+  void RecordReplayRepaint();
   const DelayedUniqueNotifier& SmoothnessPriorityExpirationNotifierForTesting()
       const {
     return smoothness_priority_expiration_notifier_;

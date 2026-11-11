@@ -676,6 +676,8 @@ component("base") {
     "record_replay.cc",
     "record_replay.h",
     "record_replay_atomic_sequence_num.h",
+    "record_replay_paint.cc",
+    "record_replay_paint.h",
     "record_replay_ordered_atomic.h",
     "deterministic_containers.h",
     "run_loop.cc",

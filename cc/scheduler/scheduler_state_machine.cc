@@ -389,25 +389,41 @@ bool SchedulerStateMachine::ShouldDraw() const {
 
   // Do not draw more than once in the deadline. Aborted draws are ok because
   // those are effectively nops.
-  if (did_draw_)
+  if (!replay_force_draw_ && did_draw_) {
     return false;
+  }
 
   // Don't draw if an early check determined the frame does not have damage.
-  if (skip_draw_)
+  if (!replay_force_draw_ && skip_draw_) {
     return false;
+  }
 
   // Don't draw if we are waiting on the first commit after a surface.
   if (layer_tree_frame_sink_state_ != LayerTreeFrameSinkState::ACTIVE)
     return false;
 
   // Do not queue too many draws.
-  if (IsDrawThrottled())
+  if (!replay_force_draw_ && IsDrawThrottled()) {
     return false;
+  }
+
+  // [RecordReplay] A repaint draws its own commit, so the draw waits for its
+  // pending tree to activate.
+  if (replay_force_draw_ && has_pending_tree_) {
+    return false;
+  }
 
   // Except for the cases above, do not draw outside of the BeginImplFrame
   // deadline.
-  if (begin_impl_frame_state_ != BeginImplFrameState::INSIDE_DEADLINE)
+  //
+  // [RecordReplay] A repaint's frame can end before its tree is ready to
+  // activate, and no later frame comes once a replay has left its recording,
+  // so it's drawn once the frame is over.
+  if (begin_impl_frame_state_ != BeginImplFrameState::INSIDE_DEADLINE &&
+      !(replay_force_draw_ &&
+        begin_impl_frame_state_ == BeginImplFrameState::IDLE)) {
     return false;
+  }
 
   if (CheckShouldDraw()) {
     return false;
@@ -422,12 +438,14 @@ bool SchedulerStateMachine::ShouldDraw() const {
   if (forced_redraw_state_ == ForcedRedrawOnTimeoutState::WAITING_FOR_DRAW)
     return true;
 
-  return needs_redraw_;
+  return replay_force_draw_ || needs_redraw_;
 }
 
 bool SchedulerStateMachine::ShouldActivateSyncTreeBeforeDraw() const {
+  // [RecordReplay] A repaint draws the newest tree, so a pending tree can be
+  // activated over an active tree that was never drawn.
   return (!settings_.using_synchronous_renderer_compositor &&
-          active_tree_needs_first_draw_);
+          active_tree_needs_first_draw_ && !replay_force_draw_);
 }
 
 bool SchedulerStateMachine::ShouldActivateSyncTree() const {
@@ -719,6 +737,9 @@ SchedulerStateMachine::Action SchedulerStateMachine::NextAction() const {
   if (ShouldCommit())
     return Action::COMMIT;
   if (ShouldDraw()) {
+    if (replay_force_draw_) {
+      return Action::DRAW_FORCED;
+    }
     if (PendingDrawsShouldBeAborted())
       return Action::DRAW_ABORT;
     else if (forced_redraw_state_ ==
@@ -899,6 +920,10 @@ bool SchedulerStateMachine::CheckWillCommit() const {
 }
 
 void SchedulerStateMachine::WillCommit(bool commit_has_no_updates) {
+  // [RecordReplay] A repaint's commit comes before its frame forces a draw, so
+  // this clears a draw that a repaint which timed out still forces.
+  replay_force_draw_ = false;
+
   if (commit_has_no_updates) {
     consecutive_no_damage_main_frames_++;
   } else {
@@ -1255,6 +1280,11 @@ void SchedulerStateMachine::OnBeginImplFrame(const viz::BeginFrameArgs& args) {
   begin_impl_frame_state_ = BeginImplFrameState::INSIDE_BEGIN_FRAME;
   current_frame_number_++;
   begin_frame_is_animate_only_ = args.animate_only;
+  // [RecordReplay] A repaint's frame, which ProxyImpl::RecordReplayRepaint
+  // makes, is drawn whatever else is so.
+  replay_force_draw_ =
+      args.frame_id.source_id == viz::BeginFrameArgs::kManualSourceId &&
+      args.frame_id.sequence_number == kRecordReplayRepaintSequenceNumber;
   // Pin the timestamp as passed from the caller. This makes timestamps more
   // consistent, and insensitive to e.g. descheduling between receiving a
   // BeginFrame() call, and actually getting to BeginImplFrame().

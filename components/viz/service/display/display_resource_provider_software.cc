@@ -11,6 +11,9 @@
 #include "gpu/command_buffer/service/scheduler.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "third_party/skia/include/core/SkImage.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "base/record_replay.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 
 namespace viz {
 
@@ -140,6 +143,16 @@ DisplayResourceProviderSoftware::ScopedReadLockSkImage::ScopedReadLockSkImage(
     DisplayResourceProviderSoftware* resource_provider,
     ResourceId resource_id)
     : resource_provider_(resource_provider), resource_id_(resource_id) {
+  // A recorded process draws its frames with no resource provider: the pixels
+  // come from the frame being drawn.
+  if (!resource_provider) {
+    SkBitmap sk_bitmap;
+    if (recordreplay::PopulateSkBitmapWithResource(&sk_bitmap, resource_id)) {
+      sk_bitmap.setImmutable();
+      sk_image_ = SkImages::RasterFromBitmap(sk_bitmap);
+    }
+    return;
+  }
   const ChildResource* resource = resource_provider->LockForRead(resource_id);
   if (!resource) {
     return;
@@ -175,6 +188,9 @@ DisplayResourceProviderSoftware::ScopedReadLockSkImage::ScopedReadLockSkImage(
 
 DisplayResourceProviderSoftware::ScopedReadLockSkImage::
     ~ScopedReadLockSkImage() {
+  if (!resource_provider_) {
+    return;
+  }
   resource_provider_->UnlockForRead(resource_id_, sk_image_.get());
 }
 

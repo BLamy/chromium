@@ -24,6 +24,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/scriptable_document_parser.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
+#include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_info.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource.h"
@@ -341,6 +342,9 @@ void RecordReplayOnNetworkRequest(const Document* document,
   if (!ShouldReport()) {
     return;
   }
+  // Telling the driver can have it ask about the page there and then, with
+  // the replay's own script, from where the page's scripts aren't allowed.
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
   const uint64_t identifier = Identifier(request.InspectorId());
   const bool is_redirect = !redirect_response.IsNull();
 
@@ -404,6 +408,9 @@ void RecordReplayOnNetworkNavigationRedirect(
   if (!ShouldReport()) {
     return;
   }
+  // Telling the driver can have it ask about the page there and then, with
+  // the replay's own script, from where the page's scripts aren't allowed.
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
   const uint64_t identifier = Identifier(inspector_id);
   auto it = States().find(identifier);
   if (it == States().end()) {
@@ -441,6 +448,9 @@ void RecordReplayOnNetworkResponse(uint64_t inspector_id,
   if (!ShouldReport()) {
     return;
   }
+  // Telling the driver can have it ask about the page there and then, with
+  // the replay's own script, from where the page's scripts aren't allowed.
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
   const uint64_t identifier = Identifier(inspector_id);
   if (!States().count(identifier)) {
     return;
@@ -454,6 +464,9 @@ void RecordReplayOnNetworkData(uint64_t inspector_id,
   if (!ShouldReport()) {
     return;
   }
+  // Telling the driver can have it ask about the page there and then, with
+  // the replay's own script, from where the page's scripts aren't allowed.
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
   const uint64_t identifier = Identifier(inspector_id);
   auto it = States().find(identifier);
   if (it == States().end()) {
@@ -488,6 +501,9 @@ void RecordReplayOnNetworkFinished(uint64_t inspector_id,
   if (!ShouldReport()) {
     return;
   }
+  // Telling the driver can have it ask about the page there and then, with
+  // the replay's own script, from where the page's scripts aren't allowed.
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
   const uint64_t identifier = Identifier(inspector_id);
   if (!States().count(identifier)) {
     return;
@@ -507,6 +523,9 @@ void RecordReplayOnNetworkFailed(uint64_t inspector_id,
   if (!ShouldReport()) {
     return;
   }
+  // Telling the driver can have it ask about the page there and then, with
+  // the replay's own script, from where the page's scripts aren't allowed.
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
   const uint64_t identifier = Identifier(inspector_id);
   if (!States().count(identifier)) {
     return;

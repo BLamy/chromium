@@ -17,7 +17,10 @@
 #include "base/json/string_escape.h"
 #include "base/record_replay.h"
 #include "base/values.h"
+#include "third_party/blink/renderer/bindings/core/v8/local_window_proxy.h"
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_traits.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_css_style_declaration.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_css_style_sheet.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element.h"
@@ -193,7 +196,7 @@ void ReturnString(const v8::FunctionCallbackInfo<v8::Value>& info,
 // A page object for one of Blink's, as the page's own scripts would see it.
 template <typename T>
 v8::Local<v8::Value> ToPageValue(LocalFrame* frame, T* object) {
-  ScriptState* script_state = ToScriptStateForMainWorld(frame);
+  ScriptState* script_state = RecordReplayMainWorldIfInitialized(frame);
   if (!script_state || !object) {
     return v8::Local<v8::Value>();
   }
@@ -220,7 +223,7 @@ void NativeDomClassify(const v8::FunctionCallbackInfo<v8::Value>& info) {
 void NativeDomBundle(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Isolate* isolate = info.GetIsolate();
   LocalFrame* frame = RootFrame().Get();
-  ScriptState* script_state = frame ? ToScriptStateForMainWorld(frame) : nullptr;
+  ScriptState* script_state = RecordReplayMainWorldIfInitialized(frame);
   if (!script_state || !script_state->ContextIsValid()) {
     return;
   }
@@ -257,6 +260,16 @@ void NativeDomLayout(const v8::FunctionCallbackInfo<v8::Value>& info) {
 void NativeDevicePixelRatio(const v8::FunctionCallbackInfo<v8::Value>& info) {
   LocalFrame* frame = RootFrame().Get();
   info.GetReturnValue().Set(frame ? frame->DevicePixelRatio() : 0);
+}
+
+// Graphics.getDevicePixelRatio, which whoever replays asks at points where
+// nothing of the page's may be touched.
+char* CommandGetDevicePixelRatio(const char* params) {
+  LocalFrame* frame = RootFrame().Get();
+  std::string result =
+      "{\"ratio\":" + std::to_string(frame ? frame->DevicePixelRatio() : 0) +
+      "}";
+  return strdup(result.c_str());
 }
 
 // The box model of a node as CDP's DOM.getBoxModel gives it, as JSON.
@@ -497,6 +510,27 @@ void RecordReplayRegisterDomCommands() {
   V8RecordReplaySetGlueNativesInstaller(InstallNatives);
   V8RecordReplayRegisterEmbedderCommand("Target.getHTMLSource",
                                         CommandGetHTMLSource);
+  V8RecordReplayRegisterEmbedderCommand("Graphics.getDevicePixelRatio",
+                                        CommandGetDevicePixelRatio);
+}
+
+ScriptState* RecordReplayMainWorldIfInitialized(LocalFrame* frame) {
+  if (!frame) {
+    return nullptr;
+  }
+  v8::Isolate* isolate = ToIsolate(frame);
+  LocalWindowProxy* proxy = frame->WindowProxyMaybeUninitialized(
+      DOMWrapperWorld::MainWorld(isolate));
+  if (!proxy) {
+    return nullptr;
+  }
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = proxy->ContextIfInitialized();
+  if (context.IsEmpty()) {
+    return nullptr;
+  }
+  ScriptState* script_state = ScriptState::From(isolate, context);
+  return script_state->ContextIsValid() ? script_state : nullptr;
 }
 
 void RecordReplaySetDomRootFrame(LocalFrame* frame) {

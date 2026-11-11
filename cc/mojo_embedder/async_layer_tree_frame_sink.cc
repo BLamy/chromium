@@ -28,6 +28,8 @@
 #include "services/viz/public/mojom/compositing/thread.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "base/record_replay.h"
 
 namespace cc {
 namespace mojo_embedder {
@@ -186,6 +188,10 @@ void AsyncLayerTreeFrameSink::SubmitCompositorFrame(
   DCHECK(compositor_frame_sink_ptr_);
   DCHECK(frame.metadata.begin_frame_ack.has_damage);
   DCHECK(frame.metadata.begin_frame_ack.frame_id.IsSequenceValid());
+
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    recordreplay::SubmitCompositorFrame(local_surface_id_, frame);
+  }
 
   if (auto_needs_begin_frame_ && !needs_begin_frames_ &&
       !manual_begin_frame_) {

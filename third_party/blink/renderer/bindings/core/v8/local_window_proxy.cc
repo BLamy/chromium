@@ -83,6 +83,7 @@
 #include "base/record_replay.h"
 #include <optional>
 #include "third_party/blink/renderer/core/inspector/record_replay_dom.h"
+#include "base/record_replay_paint.h"
 
 namespace blink {
 
@@ -309,6 +310,9 @@ void LocalWindowProxy::Initialize() {
     if (GetFrame()->IsMainFrame()) {
       if (recordreplay::IsRecordingOrReplaying()) {
         RecordReplaySetDomRootFrame(GetFrame());
+        // The page's surface is a new one from here: the next frame drawn says
+        // which.
+        recordreplay::DoResetPaintSurface();
       }
       RecordReplayInstallRootFrameScripts(GetIsolate(), context);
     }

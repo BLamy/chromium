@@ -382,6 +382,17 @@ class CC_EXPORT SchedulerStateMachine {
 
   bool resourceless_draw() const { return resourceless_draw_; }
 
+  // [RecordReplay] The sequence number of the frame a repaint is drawn in,
+  // from the manual source. No other frame has it.
+  static constexpr uint64_t kRecordReplayRepaintSequenceNumber = UINT32_MAX;
+
+  // Whether the draw being done was a repaint's, which is then over.
+  bool ClearReplayForceDraw() {
+    bool result = replay_force_draw_;
+    replay_force_draw_ = false;
+    return result;
+  }
+
   void set_is_scrolling(bool is_scrolling) { is_scrolling_ = is_scrolling; }
   void set_waiting_for_scroll_event(bool waiting_for_scroll_event) {
     waiting_for_scroll_event_ = waiting_for_scroll_event;
@@ -503,6 +514,7 @@ class CC_EXPORT SchedulerStateMachine {
   bool can_draw_ = false;
   bool skip_draw_ = false;
   bool has_pending_tree_ = false;
+  bool replay_force_draw_ = false;
   bool pending_tree_is_ready_for_activation_ = false;
   bool active_tree_needs_first_draw_ = false;
   bool did_create_and_initialize_first_layer_tree_frame_sink_ = false;

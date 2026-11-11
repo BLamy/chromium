@@ -53,6 +53,8 @@
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "base/record_replay.h"
 
 namespace cc {
 
@@ -438,6 +440,9 @@ void ProxyImpl::NotifyReadyToCommitOnImpl(
     bool scroll_and_viewport_changes_synced,
     CommitTimestamps* commit_timestamps,
     bool commit_timeout) {
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    recordreplay::OnReadyToCommit();
+  }
   TRACE_EVENT("cc,benchmark", "ProxyImpl::ReadyToCommit",
               [&](perfetto::EventContext ctx) {
                 EmitMainFramePipelineStep(
@@ -1123,6 +1128,24 @@ void ProxyImpl::SetRequestHighFramerate(bool flag) {
 
 void ProxyImpl::NotifyNewLocalSurfaceIdExpectedWhilePaused() {
   host_impl_->NotifyNewLocalSurfaceIdExpectedWhilePaused();
+}
+
+}  // namespace cc
+
+namespace cc {
+
+void ProxyImpl::RecordReplayRepaint() {
+  // The main thread has brought layout up to date and committed. The message
+  // that would have the compositor draw the result won't come: a replay that
+  // has left its recording gets no messages. So the scheduler is given a
+  // frame here, marked so that it's drawn whatever else is so, and the main
+  // thread is told when that draw is over.
+  base::TimeTicks now = base::TimeTicks::Now();
+  viz::BeginFrameArgs args = viz::BeginFrameArgs::Create(
+      BEGINFRAME_FROM_HERE, viz::BeginFrameArgs::kManualSourceId,
+      SchedulerStateMachine::kRecordReplayRepaintSequenceNumber, now, now,
+      viz::BeginFrameArgs::DefaultInterval(), viz::BeginFrameArgs::NORMAL);
+  scheduler_->OnBeginFrameDerivedImpl(args);
 }
 
 }  // namespace cc

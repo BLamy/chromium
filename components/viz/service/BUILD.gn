@@ -123,6 +123,8 @@ viz_component("service") {
     "display/pending_swap_params.cc",
     "display/pending_swap_params.h",
     "display/render_pass_alpha_type.h",
+    "display/record_replay_render.cc",
+    "display/record_replay_render.h",
     "display/renderer_utils.cc",
     "display/renderer_utils.h",
     "display/resolved_frame_data.cc",

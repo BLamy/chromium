@@ -16,6 +16,7 @@
 namespace blink {
 
 class LocalFrame;
+class ScriptState;
 
 // Gives V8 the functions, and the commands answered without a script. Once
 // per process.
@@ -24,6 +25,11 @@ CORE_EXPORT void RecordReplayRegisterDomCommands();
 // The frame the commands are about: the tab's main frame.
 CORE_EXPORT void RecordReplaySetDomRootFrame(LocalFrame* frame);
 CORE_EXPORT LocalFrame* RecordReplayDomRootFrame();
+
+// The frame's own context for its page's scripts, or null when the page hasn't
+// made it yet. A replay asks about a page at points of its own choosing, and
+// mustn't be what makes a page's context.
+CORE_EXPORT ScriptState* RecordReplayMainWorldIfInitialized(LocalFrame* frame);
 
 // A document being parsed, and the text it has been given so far, which is
 // what the source of an HTML page is. |parser| only tells them apart.

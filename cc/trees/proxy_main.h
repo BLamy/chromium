@@ -36,6 +36,9 @@ class RenderFrameMetadataObserver;
 // needs to have with the main side.
 // The class is created and lives on the main thread.
 class CC_EXPORT ProxyMain : public Proxy {
+ private:
+  bool record_replay_force_blocking_ = false;
+
  public:
   ProxyMain(LayerTreeHost* layer_tree_host,
             TaskRunnerProvider* task_runner_provider);
@@ -66,6 +69,13 @@ class CC_EXPORT ProxyMain : public Proxy {
                                    std::string_view suffix) const;
   void BeginMainFrame(
       std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state);
+
+  // [RecordReplay] For a replay that has left its recording and is asked what
+  // the page looks like: a main frame whose commit the main thread waits for,
+  // and then a frame drawn on the compositor thread.
+  void RecordReplayBeginMainFrame(
+      std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state);
+  void RecordReplayRepaint();
   void DidChangeBeginFrameSourcePaused(bool paused);
   void DidCompleteCommit(int source_frame_number, CommitTimestamps);
   void DidPresentCompositorFrame(

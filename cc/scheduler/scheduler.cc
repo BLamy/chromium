@@ -37,6 +37,8 @@
 #include "services/tracing/public/cpp/perfetto/macros.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_compositor_scheduler_state.pbzero.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "base/record_replay.h"
 
 namespace cc {
 
@@ -1100,6 +1102,9 @@ void Scheduler::ProcessScheduledActions() {
         break;
       case SchedulerStateMachine::Action::DRAW_FORCED:
         DrawForced();
+        if (state_machine_->ClearReplayForceDraw()) {
+          recordreplay::OnRepaintFinished();
+        }
         break;
       case SchedulerStateMachine::Action::DRAW_ABORT:
         // No action is actually performed, but this allows the state machine to

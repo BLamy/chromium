@@ -45,6 +45,8 @@
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "base/record_replay.h"
 
 namespace cc {
 
@@ -69,9 +71,15 @@ ProxyMain::ProxyMain(LayerTreeHost* layer_tree_host,
   TRACE_EVENT0("cc", "ProxyMain::ProxyMain");
   DCHECK(task_runner_provider_);
   DCHECK(IsMainThread());
+
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    recordreplay::InitPaintCallback();
+    recordreplay::SetCompositorProxy(this);
+  }
 }
 
 ProxyMain::~ProxyMain() {
+  recordreplay::CompositorProxyDestroyed(this);
   TRACE_EVENT0("cc", "ProxyMain::~ProxyMain");
   DCHECK(IsMainThread());
   DCHECK(!started_);
@@ -171,8 +179,24 @@ void ProxyMain::RecordBeginMainFrameMetrics(
       begin_main_frame_reason.to_ulong(), num_buckets);
 }
 
+void ProxyMain::RecordReplayBeginMainFrame(
+    std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state) {
+  record_replay_force_blocking_ = true;
+  BeginMainFrame(std::move(begin_main_frame_state));
+  record_replay_force_blocking_ = false;
+}
+
+void ProxyMain::RecordReplayRepaint() {
+  ImplThreadTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&ProxyImpl::RecordReplayRepaint,
+                                base::Unretained(proxy_impl_.get())));
+}
+
 void ProxyMain::BeginMainFrame(
     std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state) {
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    recordreplay::SetCompositorProxy(this);
+  }
   DCHECK(IsMainThread());
   DCHECK_EQ(NO_PIPELINE_STAGE, current_pipeline_stage_);
   // Record the final status, subsampled. Use an RAII object as this function
@@ -334,7 +358,7 @@ void ProxyMain::BeginMainFrame(
     commit_timeout = true;
   }
 
-  bool blocking = block_on_next_commit_;
+  bool blocking = block_on_next_commit_ || record_replay_force_blocking_;
   block_on_next_commit_ = false;
 
   bool scroll_and_viewport_changes_synced = false;
@@ -457,7 +481,10 @@ void ProxyMain::BeginMainFrame(
   }
 
   // If updating the layers resulted in a content update, we need a commit.
-  if (updated) {
+  //
+  // [RecordReplay] A scroll doesn't always commit, and a recording needs the
+  // commit to have a paint for it, so there always is one.
+  if (updated || recordreplay::IsRecordingOrReplaying("notify-paints")) {
     final_pipeline_stage_ = COMMIT_PIPELINE_STAGE;
   }
   bool has_updates = (final_pipeline_stage_ == COMMIT_PIPELINE_STAGE);
@@ -551,6 +578,10 @@ void ProxyMain::BeginMainFrame(
     std::optional<DebugScopedSetMainThreadBlocked> main_thread_blocked;
     if (blocking)
       main_thread_blocked.emplace(task_runner_provider_);
+
+    if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+      recordreplay::OnCommitPaint();
+    }
 
     ImplThreadTaskRunner()->PostTask(
         FROM_HERE, base::BindOnce(&ProxyImpl::NotifyReadyToCommitOnImpl,

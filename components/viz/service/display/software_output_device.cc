@@ -14,6 +14,9 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "ui/gfx/vsync_provider.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "base/record_replay.h"
+#include "third_party/skia/include/core/SkPixmap.h"
 
 namespace viz {
 
@@ -50,7 +53,16 @@ SkCanvas* SoftwareOutputDevice::BeginPaint(const gfx::Rect& damage_rect) {
   return surface_ ? surface_->getCanvas() : nullptr;
 }
 
-void SoftwareOutputDevice::EndPaint() {}
+void SoftwareOutputDevice::EndPaint() {
+  // Only the device a recorded process draws its own frames to gets here in
+  // such a process: record_replay_render.cc.
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    SkPixmap pixmap;
+    if (surface_ && surface_->peekPixels(&pixmap)) {
+      recordreplay::OnPaintFinished(pixmap, viewport_pixel_size_);
+    }
+  }
+}
 
 gfx::VSyncProvider* SoftwareOutputDevice::GetVSyncProvider() {
   return vsync_provider_.get();

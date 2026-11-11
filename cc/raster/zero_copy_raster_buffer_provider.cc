@@ -26,6 +26,8 @@
 #include "gpu/command_buffer/common/shared_image_trace_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "url/gurl.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "base/record_replay.h"
 
 namespace cc {
 namespace {
@@ -48,6 +50,10 @@ ZeroCopyRasterBufferImpl::ZeroCopyRasterBufferImpl(
           sii, "ZeroCopyRasterBufferProviderSoftware");
       in_use_resource.backing()->mailbox_sync_token =
           in_use_resource.backing()->shared_image()->creation_sync_token();
+      if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+        recordreplay::NotifyRasterBuffer(
+            in_use_resource.backing()->shared_image());
+      }
     } else {
       auto backing = std::make_unique<ResourcePool::Backing>(
           in_use_resource.size(), in_use_resource.format(),
