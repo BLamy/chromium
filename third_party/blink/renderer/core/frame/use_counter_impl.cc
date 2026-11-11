@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/core/frame/use_counter_impl.h"
 
+#include "base/record_replay.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
@@ -227,6 +228,14 @@ void UseCounterImpl::Count(const UseCounterFeature& feature,
 
   if (mute_count_)
     return;
+
+  // What a replay runs for itself, with events disallowed, uses features too.
+  // Counting those would leave the page's own first use with nothing to
+  // report, where the recording has the report and the clock it reads.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      recordreplay::AreEventsDisallowed()) {
+    return;
+  }
 
   if (feature_tracker_.TestAndSet(feature)) {
     return;
