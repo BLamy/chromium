@@ -313,16 +313,27 @@ v8::Local<v8::Context> MainThreadDebugger::ensureDefaultContextInGroup(
 
 void MainThreadDebugger::beginEnsureAllContextsInGroup(int context_group_id) {
   LocalFrame* frame = WeakIdentifierMap<LocalFrame>::Lookup(context_group_id);
+  // Replay: a replay's debugger asks about a context group at a pause, and
+  // the frame it's for can be gone: frames are held weakly here.
+  if (!frame) {
+    return;
+  }
   frame->GetSettings()->SetForceMainWorldInitialization(true);
 }
 
 void MainThreadDebugger::endEnsureAllContextsInGroup(int context_group_id) {
   LocalFrame* frame = WeakIdentifierMap<LocalFrame>::Lookup(context_group_id);
+  if (!frame) {
+    return;
+  }
   frame->GetSettings()->SetForceMainWorldInitialization(false);
 }
 
 bool MainThreadDebugger::canExecuteScripts(int context_group_id) {
   LocalFrame* frame = WeakIdentifierMap<LocalFrame>::Lookup(context_group_id);
+  if (!frame || !frame->DomWindow()) {
+    return false;
+  }
   return frame->DomWindow()->CanExecuteScripts(kNotAboutToExecuteScript);
 }
 
