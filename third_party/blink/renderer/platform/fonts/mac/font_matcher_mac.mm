@@ -388,7 +388,12 @@ ScopedCFTypeRef<CTFontRef> BestStyleMatchForFamilyNS(
   ScopedCFTypeRef<CTFontRef> matched_font;
   CTFontSymbolicTraits chosen_traits;
   int chosen_weight;
-  for (NSArray* font_info in fonts) {
+  // By index rather than fast enumeration, which hands the caller a buffer of
+  // the collection's own objects: Replay's driver has no way to record that,
+  // and it does record -count and indexing.
+  const NSUInteger font_count = fonts.count;
+  for (NSUInteger font_index = 0; font_index < font_count; ++font_index) {
+    NSArray* font_info = fonts[font_index];
     NSString* candidate_name = font_info[0];
     ScopedCFTypeRef<CTFontRef> candidate_font;
     std::optional<int> resolved_weight;

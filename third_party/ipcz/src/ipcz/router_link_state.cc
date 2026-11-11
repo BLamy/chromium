@@ -62,6 +62,12 @@ void RouterLinkState::SetSideStable(LinkSide side) {
 }
 
 bool RouterLinkState::TryLock(LinkSide from_side) {
+  // Whatever way this comes out, the other node's bits decided it.
+  return recordreplay::Value("ipcz RouterLinkState::TryLock",
+                             TryLockInternal(from_side)) != 0;
+}
+
+bool RouterLinkState::TryLockInternal(LinkSide from_side) {
   const Status kThisSideStable =
       from_side == LinkSide::kA ? kSideAStable : kSideBStable;
   const Status kOtherSideStable =
@@ -94,8 +100,7 @@ bool RouterLinkState::TryLock(LinkSide from_side) {
     }
   }
 
-  return recordreplay::Value("ipcz RouterLinkState::TryLock",
-                             desired_bit == kLockedByThisSide) != 0;
+  return desired_bit == kLockedByThisSide;
 }
 
 void RouterLinkState::Unlock(LinkSide from_side) {

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/apple/foundation_util.h"
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -455,6 +456,19 @@ bool CFRangeToNSRange(CFRange range, NSRange* range_out) {
 }
 
 span<const uint8_t> CFDataToSpan(CFDataRef data) {
+  // Through CoreFoundation when recording or replaying. Replay's driver
+  // records what CFDataGetBytePtr points at, and its engine serves a font's
+  // tables through it. -[NSData bytes] is only a pointer to it: a font's
+  // weight was read from wherever that pointed, and matched another face.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    if (!data) {
+      return {};
+    }
+    const CFIndex length = CFDataGetLength(data);
+    // SAFETY: CFDataGetBytePtr() points at CFDataGetLength() bytes.
+    return UNSAFE_BUFFERS(
+        span(CFDataGetBytePtr(data), static_cast<size_t>(length)));
+  }
   return NSDataToSpan(apple::CFToNSPtrCast(data));
 }
 

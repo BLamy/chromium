@@ -90,6 +90,7 @@ struct IPCZ_ALIGN(8) RouterLinkState : public RefCountedFragment {
   //
   // In any other situation, the status is unmodified and this returns false.
   [[nodiscard]] bool TryLock(LinkSide from_side);
+  [[nodiscard]] bool TryLockInternal(LinkSide from_side);
 
   // Unlocks a link previously locked by TryLock().
   void Unlock(LinkSide from_side);

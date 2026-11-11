@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 
+#include "third_party/abseil-cpp/absl/synchronization/mutex.h"
 #include "base/record_replay.h"
 #include "base/command_line.h"
 #include "base/environment.h"
@@ -110,6 +111,14 @@ int ChromeMain(int argc, const char** argv) {
   // Looks for Replay's driver, which main() has attached by now if this
   // process is to be recorded.
   recordreplay::Initialize();
+
+  if (recordreplay::IsRecordingOrReplaying("eager-initialization",
+                                           "AbslMutex")) {
+    // absl::Mutex contention isn't recorded, so the thread that first contends
+    // and runs the slow path's one-time initializations (some of which open
+    // files) differs between recording and replaying.
+    absl::RecordReplayInitializeMutexSlowPath();
+  }
 
 #else
 #error Unknown platform.
