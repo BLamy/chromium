@@ -84,9 +84,15 @@ void WaitableEvent::SignalImpl() {
       !record_replay_ordered_lock_id_) {
     disallow.emplace("WaitableEvent::Signal");
   }
-  // Read before signaling: the thread being signaled can wake up at once when
-  // replaying, and may destroy the event.
+  // Held across the send. A waiter takes this lock when its wait returns, so
+  // it always comes after the signal that woke it, and on a replay, where its
+  // wait returns at once, it stays here until this thread has signaled. Without
+  // that it could go on to destroy the event before this thread got here.
+  // Read first: once the lock is released the event may be gone.
   const int ordered_lock_id = record_replay_ordered_lock_id_;
+  if (ordered_lock_id) {
+    recordreplay::OrderedLock(ordered_lock_id);
+  }
 
   // Optimistically declare this event as signaled.
   signal_estimate_.store(true, std::memory_order_relaxed);
@@ -100,9 +106,10 @@ void WaitableEvent::SignalImpl() {
       mach_msg(&msg.header, MACH_SEND_MSG | MACH_SEND_TIMEOUT, sizeof(msg),
                /*rcv_size=*/0, /*rcv_name=*/MACH_PORT_NULL, /*timeout=*/0,
                /*notify=*/MACH_PORT_NULL);
+  if (ordered_lock_id) {
+    recordreplay::OrderedUnlock(ordered_lock_id);
+  }
   MACH_CHECK(kr == KERN_SUCCESS || kr == MACH_SEND_TIMED_OUT, kr) << "mach_msg";
-
-  RecordReplayEnsureOrdered(ordered_lock_id);
 }
 
 bool WaitableEvent::IsSignaled() const {

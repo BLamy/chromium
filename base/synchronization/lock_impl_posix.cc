@@ -132,7 +132,15 @@ static bool RecordReplayOrderUnnamedLocks() {
 }
 
 LockImpl::LockImpl(const char* ordered_name) {
-  if (!ordered_name && recordreplay::IsRecordingOrReplaying() &&
+  // An empty name is for a lock that's never ordered: one taken on a path that
+  // threads race to without any lock, so that whether it's taken at all isn't
+  // the same on a replay. Such a lock must guard nothing a recording has in it.
+  const bool never_ordered = ordered_name && !*ordered_name;
+  if (never_ordered) {
+    ordered_name = nullptr;
+  }
+  if (!never_ordered && !ordered_name &&
+      recordreplay::IsRecordingOrReplaying() &&
       !recordreplay::AreEventsDisallowed() &&
       !recordreplay::AreEventsPassedThrough() &&
       RecordReplayOrderUnnamedLocks()) {

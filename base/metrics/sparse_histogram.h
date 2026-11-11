@@ -95,7 +95,9 @@ class BASE_EXPORT SparseHistogram : public HistogramBase {
 
   // Protects access to |unlogged_samples_|, |logged_samples_|, and
   // |final_delta_created_|.
-  mutable base::Lock lock_;
+  // Never ordered when recording (see LockImpl::LockImpl): metrics are no part
+  // of a recording, and code that runs at a pause in a replay reports them too.
+  mutable base::Lock lock_{""};
 
 #if DCHECK_IS_ON()  // Don't waste memory if it won't be used.
   // Flag to indicate if SnapshotFinalDelta has been previously called.
