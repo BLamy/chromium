@@ -14,6 +14,7 @@
 
 #include "absl/container/internal/raw_hash_set.h"
 
+#include <dlfcn.h>
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -89,6 +90,13 @@ inline size_t RandomSeed() {
   static std::atomic<size_t> counter(0);
   size_t value = counter.fetch_add(kIncrement, std::memory_order_relaxed);
 #endif  // ABSL_HAVE_THREAD_LOCAL
+  // Replay: no address in it in a recorded or replayed process, for the reason
+  // given at MixingHashState::Seed(). The count alone still differs from table
+  // to table, and is the same on a replay for a thread that does the same.
+  static const bool replay = dlsym(RTLD_DEFAULT, "RecordReplayAttach") != nullptr;
+  if (replay) {
+    return value;
+  }
   return value ^ static_cast<size_t>(reinterpret_cast<uintptr_t>(&counter));
 }
 

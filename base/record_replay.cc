@@ -172,6 +172,16 @@ void DoFinishRecording() {
   Print("DoFinishRecording");
   gRecordReplayFinishRecording();
   Print("RecordingFinished");
+  if (gRecordReplayIsReplaying()) {
+    // A replay that gets here is at the end of its recording. Whatever is
+    // replaying it decides what happens next, and exiting would take it along,
+    // so this thread stops here, as every other does when its part of the
+    // recording runs out.
+    AutoPassThroughEvents pass_through;
+    for (;;) {
+      sleep(UINT32_MAX);
+    }
+  }
   _exit(0);
 }
 
