@@ -8,6 +8,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -45,6 +46,17 @@ void Parcel::AllocateData(size_t num_bytes,
                           bool allow_partial,
                           NodeLinkMemory* memory) {
   ABSL_ASSERT(std::holds_alternative<std::monostate>(data_.storage));
+
+  // A parcel's data stays out of shared memory when a renderer is recorded, on
+  // both sides of the link: in the renderer itself, and in a browser started
+  // to record all content, which is what sends a page its responses. Inline,
+  // a message reaches the renderer through its channel, in a call a recording
+  // has the output of, as every message did on Chromium 108's mojo. Whatever
+  // reads a recording finds a response by its headers there.
+  static const bool no_shared_data = getenv("RECORD_ALL_CONTENT") != nullptr;
+  if (no_shared_data || recordreplay::IsRecordingOrReplaying()) {
+    memory = nullptr;
+  }
 
   Fragment fragment;
   if (num_bytes > 0 && memory) {

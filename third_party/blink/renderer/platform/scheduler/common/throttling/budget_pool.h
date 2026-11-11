@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/platform/scheduler/common/throttling/task_queue_throttler.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
+#include "third_party/blink/renderer/platform/wtf/linked_hash_set.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 
 namespace base {
@@ -100,7 +101,10 @@ class PLATFORM_EXPORT BudgetPool {
 
   const char* name_;  // NOT OWNED
 
-  HashSet<TaskQueueThrottler*> associated_throttlers_;
+  // In the order they were added: updating a throttler takes its queue's lock,
+  // and a hash set's order comes from addresses, which aren't the same on a
+  // replay.
+  LinkedHashSet<TaskQueueThrottler*> associated_throttlers_;
   bool is_enabled_;
 };
 
