@@ -3302,8 +3302,9 @@ deps = {
     Var('chromium_git') + '/webpagereplay.git' + '@' + Var('webpagereplay_revision'),
 
   'src/third_party/webrtc':
-    # Upstream bd3d2d31501d plus what recording needs, on chromium-158.
-    'https://github.com/BLamy/webrtc.git' + '@' + '16ad231be3f6f4053f7e776b5e1176955d5ff58e',
+    # Upstream bd3d2d31501d's tree, imported without its history, plus what
+    # recording needs, on chromium-158.
+    'https://github.com/BLamy/webrtc.git' + '@' + '1d4d9ac604e762a0d7109326939e98ef9cc22075',
 
   # Wuffs' canonical repository is at github.com/google/wuffs, but we use
   # Skia's mirror of Wuffs, the same as in upstream Skia's DEPS file.
