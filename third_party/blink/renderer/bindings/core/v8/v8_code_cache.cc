@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/record_replay.h"
 #include "base/containers/span_reader.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -362,6 +363,14 @@ V8CodeCache::GetCompileOptionsInternal(
   // compilation results in a cache hit, but shall not be recorded in case of
   // cache hit.
   v8::ScriptCompiler::NoCacheReason no_cache_reason;
+
+  // Cached code has none of Replay's instrumentation in it, and whether there
+  // is any differs from run to run. Compile hints are the same.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return std::make_tuple(v8::ScriptCompiler::kNoCompileOptions,
+                           ProduceCacheOptions::kNoProduceCache,
+                           v8::ScriptCompiler::kNoCacheBecauseCachingDisabled);
+  }
 
   auto no_code_cache_compile_options = v8::ScriptCompiler::kNoCompileOptions;
 

@@ -28,6 +28,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/feature_list.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -356,6 +357,8 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument& document,
                          prefetch_policy) {
   script_runner_ =
       HTMLParserScriptRunner::Create(ReentryPermit(), &document, this);
+
+  recordreplay::OnHTMLParse(document.Url().GetString().Utf8());
 
   // Allow declarative shadow DOM for the document parser, if not explicitly
   // disabled.

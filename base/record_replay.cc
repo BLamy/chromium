@@ -36,6 +36,7 @@ namespace {
 // built from backend/src/cpp, and any that's missing stays null and its caller
 // does nothing.
 #define ForEachDriverSymbol(Macro)                                             \
+  Macro(RecordReplayAddMetadata, void, (const char*))                          \
   Macro(RecordReplayIsReplaying, bool, ())                                     \
   Macro(RecordReplayGetRecordingId, const char*, ())                           \
   Macro(RecordReplayFinishRecording, void, ())                                 \
@@ -311,6 +312,22 @@ void Trace(const char* format, ...) {
 
 uintptr_t RecordReplayValue(const char* why, uintptr_t v) {
   return Active() ? gRecordReplayValue(why, v) : v;
+}
+
+void OnHTMLParse(const std::string& url) {
+  if (!Active() || !IsMainThread() || url.empty() ||
+      url.starts_with("about:") ||
+      (url.starts_with("chrome") && !url.starts_with("chrome-extension"))) {
+    return;
+  }
+  static bool has_parse = false;
+  if (has_parse) {
+    return;
+  }
+  has_parse = true;
+  std::string json;
+  base::JSONWriter::Write(base::DictValue().Set("uri", url), &json);
+  gRecordReplayAddMetadata(json.c_str());
 }
 
 uintptr_t RecordReplayValueIfAllowed(const char* why, uintptr_t v) {

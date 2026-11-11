@@ -71,6 +71,10 @@ uintptr_t RecordReplayValue(const char* why, uintptr_t v);
 // The same, for somewhere that also runs while events are disallowed or
 // passed through, where the value is used as it is.
 uintptr_t RecordReplayValueIfAllowed(const char* why, uintptr_t v);
+
+// The first page a renderer parses is what its recording says it's of, as
+// "uri" in the recording's metadata. Whatever lists recordings goes by it.
+void OnHTMLParse(const std::string& url);
 void RecordReplayBytes(const char* why, void* buf, size_t size);
 void RecordReplayString(const char* why, std::string& text);
 
