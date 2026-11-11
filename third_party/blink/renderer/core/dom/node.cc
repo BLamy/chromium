@@ -24,6 +24,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 
 #include <algorithm>
@@ -1652,6 +1653,16 @@ void Node::SetNeedsStyleRecalc(StyleChangeType change_type,
     return;
   if (ShouldSkipMarkingStyleDirty())
     return;
+
+  // Recorded when a recording is made with its assertions on, so that a
+  // replay stops at the first node it marks that the recording didn't.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreAssertsDisabled()) {
+    recordreplay::AssertMaybeEventsDisallowed(
+        "Node::SetNeedsStyleRecalc %s %s %s %d", nodeName().Utf8().c_str(),
+        reason.ReasonString().Utf8().c_str(),
+        reason.GetExtraData().Utf8().c_str(), static_cast<int>(change_type));
+  }
 
   DEVTOOLS_TIMELINE_TRACE_EVENT_INSTANT_WITH_CATEGORIES(
       TRACE_DISABLED_BY_DEFAULT("devtools.timeline.invalidationTracking"),

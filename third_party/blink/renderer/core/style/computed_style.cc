@@ -21,6 +21,7 @@
  *
  */
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 
 #include <algorithm>
@@ -466,6 +467,21 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
   if (!old_style.ScrollMarkerGroupNone() &&
       old_style.IsScrollContainer() != new_style.IsScrollContainer()) {
     return Difference::kDescendantAffecting;
+  }
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreAssertsDisabled()) {
+    // Which part of two styles differs, for finding why a replay's differ.
+    recordreplay::AssertMaybeEventsDisallowed(
+        "ComputedStyle::ComputeDifference %d %d %d %d %d %d %d %d",
+        old_style.NonIndependentInheritedEqual(new_style),
+        old_style.JustifyItems() == new_style.JustifyItems(),
+        old_style.AppliedTextDecorations() ==
+            new_style.AppliedTextDecorations(),
+        old_style.NonInheritedEqual(new_style),
+        old_style.ChildHasExplicitInheritance(),
+        old_style.InheritedVariablesEqual(new_style),
+        old_style.GetFont() == new_style.GetFont(),
+        old_style.GetFontDescription() == new_style.GetFontDescription());
   }
   if (!old_style.NonIndependentInheritedEqual(new_style)) {
     return Difference::kInherited;

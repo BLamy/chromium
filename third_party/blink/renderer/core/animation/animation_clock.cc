@@ -28,6 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/animation/animation_clock.h"
 
 #include <math.h>
@@ -43,6 +44,13 @@ constexpr base::TimeDelta kApproximateFrameTime = base::Seconds(1 / 60.0);
 unsigned AnimationClock::currently_running_task_ = 0;
 
 void AnimationClock::UpdateTime(base::TimeTicks time) {
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreAssertsDisabled()) {
+    recordreplay::AssertMaybeEventsDisallowed(
+        "AnimationClock::UpdateTime %lld %u",
+        static_cast<long long>((time - base::TimeTicks()).InMicroseconds()),
+        currently_running_task_);
+  }
   task_for_which_time_was_calculated_ = currently_running_task_;
 
   // TODO(crbug.com/985770): Change this to a DCHECK_GE(time, time_) when
@@ -84,6 +92,14 @@ base::TimeTicks AnimationClock::CurrentTime() {
   }
   UpdateTime(new_time);
 
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreAssertsDisabled()) {
+    recordreplay::AssertMaybeEventsDisallowed(
+        "AnimationClock::CurrentTime %lld %lld",
+        static_cast<long long>((time_ - base::TimeTicks()).InMicroseconds()),
+        static_cast<long long>(
+            (current_time - base::TimeTicks()).InMicroseconds()));
+  }
   return time_;
 }
 
