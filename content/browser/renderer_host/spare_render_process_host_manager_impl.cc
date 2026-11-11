@@ -4,6 +4,8 @@
 
 #include "content/browser/renderer_host/spare_render_process_host_manager_impl.h"
 
+#include <stdlib.h>
+
 #include <algorithm>
 #include <optional>
 
@@ -455,6 +457,13 @@ SpareRenderProcessHostManagerImpl::GetLastSpareRendererCreationInfo() const {
 RenderProcessHost* SpareRenderProcessHostManagerImpl::WarmupSpare(
     BrowserContext* browser_context,
     std::optional<base::TimeDelta> timeout) {
+  // Every renderer makes a recording when all content is recorded. A spare one
+  // would make one of no page, and the browser stops it at shutdown before it
+  // has written its end.
+  if (getenv("RECORD_ALL_CONTENT")) {
+    return nullptr;
+  }
+
   if (delay_timer_) {
     // If the timeout does not have a value, the delayed creation is no longer
     // required since we will create the spare renderer here.
