@@ -496,8 +496,12 @@ SequenceManagerImpl::SelectNextTaskImpl(LazyNow& lazy_now,
         queue->RecordReplayRunUnorderedTasks();
       }
     }
-    recordreplay::MaybeFinishRecording();
   }
+  // Here, where every selection of a task passes, and not only when there
+  // were unordered tasks: whether the main thread has been asked to finish
+  // the recording is itself recorded, so it's read at the same points on a
+  // replay.
+  recordreplay::MaybeFinishRecording();
 
   ReloadEmptyWorkQueues();
   MoveReadyDelayedTasksToWorkQueues(&lazy_now);

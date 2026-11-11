@@ -186,9 +186,16 @@ std::atomic<bool> gFinishRecordingRequested{false};
 // posted from somewhere outside the recording (see TaskQueueImpl's unordered
 // tasks), so the task queue also calls this once those have run.
 BASE_EXPORT void MaybeFinishRecording() {
-  if (!gFinishRecordingRequested.load(std::memory_order_acquire) ||
-      !Active() || !IsMainThread() || AreEventsDisallowed() ||
-      AreEventsPassedThrough()) {
+  if (!Active() || !IsMainThread() || AreEventsDisallowed() ||
+      AreEventsPassedThrough() || HasDivergedFromRecording()) {
+    return;
+  }
+  // Another thread sets this, so when the main thread first sees it set is
+  // recorded: a replay finishes where the recording did, and not a task or
+  // two to either side.
+  if (!gRecordReplayValue(
+          "FinishRecordingRequested",
+          gFinishRecordingRequested.load(std::memory_order_acquire))) {
     return;
   }
   DoFinishRecording();

@@ -597,12 +597,6 @@ void TaskQueueImpl::ReloadEmptyImmediateWorkQueue() {
   }
 }
 
-}  // namespace base::sequence_manager::internal
-namespace recordreplay {
-// In base/record_replay.cc.
-BASE_EXPORT void MaybeFinishRecording();
-}  // namespace recordreplay
-namespace base::sequence_manager::internal {
 
 void TaskQueueImpl::RecordReplayRunUnorderedTasks() {
   if (!recordreplay::IsRecordingOrReplaying()) {
@@ -637,10 +631,7 @@ void TaskQueueImpl::TakeImmediateIncomingQueueTasks(TaskDeque* queue) {
   DCHECK(queue->empty());
   // Declared before the lock, so that it runs once the lock is released.
   struct RunUnorderedTasks {
-    ~RunUnorderedTasks() {
-      queue->RecordReplayRunUnorderedTasks();
-      recordreplay::MaybeFinishRecording();
-    }
+    ~RunUnorderedTasks() { queue->RecordReplayRunUnorderedTasks(); }
     RAW_PTR_EXCLUSION TaskQueueImpl* const queue;
   } run_unordered_tasks{this};
   base::internal::CheckedAutoLock lock(any_thread_lock_);
