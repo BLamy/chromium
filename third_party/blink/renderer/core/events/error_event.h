@@ -104,9 +104,17 @@ class CORE_EXPORT ErrorEvent final : public Event {
 
   void SetUnsanitizedMessage(const String&);
 
+  // When recording or replaying, the bookmark V8 made where the error was
+  // thrown, or 0.
+  void set_record_replay_bookmark(int bookmark) {
+    record_replay_bookmark_ = bookmark;
+  }
+  int record_replay_bookmark() const { return record_replay_bookmark_; }
+
   void Trace(Visitor*) const override;
 
  private:
+  int record_replay_bookmark_ = 0;
   String unsanitized_message_;
   String sanitized_message_;
   Member<SourceLocation> location_;

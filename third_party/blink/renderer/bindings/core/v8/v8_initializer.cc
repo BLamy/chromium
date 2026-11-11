@@ -115,6 +115,8 @@
 #include "gin/public/v8_snapshot_file_type.h"
 #endif
 
+extern "C" int V8GetMessageRecordReplayBookmark(v8::Local<v8::Message> message);
+
 namespace blink {
 
 #if BUILDFLAG(IS_WIN)
@@ -280,6 +282,7 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
   ErrorEvent* event = ErrorEvent::Create(
       ToCoreStringWithNullCheck(isolate, message->Get()), location,
       ScriptValue(isolate, data), &script_state->World());
+  event->set_record_replay_bookmark(V8GetMessageRecordReplayBookmark(message));
 
   String message_for_console = ExtractMessageForConsole(isolate, data);
   if (!message_for_console.empty())

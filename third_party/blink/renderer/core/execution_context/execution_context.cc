@@ -74,7 +74,8 @@ extern "C" void V8RecordReplayOnPageError(const char* message,
                                           const char* url,
                                           int line,
                                           int column,
-                                          int script_id);
+                                          int script_id,
+                                          int bookmark);
 
 namespace blink {
 
@@ -293,7 +294,8 @@ void ExecutionContext::DispatchErrorEvent(
         error_event->message().Utf8().c_str(),
         error_event->filename().Utf8().c_str(), error_event->lineno(),
         error_event->colno(),
-        error_event->Location() ? error_event->Location()->ScriptId() : 0);
+        error_event->Location() ? error_event->Location()->ScriptId() : 0,
+        error_event->record_replay_bookmark());
   }
   if (is_draining_pending_exceptions_) {
     // Disregard errors reported while draining pending exceptions. This would

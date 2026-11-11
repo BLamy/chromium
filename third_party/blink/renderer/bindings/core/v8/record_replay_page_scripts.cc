@@ -64,6 +64,8 @@ extern "C" void V8RecordReplaySetNewScriptCallback(
                      const char* url,
                      const char* source_map_url));
 extern "C" char* V8RecordReplayScriptSource(int script_id);
+extern "C" void V8RecordReplayEnterReplayCode();
+extern "C" void V8RecordReplayExitReplayCode();
 extern "C" int V8RecordReplayObjectId(v8::Isolate* isolate,
                                       v8::Local<v8::Value> value,
                                       bool allow_create);
@@ -590,7 +592,9 @@ int RecordReplayApiObjectId(v8::Local<v8::Object> object) {
 
 void ArgsGetPersistentId(const v8::FunctionCallbackInfo<v8::Value>& args) {
   v8::Isolate* isolate = args.GetIsolate();
-  int id = args.Length() ? V8RecordReplayObjectId(isolate, args[0], true) : 0;
+  // As in 108, this reads an ID and doesn't make one: an ID made here would
+  // be made in one replay and not another, and move every ID after it.
+  int id = args.Length() ? V8RecordReplayObjectId(isolate, args[0], false) : 0;
   args.GetReturnValue().Set(v8::Integer::New(isolate, id));
 }
 
@@ -706,6 +710,7 @@ const char kReactDevtoolsScript[] = R""""(
 const stubFiberRoots = {};
 const unmountedFibersByRenderer = {};
 const unmountedFiberAlternatesByRenderer = {};
+const unmountedFiberLinksByRenderer = {};
 
 const stubHook = {
   isStub: true,
@@ -740,6 +745,14 @@ function getUnmountedFiberAlternatesForRenderer(rendererID) {
   }
 
   return unmountedFiberAlternatesByRenderer[rendererID];
+}
+
+function getUnmountedFiberLinksForRenderer(rendererID) {
+  if (!unmountedFiberLinksByRenderer[rendererID]) {
+    unmountedFiberLinksByRenderer[rendererID] = new Map();
+  }
+
+  return unmountedFiberLinksByRenderer[rendererID];
 }
 
 window.__REACT_DEVTOOLS_SAVED_RENDERERS__ = [];
@@ -780,6 +793,19 @@ function onCommitFiberUnmount(rendererID, fiber) {
     unmountedFiberAlternates.set(fiber, fiber.alternate);
   }
 
+  // React <= 17 also cuts the deleted subtree's links and clears its state
+  // before calling onCommitFiberRoot (React 18+ only does that after passive
+  // effects). The routine needs the tree as it was before the commit, so save
+  // what React is going to clear.
+  getUnmountedFiberLinksForRenderer(rendererID).set(fiber, {
+    child: fiber.child,
+    sibling: fiber.sibling,
+    return: fiber.return,
+    memoizedProps: fiber.memoizedProps,
+    memoizedState: fiber.memoizedState,
+    stateNode: fiber.stateNode,
+  });
+
   window.__RECORD_REPLAY_ANNOTATION_HOOK__("react-devtools-hook:v1:" + annotationType, "");
 }
 
@@ -806,12 +832,14 @@ function onCommitFiberRoot(rendererID, root, priorityLevel) {
   // Get these so it's in scope in the routine eval, and we can clear it after the annotation
   const unmountedFibersSet = getUnmountedFibersSetForRenderer(rendererID);
   const unmountedFiberAlternates = getUnmountedFiberAlternatesForRenderer(rendererID);
+  const unmountedFiberLinks = getUnmountedFiberLinksForRenderer(rendererID);
 
   window.__RECORD_REPLAY_ANNOTATION_HOOK__("react-devtools-hook:v1:" + annotationType, "");
 
   for (const fiber of unmountedFibersSet) {
     unmountedFiberAlternates.delete(fiber);
   }
+  unmountedFiberLinks.clear();
   unmountedFibersSet.clear();
 }
 
@@ -1044,6 +1072,25 @@ window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ = reduxDevtoolsExtensionCompose;
 
 )"""";
 
+// What every new window is given, as 108 gives it: the root frame's devtools
+// stand-ins and replay objects. A window that can't reach its top, which is
+// one of another origin, throws here and has none.
+const char kOnNewWindowScript[] = R""""(
+//js
+(() => {
+  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = window.top.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  window.__REDUX_DEVTOOLS_EXTENSION__ = window.top.__REDUX_DEVTOOLS_EXTENSION__;
+  window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ = window.top.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__;
+
+  // TODO: Feels like this cross-context function usage can cause trouble, especially when
+  //      the user pauses inside the iframe's JS and tries to access something inside the iframe via
+  //      __RECORD_REPLAY__?
+  window.__RECORD_REPLAY__ = window.top.__RECORD_REPLAY__;
+  window.__RECORD_REPLAY_ARGUMENTS__ = window.top.__RECORD_REPLAY_ARGUMENTS__;
+  window.__RECORD_REPLAY_ETERNAL_STATE__ = window.top.__RECORD_REPLAY_ETERNAL_STATE__;
+})()
+)"""";
+
 // function __RECORD_REPLAY_ANNOTATION_HOOK__(kind, contents)
 void InvokeOnAnnotation(const v8::FunctionCallbackInfo<v8::Value>& args) {
   if (args.Length() < 2 || !args[0]->IsString()) {
@@ -1171,7 +1218,8 @@ void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
 }
 
 void RecordReplayInstallPageScripts(v8::Isolate* isolate,
-                                    v8::Local<v8::Context> context) {
+                                    v8::Local<v8::Context> context,
+                                    bool is_main_frame) {
   if (recordreplay::IsRecordingOrReplaying()) {
     RecordReplayInitializeOnce();
   }
@@ -1189,13 +1237,26 @@ void RecordReplayInstallPageScripts(v8::Isolate* isolate,
           .IsNothing()) {
     return;
   }
-  if (Disabled("RECORD_REPLAY_DISABLE_REACT_DEVTOOLS")) {
-    return;
+  // The stand-ins are the root frame's, and every window has the root's.
+  // Their scripts have names of their own, as evaluations are made in their
+  // frames.
+  if (is_main_frame &&
+      recordreplay::FeatureEnabled("react-devtools-backend") &&
+      !Disabled("RECORD_REPLAY_DISABLE_REACT_DEVTOOLS")) {
+    RunPageScript(isolate, context, kReactDevtoolsScript,
+                  "record-replay-react-devtools");
+    RunPageScript(isolate, context, kReduxDevtoolsScript,
+                  "record-replay-redux-devtools");
   }
-  RunPageScript(isolate, context, kReactDevtoolsScript,
-                "record-replay-react-devtools");
-  RunPageScript(isolate, context, kReduxDevtoolsScript,
-                "record-replay-redux-devtools");
+  {
+    // Replay's own code, as it is in 108, so not a script with steps of its
+    // own: what it calls in the stand-ins is.
+    recordreplay::AutoMarkReplayCode mark;
+    V8RecordReplayEnterReplayCode();
+    RunPageScript(isolate, context, kOnNewWindowScript,
+                  "record-replay-OnNewWindow");
+    V8RecordReplayExitReplayCode();
+  }
 }
 
 int RecordReplayOnDOMMutation(Node& target, const char* type) {

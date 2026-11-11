@@ -316,7 +316,8 @@ void LocalWindowProxy::Initialize() {
       }
       RecordReplayInstallRootFrameScripts(GetIsolate(), context);
     }
-    RecordReplayInstallPageScripts(GetIsolate(), context);
+    RecordReplayInstallPageScripts(GetIsolate(), context,
+                                   GetFrame()->IsMainFrame());
   }
 
   {

@@ -16,9 +16,11 @@ void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
                                          v8::Local<v8::Context> context);
 
 // Gives a new main-world window the annotation hook and the devtools
-// stand-ins, when the page is being recorded or replayed.
+// stand-ins, which are the root frame's, when the page is being recorded or
+// replayed.
 void RecordReplayInstallPageScripts(v8::Isolate* isolate,
-                                    v8::Local<v8::Context> context);
+                                    v8::Local<v8::Context> context,
+                                    bool is_main_frame);
 
 }  // namespace blink
 

@@ -17,6 +17,7 @@
 #include "base/memory/page_size.h"
 #include "base/memory/shared_memory_tracker.h"
 #include "base/numerics/safe_math.h"
+#include "base/record_replay.h"
 #include "base/tracing_buildflags.h"
 #include "build/build_config.h"
 
@@ -257,9 +258,13 @@ DiscardableSharedMemory::LockResult DiscardableSharedMemory::Lock(
 
     SharedState old_state(SharedState::UNLOCKED, last_known_usage_);
     SharedState new_state(SharedState::LOCKED, Time());
-    SharedState result(subtle::Acquire_CompareAndSwap(
-        &SharedStateFromSharedMemory(shared_memory_mapping_)->value.i,
-        old_state.value.i, new_state.value.i));
+    // The state is in memory the browser writes to as well, so what's found
+    // there is recorded.
+    SharedState result(static_cast<AtomicType>(recordreplay::RecordReplayValue(
+        "DiscardableSharedMemory::Lock",
+        static_cast<uintptr_t>(subtle::Acquire_CompareAndSwap(
+            &SharedStateFromSharedMemory(shared_memory_mapping_)->value.i,
+            old_state.value.i, new_state.value.i)))));
     if (result.value.u != old_state.value.u) {
       // Update |last_known_usage_| in case the above CAS failed because of
       // an incorrect timestamp.
@@ -488,8 +493,10 @@ bool DiscardableSharedMemory::IsMemoryResident() const {
   SharedState result(subtle::NoBarrier_Load(
       &SharedStateFromSharedMemory(shared_memory_mapping_)->value.i));
 
-  return result.GetLockState() == SharedState::LOCKED ||
-         !result.GetTimestamp().is_null();
+  return recordreplay::RecordReplayValue(
+      "DiscardableSharedMemory::IsMemoryResident",
+      result.GetLockState() == SharedState::LOCKED ||
+          !result.GetTimestamp().is_null());
 }
 
 bool DiscardableSharedMemory::IsMemoryLocked() const {
@@ -498,7 +505,9 @@ bool DiscardableSharedMemory::IsMemoryLocked() const {
   SharedState result(subtle::NoBarrier_Load(
       &SharedStateFromSharedMemory(shared_memory_mapping_)->value.i));
 
-  return result.GetLockState() == SharedState::LOCKED;
+  return recordreplay::RecordReplayValue(
+      "DiscardableSharedMemory::IsMemoryLocked",
+      result.GetLockState() == SharedState::LOCKED);
 }
 
 void DiscardableSharedMemory::Close() {

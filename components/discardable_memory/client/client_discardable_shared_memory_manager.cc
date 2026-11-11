@@ -18,6 +18,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/process/memory.h"
+#include "base/record_replay.h"
+#include "base/record_replay_atomic_sequence_num.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/system/sys_info.h"
@@ -33,7 +35,7 @@ namespace discardable_memory {
 namespace {
 
 // Global atomic to generate unique discardable shared memory IDs.
-base::AtomicSequenceNumber g_next_discardable_shared_memory_id;
+::recordreplay::AtomicSequenceNumber g_next_discardable_shared_memory_id;
 
 size_t GetDefaultAllocationSize() {
   const size_t kOneMegabyteInBytes = 1024 * 1024;
@@ -110,6 +112,7 @@ ClientDiscardableSharedMemoryManager::DiscardableMemoryImpl::
         std::unique_ptr<DiscardableSharedMemoryHeap::Span> span)
     : manager_(manager), span_(std::move(span)) {
   DCHECK_NE(manager, nullptr);
+  recordreplay::RegisterPointer("DiscardableMemoryImpl", this);
 }
 
 ClientDiscardableSharedMemoryManager::DiscardableMemoryImpl::
@@ -117,10 +120,12 @@ ClientDiscardableSharedMemoryManager::DiscardableMemoryImpl::
   base::AutoLock lock(manager_->lock_);
   if (!span_) {
     DCHECK(!is_locked());
+    recordreplay::UnregisterPointer(this);
     return;
   }
 
   manager_->UnlockAndReleaseMemory(this, std::move(span_));
+  recordreplay::UnregisterPointer(this);
 }
 
 bool ClientDiscardableSharedMemoryManager::DiscardableMemoryImpl::Lock() {
@@ -628,6 +633,15 @@ ClientDiscardableSharedMemoryManager::AllocateLockedDiscardableSharedMemory(
   if (!memory->Map(size)) {
     discardable_memory_ipc_error_cause.Set("client side");
     discardable_memory_ipc_requested_size.Set(base::NumberToString(size));
+    return nullptr;
+  }
+
+  // A replay that diverged before the mmap call completed (during the IPC or
+  // inside Map) maps zero-filled memory: the recorded descriptor isn't open in
+  // this process and the contents the browser wrote aren't restored. The zero
+  // header reads as an unlocked, purged segment, which another thread's
+  // ReleasePurgedMemory unmaps while it's in use.
+  if (recordreplay::HasDivergedFromRecording()) {
     return nullptr;
   }
 

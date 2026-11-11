@@ -16,6 +16,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/ref_counted_delete_on_sequence.h"
+#include "base/record_replay.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/memory_coordinator/async_memory_consumer_registration.h"
 #include "base/memory_coordinator/memory_consumer.h"
@@ -208,8 +209,17 @@ class DISCARDABLE_MEMORY_EXPORT ClientDiscardableSharedMemoryManager
       manager_mojo_;
 
   // Holds all locked and unlocked instances which have not yet been purged.
-  std::set<raw_ptr<DiscardableMemoryImpl, SetExperimental>> allocated_memory_
-      GUARDED_BY(lock_);
+  // In the order they were made when recording or replaying, as what's purged
+  // first decides what's allocated next.
+  struct RecordReplayCompare {
+    bool operator()(
+        const raw_ptr<DiscardableMemoryImpl, SetExperimental>& a,
+        const raw_ptr<DiscardableMemoryImpl, SetExperimental>& b) const {
+      return recordreplay::CompareByPointerId()(a.get(), b.get());
+    }
+  };
+  std::set<raw_ptr<DiscardableMemoryImpl, SetExperimental>, RecordReplayCompare>
+      allocated_memory_ GUARDED_BY(lock_);
   size_t bytes_allocated_limit_for_testing_ = 0;
 
   // Used in metrics to distinguish in-use consumers from background ones. We
