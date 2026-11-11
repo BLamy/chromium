@@ -44,8 +44,14 @@ namespace blink {
 namespace {
 
 bool ShouldReport() {
-  return recordreplay::IsRecordingOrReplaying("notify-network") &&
-         recordreplay::IsMainThread() && !recordreplay::AreEventsDisallowed();
+  if (!recordreplay::IsRecordingOrReplaying("notify-network") ||
+      !recordreplay::IsMainThread() || recordreplay::AreEventsDisallowed()) {
+    return false;
+  }
+  // A page's first requests come before it has a window, which is when the
+  // rest of what V8 is given is set up.
+  RecordReplayRegisterNetworkCommands();
+  return true;
 }
 
 // What is known of a request between its being sent and its ending, by the
@@ -329,6 +335,11 @@ char* CommandCurrentStreamData(const char* params) {
 }  // namespace
 
 void RecordReplayRegisterNetworkCommands() {
+  static bool registered = false;
+  if (registered) {
+    return;
+  }
+  registered = true;
   V8RecordReplayRegisterEmbedderCommand("Target.getCurrentNetworkRequestEvent",
                                         CommandCurrentRequestEvent);
   V8RecordReplayRegisterEmbedderCommand("Target.getCurrentNetworkStreamData",
