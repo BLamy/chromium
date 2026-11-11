@@ -28,6 +28,7 @@
 
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
@@ -176,7 +177,11 @@ ScriptResource::ScriptResource(
   bool consume_code_cache_off_thread_enabled =
       base::FeatureList::IsEnabled(features::kConsumeCodeCacheOffThread);
 
-  if (!script_streaming_enabled) {
+  // Scripts aren't compiled on a background thread when recording or
+  // replaying. Replay's V8 instruments what the main thread compiles, so a
+  // streamed script's top-level code had no steps: its functions did, as they
+  // were compiled when first called, and the line that called them didn't.
+  if (!script_streaming_enabled || recordreplay::IsRecordingOrReplaying()) {
     DisableStreaming(
         ScriptStreamer::NotStreamingReason::kDisabledByFeatureList);
   } else if (streaming_allowed == kNoStreaming) {
