@@ -62,6 +62,10 @@ WorkerSchedulerImpl::WorkerSchedulerImpl(
   task_runners_.insert(pausable_non_vt_task_queue_,
                        pausable_non_vt_task_queue_->CreateQueueEnabledVoter());
   task_runners_.insert(unpausable_task_queue_, nullptr);
+  task_queue_order_ = {throttleable_task_queue_.get(),
+                       pausable_task_queue_.get(),
+                       pausable_non_vt_task_queue_.get(),
+                       unpausable_task_queue_.get()};
 
   thread_scheduler_->RegisterWorkerScheduler(this);
 
@@ -96,9 +100,9 @@ void WorkerSchedulerImpl::PauseImpl() {
   thread_scheduler_->GetHelper().CheckOnValidThread();
   paused_count_++;
   if (paused_count_ == 1) {
-    for (const auto& pair : task_runners_) {
-      if (pair.value) {
-        pair.value->SetVoteToEnable(false);
+    for (NonMainThreadTaskQueue* queue : task_queue_order_) {
+      if (auto* voter = task_runners_.at(queue)) {
+        voter->SetVoteToEnable(false);
       }
     }
   }
@@ -108,9 +112,9 @@ void WorkerSchedulerImpl::ResumeImpl() {
   thread_scheduler_->GetHelper().CheckOnValidThread();
   paused_count_--;
   if (paused_count_ == 0 && !is_disposed_) {
-    for (const auto& pair : task_runners_) {
-      if (pair.value) {
-        pair.value->SetVoteToEnable(true);
+    for (NonMainThreadTaskQueue* queue : task_queue_order_) {
+      if (auto* voter = task_runners_.at(queue)) {
+        voter->SetVoteToEnable(true);
       }
     }
   }
@@ -144,10 +148,11 @@ SchedulingLifecycleState WorkerSchedulerImpl::CalculateLifecycleState(
 void WorkerSchedulerImpl::Dispose() {
   thread_scheduler_->UnregisterWorkerScheduler(this);
 
-  for (const auto& pair : task_runners_) {
-    pair.key->ShutdownTaskQueue();
+  for (NonMainThreadTaskQueue* queue : task_queue_order_) {
+    queue->ShutdownTaskQueue();
   }
 
+  task_queue_order_.clear();
   task_runners_.clear();
 
   is_disposed_ = true;
@@ -376,6 +381,7 @@ WorkerSchedulerImpl::CreateWebSchedulingTaskQueue(
   // TODO(crbug.com/528232589): Consider plumbing the initial enabled state to
   // the QueueEnabledVoter constructor.
   voter->SetVoteToEnable(paused_count_ == 0);
+  task_queue_order_.push_back(task_queue.get());
   task_runners_.insert(task_queue, std::move(voter));
   return std::make_unique<NonMainThreadWebSchedulingTaskQueueImpl>(
       GetWeakPtr(), std::move(task_queue));
@@ -394,7 +400,8 @@ WorkerSchedulerImpl::CreateWebScopedVirtualTimePauser(
 }
 
 void WorkerSchedulerImpl::PauseVirtualTime() {
-  for (auto& [queue, voter] : task_runners_) {
+  for (NonMainThreadTaskQueue* queue : task_queue_order_) {
+    auto* voter = task_runners_.at(queue);
     // A queue without the voter is treated as unpausable. There's only one
     // at the time of writing, AKA `unpausable_task_queue_`, but we may have
     // more than one eventually as other schedulers do, so just check for voter.
@@ -406,7 +413,8 @@ void WorkerSchedulerImpl::PauseVirtualTime() {
 }
 
 void WorkerSchedulerImpl::UnpauseVirtualTime() {
-  for (auto& [queue, voter] : task_runners_) {
+  for (NonMainThreadTaskQueue* queue : task_queue_order_) {
+    auto* voter = task_runners_.at(queue);
     // This needs to match the logic of `PauseVirtualTime()`, see comment there.
     if (queue == pausable_non_vt_task_queue_.get() || !voter) {
       continue;
@@ -425,6 +433,10 @@ void WorkerSchedulerImpl::OnWebSchedulingTaskQueueDestroyed(
   auto it = task_runners_.find(queue);
   CHECK(it != task_runners_.end());
   task_runners_.erase(it);
+  wtf_size_t at = task_queue_order_.Find(queue);
+  if (at != kNotFound) {
+    task_queue_order_.EraseAt(at);
+  }
 }
 
 }  // namespace scheduler

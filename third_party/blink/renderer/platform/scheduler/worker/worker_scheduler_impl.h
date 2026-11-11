@@ -131,6 +131,10 @@ class PLATFORM_EXPORT WorkerSchedulerImpl : public WorkerScheduler {
   // voters, plus any task queues and voter pairs created with
   // `CreateWebSchedulingTaskQueue()`.
   TaskQueueVoterMap task_runners_;
+  // The queues of `task_runners_` in the order they were added. That map goes
+  // by the queues' addresses, which aren't the same on a replay as when
+  // recording, and what's done to each queue takes its lock.
+  Vector<NonMainThreadTaskQueue*> task_queue_order_;
 
   SchedulingLifecycleState lifecycle_state_ =
       SchedulingLifecycleState::kNotThrottled;
