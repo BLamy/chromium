@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "mojo/public/cpp/bindings/associated_receiver.h"
+#include "base/record_replay.h"
 
 #include <stdint.h>
 
@@ -31,6 +32,15 @@ void AssociatedReceiverBase::SetFilter(std::unique_ptr<MessageFilter> filter) {
 }
 
 void AssociatedReceiverBase::reset() {
+  // What owns this is being destroyed where a replay may not destroy it: by
+  // the garbage collector. Closing an endpoint there changes what the rest of
+  // the program sees next, so the endpoint is left as it is, and marked.
+  if (recordreplay::AreEventsDisallowed("AssociatedReceiverBase::reset")) {
+    if (endpoint_client_) {
+      endpoint_client_->record_replay_leak();
+    }
+    (void)endpoint_client_.release();
+  }
   endpoint_client_.reset();
 }
 
@@ -73,7 +83,15 @@ void AssociatedReceiverBase::ResetFromAnotherSequenceUnsafe() {
   }
 }
 
-AssociatedReceiverBase::~AssociatedReceiverBase() = default;
+AssociatedReceiverBase::~AssociatedReceiverBase() {
+  // As in reset().
+  if (recordreplay::AreEventsDisallowed("~AssociatedReceiverBase")) {
+    if (endpoint_client_) {
+      endpoint_client_->record_replay_leak();
+    }
+    (void)endpoint_client_.release();
+  }
+}
 
 void AssociatedReceiverBase::Bind(
     ScopedInterfaceEndpointHandle handle,

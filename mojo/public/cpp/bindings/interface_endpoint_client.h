@@ -23,6 +23,7 @@
 #include "base/memory/raw_span.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/record_replay.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/lock.h"
 #include "base/task/sequenced_task_runner.h"
@@ -93,6 +94,12 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) InterfaceEndpointClient
   }
 
   // Returns true if this endpoint has any pending callbacks.
+  // When recording or replaying, an endpoint whose owner goes at a point that
+  // a replay doesn't share, such as a garbage collection, is leaked rather
+  // than closed. It stays attached and takes messages, and gives them to
+  // nobody. From upstream Replay's Chromium.
+  void record_replay_leak() { record_replay_leaked_ = true; }
+
   bool has_pending_responders() const {
     CHECK(sequence_checker_.CalledOnValidSequence());
     base::AutoLock lock(async_responders_lock_);
@@ -354,6 +361,15 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) InterfaceEndpointClient
   base::OnceClosure error_handler_;
   ConnectionErrorWithReasonCallback error_with_reason_handler_;
   bool encountered_error_ = false;
+
+  // See record_replay_leak(). The receiver and the handlers aren't to be used
+  // once this is set.
+  bool record_replay_leaked_ = false;
+
+  // Whether this was leaked by now when recording. The collector runs at
+  // other points on a replay, so a replay goes by what the recording did:
+  // an endpoint that's still alive there is treated as gone if it had gone.
+  bool RecordReplayLeaked(const char* why);
 
   const scoped_refptr<base::SequencedTaskRunner> task_runner_;
 

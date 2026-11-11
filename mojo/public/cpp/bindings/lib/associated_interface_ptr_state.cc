@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "mojo/public/cpp/bindings/lib/associated_interface_ptr_state.h"
+#include "base/record_replay.h"
 
 #include <stdint.h>
 
@@ -20,7 +21,23 @@ namespace internal {
 
 AssociatedInterfacePtrStateBase::AssociatedInterfacePtrStateBase() = default;
 
-AssociatedInterfacePtrStateBase::~AssociatedInterfacePtrStateBase() = default;
+AssociatedInterfacePtrStateBase::~AssociatedInterfacePtrStateBase() {
+  // What owns this is being destroyed where a replay may not destroy it: by
+  // the garbage collector. Closing an endpoint there changes what the rest of
+  // the program sees next, so the endpoint is left as it is, and marked.
+  if (recordreplay::AreEventsDisallowed("~AssociatedInterfacePtrStateBase")) {
+    if (endpoint_client_) {
+      endpoint_client_->record_replay_leak();
+    }
+    (void)endpoint_client_.release();
+  }
+}
+
+void AssociatedInterfacePtrStateBase::record_replay_leak() {
+  if (endpoint_client_) {
+    endpoint_client_->record_replay_leak();
+  }
+}
 
 void AssociatedInterfacePtrStateBase::QueryVersion(
     base::OnceCallback<void(uint32_t)> callback) {

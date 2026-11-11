@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "mojo/public/cpp/bindings/lib/binding_state.h"
+#include "base/record_replay.h"
 
 #include <memory>
 #include <utility>
@@ -63,6 +64,19 @@ void BindingStateBase::Close() {
   }
 
   weak_ptr_factory_.InvalidateWeakPtrs();
+
+  // What owns this is being destroyed where a replay may not destroy it: by
+  // the garbage collector. Closing an endpoint there changes what the rest of
+  // the program sees next, so the endpoint is left as it is, and marked.
+  // The router and its pipe stay too.
+  if (recordreplay::AreEventsDisallowed("BindingStateBase::Close")) {
+    if (endpoint_client_) {
+      endpoint_client_->record_replay_leak();
+    }
+    (void)endpoint_client_.release();
+    (void)router_.release();
+    return;
+  }
 
   endpoint_client_.reset();
   router_->CloseMessagePipe();

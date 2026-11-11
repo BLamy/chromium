@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "mojo/public/cpp/bindings/lib/interface_ptr_state.h"
+#include "base/record_replay.h"
 
 #include <stdint.h>
 
@@ -20,9 +21,27 @@ namespace internal {
 InterfacePtrStateBase::InterfacePtrStateBase() = default;
 
 InterfacePtrStateBase::~InterfacePtrStateBase() {
+  // What owns this is being destroyed where a replay may not destroy it: by
+  // the garbage collector. Closing an endpoint there changes what the rest of
+  // the program sees next, so the endpoint is left as it is, and marked.
+  // The router and its pipe stay too.
+  if (recordreplay::AreEventsDisallowed("~InterfacePtrStateBase")) {
+    if (endpoint_client_) {
+      endpoint_client_->record_replay_leak();
+    }
+    (void)endpoint_client_.release();
+    (void)router_.release();
+    return;
+  }
   endpoint_client_.reset();
   if (router_) {
     router_->CloseMessagePipe();
+  }
+}
+
+void InterfacePtrStateBase::record_replay_leak() {
+  if (endpoint_client_) {
+    endpoint_client_->record_replay_leak();
   }
 }
 

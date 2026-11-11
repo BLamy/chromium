@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include "base/record_replay.h"
 #include <atomic>
 #include <utility>
 
@@ -616,7 +617,16 @@ void MultiplexRouter::DetachEndpointClient(
 
   DCHECK(IsValidInterfaceId(id));
 
+  // An endpoint can still be taken away in a garbage collection, where this
+  // lock isn't one of the recording's.
+  const bool pass_through = recordreplay::AreEventsDisallowed();
+  if (pass_through) {
+    recordreplay::BeginPassThroughEvents();
+  }
   MayAutoLock locker(&lock_);
+  if (pass_through) {
+    recordreplay::EndPassThroughEvents();
+  }
   DCHECK(endpoints_.contains(id));
 
   InterfaceEndpoint* endpoint = endpoints_[id].get();

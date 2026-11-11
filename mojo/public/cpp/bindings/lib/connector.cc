@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include "base/record_replay.h"
 
 #include "base/check.h"
 #include "base/check_op.h"
@@ -543,8 +544,18 @@ bool Connector::DispatchMessage(ScopedMessageHandle handle) {
   if (connection_group_) {
     message.set_receiver_connection_group(&connection_group_);
   }
-  bool receiver_result =
-      incoming_receiver_ && incoming_receiver_->Accept(&message);
+  // Whether there's a receiver can differ on a replay, as what had one may
+  // have been collected at another point. A replay hands the message on only
+  // if the recording did. From upstream Replay's Chromium.
+  bool has_receiver = !!incoming_receiver_;
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !recordreplay::AreEventsDisallowed() &&
+      !recordreplay::HasDivergedFromRecording()) {
+    has_receiver = recordreplay::RecordReplayValue(
+        "Connector::DispatchMessage has_receiver", has_receiver);
+  }
+  bool receiver_result = has_receiver && incoming_receiver_ &&
+                         incoming_receiver_->Accept(&message);
   if (!weak_self) {
     return receiver_result;
   }

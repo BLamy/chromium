@@ -5,6 +5,7 @@
 #include "mojo/public/cpp/bindings/pipe_control_message_proxy.h"
 
 #include <utility>
+#include "base/record_replay.h"
 
 #include "mojo/public/cpp/bindings/lib/message_fragment.h"
 #include "mojo/public/cpp/bindings/lib/serialization.h"
@@ -41,6 +42,12 @@ PipeControlMessageProxy::PipeControlMessageProxy(MessageReceiver* receiver)
 void PipeControlMessageProxy::NotifyPeerEndpointClosed(
     InterfaceId id,
     const std::optional<DisconnectReason>& reason) {
+  // A message can't be sent at a point a replay doesn't share, so an
+  // endpoint that closes there, in a garbage collection, doesn't say so.
+  if (recordreplay::AreEventsDisallowed(
+          "PipeControlMessageProxy::NotifyPeerEndpointClosed")) {
+    return;
+  }
   Message message(ConstructPeerEndpointClosedMessage(id, reason));
   message.set_heap_profiler_tag(kMessageTag);
   std::ignore = receiver_->Accept(&message);

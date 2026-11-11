@@ -10,6 +10,7 @@
 
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/record_replay.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/waitable_event.h"
@@ -187,6 +188,13 @@ class SharedRemoteBase
 
     void DeleteOnCorrectThread() const {
       if (!task_runner_->RunsTasksInCurrentSequence()) {
+        // A task can't be posted from a point a replay doesn't share, such
+        // as a garbage collection, so the remote is leaked there.
+        if (recordreplay::AreEventsDisallowed(
+                "SharedRemote::DeleteOnCorrectThread")) {
+          remote_.record_replay_leak();
+          return;
+        }
         // NOTE: This is only called when there are no more references to
         // |this|, so binding it unretained is both safe and necessary.
         task_runner_->DeleteSoon(FROM_HERE, this);

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "mojo/public/cpp/bindings/interface_endpoint_client.h"
+#include "base/record_replay.h"
 
 #include <stdint.h>
 
@@ -652,6 +653,18 @@ bool InterfaceEndpointClient::HandleIncomingMessage(Message* message) {
   return true;
 }
 
+bool InterfaceEndpointClient::RecordReplayLeaked(const char* why) {
+  if (!recordreplay::IsRecordingOrReplaying() ||
+      recordreplay::AreEventsDisallowed() ||
+      recordreplay::HasDivergedFromRecording()) {
+    return record_replay_leaked_;
+  }
+  bool recorded = recordreplay::RecordReplayValue(why, record_replay_leaked_);
+  // Leaked already on this side whatever the recording says: there's nothing
+  // left to hand a message to.
+  return recorded || record_replay_leaked_;
+}
+
 void InterfaceEndpointClient::NotifyError(
     const std::optional<DisconnectReason>& reason) {
   TRACE_EVENT("toplevel", "Closed mojo endpoint",
@@ -680,6 +693,11 @@ void InterfaceEndpointClient::NotifyError(
   }
 
   control_message_proxy_.OnConnectionError();
+
+  // A leaked endpoint's handlers belong to something that's gone.
+  if (RecordReplayLeaked("InterfaceEndpointClient::NotifyError leaked")) {
+    return;
+  }
 
   if (error_handler_) {
     std::move(error_handler_).Run();
@@ -760,7 +778,9 @@ bool InterfaceEndpointClient::AcceptNotifyIdle() {
 
   // With no outstanding unacked messages, a NotifyIdle received implies that
   // the peer really is idle. We can invoke our idle handler.
-  idle_handler_.Run();
+  if (!RecordReplayLeaked("InterfaceEndpointClient::AcceptNotifyIdle leaked")) {
+    idle_handler_.Run();
+  }
   return true;
 }
 
@@ -925,8 +945,16 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
   auto weak_self = weak_ptr_factory_.GetWeakPtr();
   bool accepted_interface_message = false;
   bool has_response = false;
+  const bool leaked =
+      RecordReplayLeaked("InterfaceEndpointClient::HandleValidatedMessage leaked");
   if (message->has_flag(Message::kFlagExpectsResponse)) {
     has_response = true;
+    if (!mojo::internal::ControlMessageHandler::IsControlMessage(message) &&
+        leaked) {
+      // No ResponderThunk: destroyed without an answer it would raise an
+      // error on the pipe, which the router shares with other endpoints.
+      return true;
+    }
     auto responder = std::make_unique<internal::ResponderThunk>(
         weak_ptr_factory_.GetWeakPtr(), task_runner_);
     if (mojo::internal::ControlMessageHandler::IsControlMessage(message)) {
@@ -979,13 +1007,14 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
     }
 
     internal::MessageDispatchContext dispatch_context(message);
-    return pending_response->responder->Accept(message);
+    return leaked || pending_response->responder->Accept(message);
   } else {
     if (mojo::internal::ControlMessageHandler::IsControlMessage(message)) {
       return control_message_handler_.Accept(message);
     }
 
-    accepted_interface_message = incoming_receiver_->Accept(message);
+    accepted_interface_message =
+        leaked || incoming_receiver_->Accept(message);
   }
 
   if (weak_self && accepted_interface_message &&

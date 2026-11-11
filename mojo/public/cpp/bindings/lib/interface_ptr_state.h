@@ -54,6 +54,10 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) InterfacePtrStateBase {
 
   bool is_bound() const { return handle_.is_valid() || endpoint_client_; }
 
+  // Leaves the endpoint as it is when this goes. See
+  // InterfaceEndpointClient::record_replay_leak().
+  void record_replay_leak();
+
   bool encountered_error() const;
 
   bool HasAssociatedInterfaces() const {
