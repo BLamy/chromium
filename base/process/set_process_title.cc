@@ -40,6 +40,8 @@
 #include "base/process/set_process_title_linux.h"
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
+#include "base/record_replay.h"
+
 namespace base {
 
 // TODO(jrg): Find out if setproctitle or equivalent is available on Android.
@@ -47,6 +49,13 @@ namespace base {
     !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
 
 void SetProcessTitleFromCommandLine(const char** main_argv) {
+  // When recording/replaying the argument strings are not contiguous in memory
+  // and some of the logic used to set the process title will behave differently
+  // when replaying. For now we work around this by not setting the process title.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
+
   // Build a single string which consists of all the arguments separated
   // by spaces. We can't actually keep them separate due to the way the
   // setproctitle() function works.

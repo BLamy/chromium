@@ -27,6 +27,8 @@ void* __libc_calloc(size_t, size_t);
 }
 #endif
 
+#include "base/record_replay.h"
+
 namespace base {
 
 namespace {
@@ -130,7 +132,10 @@ bool UncheckedMalloc(size_t size, void** result) {
 #elif PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR) || !defined(LIBC_GLIBC)
   *result = malloc(size);
 #elif defined(LIBC_GLIBC)
-  *result = __libc_malloc(size);
+  // As in Replay's Chromium 108, where it was to get past a build error: the
+  // allocator a recording has is the system's, by its own name.
+  *result = recordreplay::IsRecordingOrReplaying() ? malloc(size)
+                                                    : __libc_malloc(size);
 #endif
   return *result != nullptr;
 }
@@ -141,7 +146,12 @@ void UncheckedFree(void* ptr) {
 #elif PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR) || !defined(LIBC_GLIBC)
   free(ptr);
 #elif defined(LIBC_GLIBC)
-  __libc_free(ptr);
+  if (recordreplay::IsRecordingOrReplaying()) {
+    free(ptr);
+    return;
+  }
+  // __libc_free is an undeclared identifier for some reason.
+  /*__libc_free*/free(ptr);
 #endif
 }
 

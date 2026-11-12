@@ -18,7 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__linux__)
 #include <dlfcn.h>
 #endif
 
@@ -44,7 +44,7 @@ struct Driver {
 inline const Driver& GetDriver() {
   static const Driver driver = [] {
     Driver d;
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__linux__)
     if (!dlsym(RTLD_DEFAULT, "RecordReplayAttach")) {
       return d;
     }
