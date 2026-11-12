@@ -15,6 +15,7 @@
 #include <string_view>
 
 #include "base/allocator/partition_alloc_features.h"
+#include "base/record_replay.h"
 #include "base/allocator/scheduler_loop_quarantine_config.h"
 #include "base/at_exit.h"
 #include "base/check.h"
@@ -283,7 +284,12 @@ void MemoryReclaimerSupport::Run() {
   TRACE_EVENT0("base", "partition_alloc::MemoryReclaimer::Reclaim()");
   has_pending_task_ = false;
 
-  ::partition_alloc::MemoryReclaimer::Instance()->ReclaimFast();
+  // The memory reclaimer runs at consistent points when recording vs.
+  // replaying, but can behave differently.
+  {
+    recordreplay::AutoDisallowEvents disallow("RunMemoryReclaimer");
+    ::partition_alloc::MemoryReclaimer::Instance()->ReclaimFast();
+  }
   MaybeScheduleTask();
 }
 

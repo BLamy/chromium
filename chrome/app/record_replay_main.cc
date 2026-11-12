@@ -86,7 +86,9 @@ typedef void* DriverHandle;
 
 static DriverHandle DoLoadDriverHandle(const char* aPath, bool aPrintError = true) {
 #if !BUILDFLAG(IS_WIN)
-  void* handle = dlopen(aPath, RTLD_LAZY);
+  // base, V8 and the rest find the driver's functions by name in the whole
+  // process, which on Linux takes RTLD_GLOBAL. It's the default on macOS.
+  void* handle = dlopen(aPath, RTLD_LAZY | RTLD_GLOBAL);
   if (!handle && aPrintError) {
     char* error = dlerror();
     ReportFailure("DoLoadDriverHandle: dlopen failed %s: %s", aPath, error ? error : "<no error>");

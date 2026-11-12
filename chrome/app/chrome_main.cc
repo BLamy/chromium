@@ -100,6 +100,10 @@ NO_STACK_PROTECTOR __attribute__((visibility("default"))) int ChromeMain(
 #error Unknown platform.
 #endif
 
+#if BUILDFLAG(IS_LINUX)
+#include "./record_replay_main.cc"
+#endif
+
 #if BUILDFLAG(IS_WIN)
 DLLEXPORT int __cdecl ChromeMain(HINSTANCE instance,
                                  sandbox::SandboxInterfaceInfo* sandbox_info,
@@ -108,8 +112,15 @@ DLLEXPORT int __cdecl ChromeMain(HINSTANCE instance,
                                  int64_t preread_end_ticks) {
 #elif BUILDFLAG(IS_POSIX)
 int ChromeMain(int argc, const char** argv) {
-  // Looks for Replay's driver, which main() has attached by now if this
-  // process is to be recorded.
+#if BUILDFLAG(IS_LINUX)
+  // On Linux ChromeMain is the process entry point, and this is where
+  // recording or replaying starts. On macOS main() is in another binary,
+  // chrome_exe_main_mac.cc, and has done it by now.
+  RecordReplayAttach(&argc, &argv);
+#endif
+
+  // Looks for Replay's driver, which has been attached by now if this process
+  // is to be recorded.
   recordreplay::Initialize();
 
   if (recordreplay::IsRecordingOrReplaying("eager-initialization",

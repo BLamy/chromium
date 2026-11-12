@@ -3846,7 +3846,10 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   // A non-empty RendererCmdPrefix implies that Zygote is disabled.
   if (!base::CommandLine::ForCurrentProcess()
            ->GetSwitchValueNative(switches::kRendererCmdPrefix)
-           .empty()) {
+           .empty() ||
+      getenv("RECORD_ALL_CONTENT")) {
+    // A renderer that's to be recorded starts from its own main(), where the
+    // driver is attached, and not as a fork of the zygote.
     command_line->AppendSwitch(switches::kNoZygote);
   }
 

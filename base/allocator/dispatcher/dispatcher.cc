@@ -8,6 +8,7 @@
 #include "base/check.h"
 #include "base/dcheck_is_on.h"
 #include "base/no_destructor.h"
+#include "base/record_replay.h"
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/shim/allocator_shim.h"
 
@@ -61,7 +62,13 @@ struct Dispatcher::Impl {
     {
       auto* const allocation_hook = dispatch_data.GetAllocationObserverHook();
       auto* const free_hook = dispatch_data.GetFreeObserverHook();
-      if (allocation_hook && free_hook) {
+      // Nothing watches allocations when recording or replaying. The sampler
+      // that does draws a random number every so many bytes, and a replay
+      // doesn't allocate what its recording did: it has a debugger's reads
+      // and its own bookkeeping. Replay's Chromium 108 keeps its hooks out of
+      // the allocator too (PartitionAllocHooks::SetOverrideHooks).
+      if (allocation_hook && free_hook &&
+          !recordreplay::IsRecordingOrReplaying()) {
         partition_alloc::PartitionAllocHooks::SetObserverHooks(allocation_hook,
                                                                free_hook);
       }
