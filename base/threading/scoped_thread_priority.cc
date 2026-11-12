@@ -15,6 +15,8 @@
 #include <windows.h>
 #endif
 
+#include "base/record_replay.h"
+
 namespace base {
 
 namespace {
@@ -96,6 +98,12 @@ void ScopedBoostPriorityBase::Reset() {
 
 bool ScopedBoostPriorityBase::ShouldBoostTo(
     ThreadType target_thread_type) const {
+  // A thread's priority is no part of a recording, and asking whether it can
+  // be changed reads the user's ID and limits, from places such as a garbage
+  // collection where nothing can be recorded.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return false;
+  }
   return initial_thread_type_ < target_thread_type &&
          PlatformThread::CanChangeThreadType(initial_thread_type_,
                                              target_thread_type) &&

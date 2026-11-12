@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/inspector/inspector_resource_container.h"
 #include "third_party/blink/renderer/core/inspector/inspector_resource_content_loader.h"
 #include "third_party/blink/renderer/core/inspector/inspector_session_state.h"
+#include "third_party/blink/renderer/core/inspector/main_thread_debugger.h"
 #include "third_party/blink/renderer/core/inspector/record_replay_dom_script.h"
 #include "third_party/blink/renderer/core/inspector/v8_session_holder.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
@@ -59,6 +60,9 @@ extern "C" void V8RecordReplaySetGlueNativesInstaller(
                       v8::Local<v8::Object> rr));
 extern "C" v8_inspector::V8InspectorSession* V8RecordReplayGlueSession(
     v8::Isolate* isolate);
+extern "C" v8_inspector::V8InspectorSession* V8RecordReplayGlueSessionForGroup(
+    v8::Isolate* isolate,
+    int group);
 
 namespace blink {
 
@@ -85,7 +89,8 @@ class Agents final : public GarbageCollected<Agents> {
         dispatcher_(std::make_unique<protocol::UberDispatcher>(&channel_)) {
     // The session is the replay's own, which outlives every page.
     std::shared_ptr<v8_inspector::V8InspectorSession> session(
-        V8RecordReplayGlueSession(isolate),
+        V8RecordReplayGlueSessionForGroup(
+            isolate, MainThreadDebugger::Instance(isolate)->ContextGroupId(frame)),
         [](v8_inspector::V8InspectorSession*) {});
     dom_ = MakeGarbageCollected<InspectorDOMAgent>(isolate,
                                                    inspected_frames_.Get());

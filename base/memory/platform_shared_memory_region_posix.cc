@@ -57,7 +57,7 @@ std::optional<FDAccessModeError> CheckFDAccessMode(int fd, int expected_mode) {
   // the recorder will start returning errors and we don't want to crash the
   // process.
   if (recordreplay::HasDivergedFromRecording()) {
-    return true;
+    return std::nullopt;
   }
 
   if (fd_status == -1) {

@@ -43,6 +43,11 @@ bool SetMemory(void* start, void* end, int prot) {
 namespace internal {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID)
 void CheckMemoryReadOnly(const void* ptr) {
+  // The section stays writable when recording or replaying (SetMemory), so
+  // there's nothing to check.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
   const uintptr_t page_start =
       bits::AlignDown(reinterpret_cast<uintptr_t>(ptr), GetPageSize());
 
