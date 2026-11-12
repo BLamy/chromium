@@ -265,6 +265,9 @@ class BASE_EXPORT WaitableEvent {
     const bool manual_reset_;
     bool signaled_;
     base::circular_deque<raw_ptr<Waiter, CtnExperimental>> waiters_;
+    // Created with events disallowed: its locks aren't ordered and waits on it
+    // aren't recorded.
+    const bool record_replay_unordered_;
 
    private:
     friend class RefCountedThreadSafe<WaitableEventKernel>;

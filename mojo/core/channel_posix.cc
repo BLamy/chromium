@@ -123,7 +123,8 @@ ChannelPosix::ChannelPosix(
     scoped_refptr<base::SingleThreadTaskRunner> io_task_runner)
     : Channel(delegate, handle_policy),
       self_(this),
-      io_task_runner_(io_task_runner) {
+      io_task_runner_(io_task_runner),
+      write_lock_("ChannelPosix.write_lock_") {
   socket_ = connection_params.TakeEndpoint().TakePlatformHandle().TakeFD();
   CHECK(socket_.is_valid());
 }

@@ -52,6 +52,8 @@
 #include "partition_alloc/stack/stack.h"  // nogncheck
 #endif
 
+#include "base/record_replay.h"
+
 namespace base {
 
 void InitThreading();
@@ -225,6 +227,11 @@ PlatformThreadId PlatformThreadBase::CurrentId() {
   CHECK_EQ(pthread_threadid_np(nullptr, &tid), 0);
   return PlatformThreadId(tid);
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  // Always use gettid() here when recording or replaying, to work around a bug
+  // where g_thread_id doesn't work properly when replaying.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return PlatformThreadId(static_cast<pid_t>(syscall(__NR_gettid)));
+  }
   // Workaround false-positive MSAN use-of-uninitialized-value on
   // thread_local storage for loaded libraries:
   // https://github.com/google/sanitizers/issues/1265

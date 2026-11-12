@@ -34,6 +34,8 @@
 #include "third_party/lss/linux_syscall_support.h"
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
+#include "base/record_replay.h"
+
 namespace base {
 
 namespace {
@@ -108,7 +110,10 @@ void RandBytesInternal(span<uint8_t> output, bool avoid_allocation) {
   // support for a syscall before calling. The same check is made on Linux and
   // ChromeOS to avoid making a syscall that predictably returns ENOSYS.
   static const bool kernel_has_support = KernelSupportsGetRandom();
-  if (kernel_has_support && GetRandomSyscall(output.data(), output.size())) {
+  // Not tested when recording or replaying: in some cases a replay doesn't
+  // think there is kernel support for getrandom, for an unknown reason.
+  if ((kernel_has_support || recordreplay::IsRecordingOrReplaying()) &&
+      GetRandomSyscall(output.data(), output.size())) {
     return;
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
