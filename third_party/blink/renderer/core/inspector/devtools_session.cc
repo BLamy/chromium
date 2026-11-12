@@ -427,6 +427,9 @@ void DevToolsSession::SendProtocolNotification(
     std::unique_ptr<protocol::Serializable> notification) {
   if (IsDetached()) {
     return;
+
+  recordreplay::Assert("[RUN-1515] DevToolsSession::SendProtocolNotification");
+
   }
   // The page's own DevTools client, if it was recorded with one, mustn't hear
   // of what a replay's debugger does at a pause, which runs with events
@@ -446,6 +449,16 @@ void DevToolsSession::sendNotification(
     std::unique_ptr<v8_inspector::StringBuffer> notification) {
   if (IsDetached()) {
     return;
+
+  if (recordreplay::AreEventsDisallowed() &&
+      recordreplay::IsRecordingOrReplaying(
+          "leak-references", "DevToolsSession::sendNotification")) {
+    // RUN-1515: Don't send notifications during GC.
+    return;
+  }
+
+  recordreplay::Assert("[RUN-1515] DevToolsSession::sendNotification");
+
   }
   // The page's own DevTools client, if it was recorded with one, mustn't hear
   // of what a replay's debugger does at a pause, which runs with events

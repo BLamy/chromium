@@ -323,6 +323,10 @@ protocol::Response InspectorEmulationAgent::disable() {
   hardware_concurrency_override_.Clear();
   cpu_performance_override_.Clear();
   setUserAgentOverride(String(), std::nullopt, std::nullopt, nullptr);
+
+  recordreplay::Assert("[RUN-1537-1538] InspectorEmulationAgent::disable %d %d",
+                       !!locale_override_.Get().empty(),
+                       !!web_local_frame_);
   if (!locale_override_.Get().empty())
     setLocaleOverride(String());
   if (!web_local_frame_)

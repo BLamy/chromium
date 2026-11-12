@@ -841,6 +841,8 @@ void ExtensionTelemetryService::OnUploadComplete(
     base::optional_ref<std::string> response_data) {
   // TODO(crbug.com/40253384): Add `config_manager_` implementation
   // to check server response and update config.
+  recordreplay::Diagnostic("[TT-198] ExtensionTelemetryService::OnUploadComplete() %s", success ? "succeeded" : "failed");
+
   if (success) {
     SetLastUploadTimeForExtensionTelemetry(*pref_service_, base::Time::Now());
 

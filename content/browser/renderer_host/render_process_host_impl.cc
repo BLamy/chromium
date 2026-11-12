@@ -56,6 +56,7 @@
 #include "base/process/process_handle.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
+#include "base/record_replay.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -287,6 +288,8 @@
 #if BUILDFLAG(CLANG_PROFILING_INSIDE_SANDBOX)
 #include "content/public/common/profiling_utils.h"
 #endif
+#include "base/values.h"
+
 
 #if BUILDFLAG(IS_P2P_ENABLED)
 #include "content/browser/renderer_host/p2p/socket_dispatcher_host.h"
@@ -442,6 +445,10 @@ SiteProcessMap* GetSiteProcessMapForBrowserContext(BrowserContext* context) {
   context->SetUserData(kSiteProcessMapKeyName, std::move(new_map));
   return new_map_ptr;
 }
+static inline bool MaybeRecordingOrReplaying() {
+  return true;
+}
+
 
 class RenderProcessHostIsReadyObserver : public RenderProcessHostObserver {
  public:
@@ -1669,6 +1676,9 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
     if (site_instance->IsPdf()) {
       flags |= RenderProcessFlags::kPdf;
     }
+    if (site_instance->RecordReplayIsForRecording()) {
+      flags |= RenderProcessFlags::kRecordReplayForRecording;
+    }
     if (site_instance->IsPrivileged()) {
       flags |= RenderProcessFlags::kPrivileged;
     }
@@ -2816,6 +2826,14 @@ void RenderProcessHostImpl::WriteIntoTrace(
   if (ChildProcessSecurityPolicyImpl::GetInstance())
     dict.Add("process_lock", GetProcessLock().ToString());
 }
+void RenderProcessHostImpl::SendRecordReplayBrowserEvent(
+    const std::string& name,
+    base::Value&& value) {
+  fprintf(stderr, "SendRecordReplayBrowserEvent CRASH\n");
+  CHECK(0);
+  //GetRendererInterface()->RecordReplayBrowserEvent(name, std::move(value));
+}
+
 
 void RenderProcessHostImpl::CreateEmbeddedFrameSinkProvider(
     mojo::PendingReceiver<blink::mojom::EmbeddedFrameSinkProvider> receiver) {
@@ -3822,6 +3840,10 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
 
   if (IsPdf())
     command_line->AppendSwitch(switches::kPdfRenderer);
+  if (IsRecordReplayForRecording()) {
+    command_line->AppendSwitch("--record-replay-for-recording");
+  }
+
 
 #if BUILDFLAG(IS_WIN)
   if (command_line->HasSwitch(kExtensionProcess)) {
@@ -3846,7 +3868,8 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
   // A non-empty RendererCmdPrefix implies that Zygote is disabled.
   if (!base::CommandLine::ForCurrentProcess()
            ->GetSwitchValueNative(switches::kRendererCmdPrefix)
-           .empty()) {
+           .empty() ||
+      MaybeRecordingOrReplaying()) {
     command_line->AppendSwitch(switches::kNoZygote);
   }
 
@@ -5443,6 +5466,8 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
   TRACE_EVENT("navigation",
               "RenderProcessHostImpl::GetProcessHostForSiteInstance",
               ChromeTrackEvent::kSiteInstance, site_instance);
+  bool record_replay_is_for_recording = site_instance->RecordReplayIsForRecording();
+
   const SiteInfo& site_info = site_instance->GetSiteInfo();
   ProcessReusePolicy process_reuse_policy =
       site_instance->process_reuse_policy();
@@ -5526,7 +5551,7 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
   // If not (or if none found), see if the spare RenderProcessHost can be used.
   auto& spare_process_manager = SpareRenderProcessHostManagerImpl::Get();
   bool spare_was_taken = false;
-  if (!render_process_host) {
+  if (!render_process_host && !record_replay_is_for_recording) {
     render_process_host = spare_process_manager.MaybeTakeSpare(
         browser_context, site_instance, allocation_context);
     if (render_process_host) {

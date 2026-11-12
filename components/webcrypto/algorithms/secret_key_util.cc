@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "components/webcrypto/algorithms/secret_key_util.h"
+#include "base/record_replay.h"
 
 #include "components/webcrypto/algorithms/util.h"
 #include "components/webcrypto/blink_key_handle.h"
@@ -11,6 +12,8 @@
 #include "components/webcrypto/status.h"
 #include "crypto/openssl_util.h"
 #include "third_party/boringssl/src/include/openssl/rand.h"
+#include "crypto/random.h"
+
 
 namespace webcrypto {
 

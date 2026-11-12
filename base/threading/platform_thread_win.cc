@@ -146,6 +146,8 @@ DWORD __stdcall ThreadFunc(void* params) {
     PlatformThread::SetDefaultThreadType(ThreadType::kDefault);
   }
 
+  RecordReplayThreadJoinFence();
+
   return 0;
 }
 

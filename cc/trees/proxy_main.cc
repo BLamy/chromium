@@ -88,12 +88,19 @@ ProxyMain::~ProxyMain() {
 void ProxyMain::InitializeOnImplThread(CompletionEvent* completion_event,
                                        int id,
                                        const LayerTreeSettings* settings) {
+  recordreplay::Assert("[RUN-1881] ProxyMain::InitializeOnImplThread");
+
   DCHECK(task_runner_provider_->IsImplThread());
   DCHECK(!proxy_impl_);
   proxy_impl_ =
       std::make_unique<ProxyImpl>(weak_factory_.GetWeakPtr(), layer_tree_host_,
                                   id, settings, task_runner_provider_);
+
+  recordreplay::Assert("[RUN-1881] ProxyMain::InitializeOnImplThread #1");
+
   completion_event->Signal();
+
+  recordreplay::Assert("[RUN-1881] ProxyMain::InitializeOnImplThread Done");
 }
 
 void ProxyMain::DestroyProxyImplOnImplThread(
@@ -194,6 +201,18 @@ void ProxyMain::RecordReplayRepaint() {
 
 void ProxyMain::BeginMainFrame(
     std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state) {
+  
+  BeginMainFrameWithBlocking(std::move(begin_main_frame_state), false);
+  recordreplay::Assert("[RUN-1675-1826] ProxyMain::BeginMainFrame");
+}
+
+void ProxyMain::BeginMainFrameWithBlocking(
+    std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state,
+    bool force_blocking) {
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    recordreplay::SetCompositorProxy(this);
+  }
+
   if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
     recordreplay::SetCompositorProxy(this);
   }

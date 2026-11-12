@@ -318,6 +318,10 @@ void DedicatedWorkerMessagingProxy::PostMessageToWorkerObject(
   recordreplay::AutoMarkerDependencyExecution record_replay_execute(
       "ScriptExecution", "DedicatedWorkerMessagingProxy::PostMessageToWorkerObject");
 
+  recordreplay::AutoMarkerDependencyExecution execute(
+    "ScriptExecution", "DedicatedWorkerMessagingProxy::PostMessageToWorkerObject"
+  );
+
   ThreadDebugger* debugger =
       ThreadDebugger::From(GetExecutionContext()->GetIsolate());
   GCedMessagePortArray* ports = MessagePort::EntanglePorts(

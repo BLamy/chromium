@@ -36,6 +36,8 @@
 #elif BUILDFLAG(IS_WIN)
 #include "base/win/win_util.h"
 #endif
+#include "base/record_replay.h"
+
 
 namespace mojo::core {
 

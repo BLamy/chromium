@@ -906,6 +906,9 @@ double AudioBufferSourceHandler::GetMinPlaybackRate() {
 
 bool AudioBufferSourceHandler::PropagatesSilence() const {
   DCHECK(Context()->IsAudioThread());
+  REPLAY_ASSERT(
+      "AudioBufferSourceHandler::PropagatesSilence %d %d %d",
+      recordreplay::PointerId(this), IsPlayingOrScheduled(), HasFinished());
 
   // A null buffer source still needs to process to fire the ended event at the
   // correct time. Don't propagate silence until the state is FINISHED.

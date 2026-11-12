@@ -375,6 +375,7 @@ void AudioProcessor::ProcessCapturedAudio(const media::AudioBus& audio_source,
                                process_bus->bus()->frames(), capture_delay,
                                volume, num_preferred_channels, output_bus);
     }
+  REPLAY_ASSERT("AudioProcessor::ProcessCapturedAudio %d", consume_count);
 
     deliver_processed_audio_callback_.Run(
         *output_bus->bus(), audio_capture_time - added_aec_delay_, new_volume);

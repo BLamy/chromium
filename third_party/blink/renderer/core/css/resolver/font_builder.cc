@@ -656,6 +656,7 @@ FontSelector* FontBuilder::ComputeFontSelector(
 void FontBuilder::CreateFont(ComputedStyleBuilder& builder,
                              const ComputedStyle* parent_style) {
   DCHECK(document_);
+  recordreplay::Assert("[RUN-1436-2237] FontBuilder::CreateFont A %u", flags_);
 
   if (!flags_) {
     return;

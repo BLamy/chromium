@@ -276,6 +276,10 @@ void DiscardableSharedMemoryHeap::ReleasePurgedMemory() {
                        return segment->IsResident();
                      }),
       memory_segments_.end());
+
+  recordreplay::Assert(
+    "[TT-1252-1255] DiscardableSharedMemoryHeap::ReleasePurgedMemory A %zu",
+    memory_segments_.size());
 }
 
 size_t DiscardableSharedMemoryHeap::GetSize() const {

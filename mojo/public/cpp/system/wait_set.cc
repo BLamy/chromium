@@ -145,6 +145,9 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
             base::span<Handle> ready_handles,
             base::span<MojoResult> ready_results,
             base::span<HandleSignalsState> signals_states) {
+    // https://linear.app/replay/issue/RUN-551
+    recordreplay::Assert("WaitSet::State::Wait Start");
+
     DCHECK(trap_handle_.is_valid());
     DCHECK(num_ready_handles);
     DCHECK(!ready_handles.empty());

@@ -282,6 +282,10 @@ void MediaStreamSource::OnDeviceCaptureHandleChange(
   // Observers may dispatch events which create and add new Observers;
   // take a snapshot so as to safely iterate.
   HeapVector<Member<Observer>> observers(observers_);
+  if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+    std::sort(observers.begin(), observers.end(),
+              recordreplay::CompareMemberByPointerId<Member<Observer>>());
+  }
   for (auto observer : observers) {
     observer->SourceChangedCaptureHandle();
   }

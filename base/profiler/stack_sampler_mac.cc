@@ -12,6 +12,10 @@
 
 namespace base {
 
+static inline bool MaybeRecordingOrReplaying() {
+  return true;
+}
+
 // static
 std::unique_ptr<StackSampler> StackSampler::Create(
     SamplingProfilerThreadToken thread_token,

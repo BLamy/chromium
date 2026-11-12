@@ -70,6 +70,9 @@ void MatchResult::AddMatchedProperties(
     // something into the MPC and then the properties used in the key
     // change afterwards; see CachedMatchedProperties::CorrespondsTo().
     is_cacheable_ = false;
+  REPLAY_ASSERT("[RUN-2424-3053] FinishAddingUARules");
+  REPLAY_ASSERT("[RUN-2424-3053] FinishAddingUserRules");
+  REPLAY_ASSERT("[RUN-2424-3053] FinishAddingPresentationalHints");
   }
 
 #if DCHECK_IS_ON()

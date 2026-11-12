@@ -69,6 +69,8 @@ class CC_EXPORT ProxyMain : public Proxy {
                                    std::string_view suffix) const;
   void BeginMainFrame(
       std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state);
+  void BeginMainFrameWithBlocking(
+      std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state, bool force_blocking);
 
   // [RecordReplay] For a replay that has left its recording and is asked what
   // the page looks like: a main frame whose commit the main thread waits for,

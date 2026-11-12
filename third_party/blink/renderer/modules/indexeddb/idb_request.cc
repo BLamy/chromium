@@ -258,6 +258,9 @@ IDBRequest::IDBRequest(ScriptState* script_state,
   AssignNewMetrics(std::move(metrics));
   async_task_context_.Schedule(ExecutionContext::From(script_state),
                                indexed_db_names::kIndexedDB);
+  record_replay_created_node_id_ = recordreplay::NewDependencyGraphNode(
+    "{\"kind\":\"newIDBRequest\"}"
+  );
 }
 
 IDBRequest::~IDBRequest() {

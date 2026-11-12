@@ -59,6 +59,8 @@ class PLATFORM_EXPORT AgentGroupSchedulerImpl : public AgentGroupScheduler {
   void OnUrgentMessageProcessed() override;
 
   void PerformMicrotaskCheckpoint();
+  int RecordReplayId() const { return record_replay_id_; }
+
 
   void Dispose();
 
@@ -99,6 +101,8 @@ class PLATFORM_EXPORT AgentGroupSchedulerImpl : public AgentGroupScheduler {
           "There is no compelling reason to make base::UnguessableToken "
           "compatible with blink::HashMap");
   bool is_updating_policy_ = false;
+
+  int record_replay_id_ = 0;
 };
 
 }  // namespace scheduler

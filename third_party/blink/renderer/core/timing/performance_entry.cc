@@ -72,6 +72,7 @@ PerformanceEntry::PerformanceEntry(double duration,
       source_(source),
       navigation_id_(navigation_id) {
   recordreplay::Assert("[RUN-2317-2316] PerformanceEntry A %d %u", index_, navigation_id);
+  recordreplay::Assert("[RUN-2317-2316] PerformanceEntry B %d %u", index_, navigation_id);
 }
 
 PerformanceEntry::~PerformanceEntry() = default;

@@ -269,6 +269,7 @@ class BASE_EXPORT WaitableEvent {
     // aren't recorded.
     const bool record_replay_unordered_;
 
+    bool record_replay_unordered_;
    private:
     friend class RefCountedThreadSafe<WaitableEventKernel>;
     ~WaitableEventKernel();

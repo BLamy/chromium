@@ -25,6 +25,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/task/common/task_annotator.h"
 #include "base/trace_event/trace_event.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "components/download/public/common/download_stats.h"
 #include "content/browser/about_url_loader_factory.h"
@@ -134,6 +135,8 @@
 #if BUILDFLAG(ENABLE_PLUGINS)
 #include "content/public/browser/plugin_service.h"
 #endif
+#include "content/common/renderer.mojom.h"
+
 
 namespace content {
 

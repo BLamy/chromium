@@ -242,6 +242,10 @@ bool DiscardableSharedMemory::Unmap() {
 DiscardableSharedMemory::LockResult DiscardableSharedMemory::Lock(
     size_t offset,
     size_t length) {
+  recordreplay::Assert("[RUN-1877-3208] DiscardableSharedMemory::Lock Start %d %zu",
+                       recordreplay::PointerId(this),
+                       locked_page_count_);
+
   DCHECK_EQ(AlignToPageSize(offset), offset);
   DCHECK_EQ(AlignToPageSize(length), length);
 

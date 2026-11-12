@@ -205,6 +205,10 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
     // When true, frames in this WebContents may not create or connect to
     // shared workers.
     bool disallow_shared_workers = false;
+
+    // Indicates that the content should be recorded by the Record Replay
+    // framework.
+    bool record_replay_for_recording = false;
   };
 
   struct CONTENT_EXPORT CreateParams {

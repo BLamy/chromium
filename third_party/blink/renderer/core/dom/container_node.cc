@@ -698,6 +698,7 @@ void ContainerNode::ParserInsertBefore(Node* new_child, Node& next_child) {
     AdoptAndInsertBefore()(*this, *new_child, &next_child);
     DCHECK_EQ(new_child->ConnectedSubframeCount(), 0u);
     ChildListMutationScope(*this).ChildAdded(*new_child);
+    recordreplay::Assert("[1436-1922] ContainerNode::ParserInsertBefore %d %d", RecordReplayId(), new_child->RecordReplayId());
   }
 
   NotifyNodeInserted(*new_child, ChildrenChangeSource::kParser);
@@ -1253,6 +1254,9 @@ Node* ContainerNode::AppendChild(Node* new_child,
   if (!CollectChildrenAndRemoveFromOldParent(*new_child, targets,
                                              exception_state))
     return new_child;
+
+  recordreplay::Assert("[RUN-1436-2237] ContainerNode::AppendChild B");
+
   if (!detector.NeedsRecheck()) {
     if (!RecheckNodeInsertionStructuralPrereq(targets, nullptr,
                                               exception_state))
@@ -1308,6 +1312,8 @@ void ContainerNode::ParserAppendChild(Node* new_child) {
     AdoptAndAppendChild()(*this, *new_child, nullptr);
     DCHECK_EQ(new_child->ConnectedSubframeCount(), 0u);
     ChildListMutationScope(*this).ChildAdded(*new_child);
+    recordreplay::Assert("[1436-1922] ContainerNode::ParserAppendChild %d %d",
+                         RecordReplayId(), new_child->RecordReplayId());
   }
 
   NotifyNodeInserted(*new_child, ChildrenChangeSource::kParser);

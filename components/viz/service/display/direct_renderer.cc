@@ -220,6 +220,8 @@ void DirectRenderer::DrawFrame(
     current_frame()->root_damage_rect.Union(
         overlay_processor_->GetAndResetOverlayDamage());
   }
+  recordreplay::AssertMaybeEventsDisallowed("[RUN-2847-3001] DirectRenderer::DrawFrame B");
+
 
   if (auto* ink_renderer =
           GetDelegatedInkPointRenderer(/*create_if_necessary=*/false)) {

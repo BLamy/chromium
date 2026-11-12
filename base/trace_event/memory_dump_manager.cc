@@ -52,6 +52,8 @@
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 #include "base/trace_event/address_space_dump_provider.h"
 #endif
+#include "base/record_replay.h"
+
 
 namespace base::trace_event {
 

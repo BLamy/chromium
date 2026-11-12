@@ -1106,6 +1106,11 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // Issues a paint invalidation on the layout viewport's vertical scrollbar
   // (which is responsible for painting the tickmarks).
   void InvalidatePaintForTickmarks();
+  int RecordReplayId() const {
+    NOT_DESTROYED();
+    return record_replay_id_;
+  }
+
 
   bool MayHaveFragmentItems() const {
     NOT_DESTROYED();
@@ -1352,6 +1357,9 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   Member<BoxOverflowModel> overflow_;
   Member<LayoutBoxRareData> rare_data_;
+
+  // A deterministic ID is needed for sorting in various SnapCoordinator methods.
+  int record_replay_id_ = 0;
 };
 
 template <>

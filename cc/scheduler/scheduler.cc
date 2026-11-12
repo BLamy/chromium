@@ -112,6 +112,7 @@ void Scheduler::SetNeedsImplSideInvalidation(
     state_machine_->SetNeedsImplSideInvalidation(
         needs_first_draw_on_activation);
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::Stop");
   ProcessScheduledActions();
 }
 
@@ -125,6 +126,8 @@ base::TimeTicks Scheduler::Now() const {
 void Scheduler::SetVisible(bool visible) {
   state_machine_->SetVisible(visible);
   UpdateCompositorTimingHistoryRecordingEnabled();
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetVisible");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetCanDraw");
   ProcessScheduledActions();
 }
 
@@ -154,6 +157,7 @@ bool Scheduler::IsReadyToActivate() {
 void Scheduler::NotifyReadyToDraw() {
   // Future work might still needed for crbug.com/352894.
   state_machine_->NotifyReadyToDraw();
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::NotifyReadyToDraw");
   ProcessScheduledActions();
 }
 
@@ -172,6 +176,12 @@ void Scheduler::SetBeginFrameSource(viz::BeginFrameSource* source) {
 void Scheduler::NotifyAnimationWorkletStateChange(AnimationWorkletState state,
                                                   TreeType tree) {
   state_machine_->NotifyAnimationWorkletStateChange(state, tree);
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::NotifyAnimationWorkletStateChange");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::NotifyPaintWorkletStateChange");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetNeedsBeginMainFrame");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetNeedsOneBeginImplFrame");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetNeedsRedraw");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetNeedsPrepareTiles");
   ProcessScheduledActions();
 }
 
@@ -347,6 +357,7 @@ void Scheduler::DidReceiveCompositorFrameAck() {
     DCHECK_GT(state_machine_->pending_submit_frames(), 0);
   }
   state_machine_->DidReceiveCompositorFrameAck();
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::DidReceiveCompositorFrameAck");
   ProcessScheduledActions();
 }
 
@@ -355,6 +366,7 @@ void Scheduler::SetTreePrioritiesAndScrollState(
     bool is_current_scroll_main_painted) {
   state_machine_->SetTreePrioritiesAndScrollState(
       tree_priority, is_current_scroll_main_painted);
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetTreePrioritiesAndScrollState");
   ProcessScheduledActions();
 }
 
@@ -368,6 +380,7 @@ void Scheduler::NotifyReadyToCommit(
     state_machine_->NotifyReadyToCommit();
     next_commit_origin_frame_args_ = last_dispatched_begin_main_frame_args_;
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::NotifyReadyToCommit");
   ProcessScheduledActions();
 }
 
@@ -382,6 +395,7 @@ void Scheduler::BeginMainFrameAborted(CommitEarlyOutReason reason) {
 
     state_machine_->BeginMainFrameAborted(reason);
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::BeginMainFrameAborted");
   ProcessScheduledActions();
 }
 
@@ -402,6 +416,7 @@ void Scheduler::DidLoseLayerTreeFrameSink() {
     state_machine_->DidLoseLayerTreeFrameSink();
     UpdateCompositorTimingHistoryRecordingEnabled();
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::DidLoseLayerTreeFrameSink");
   ProcessScheduledActions();
 }
 
@@ -413,6 +428,7 @@ void Scheduler::DidCreateAndInitializeLayerTreeFrameSink() {
     state_machine_->DidCreateAndInitializeLayerTreeFrameSink();
     UpdateCompositorTimingHistoryRecordingEnabled();
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::DidCreateAndInitializeLayerTreeFrameSink");
   ProcessScheduledActions();
 }
 
@@ -495,6 +511,7 @@ void Scheduler::OnBeginFrameSourcePausedChanged(bool paused) {
   if (state_machine_->begin_frame_source_paused() == paused) {
     return;
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::OnBeginFrameSourcePausedChanged");
   {
     TRACE_EVENT_INSTANT("cc", "Scheduler::SetBeginFrameSourcePaused", "paused",
                         paused);
@@ -581,6 +598,7 @@ bool Scheduler::OnBeginFrameDerivedImpl(const viz::BeginFrameArgs& args) {
     // ProcessScheduledActions() this call will be a nop and the above will
     // happen at end of the top most call to ProcessScheduledActions().
     recordreplay::Assert("[RUN-1230-1710] Scheduler::OnBeginFrameDerivedImpl");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetVideoNeedsBeginFrames");
     ProcessScheduledActions();
   } else {
     // This starts the begin frame immediately, and puts us in the
@@ -623,6 +641,7 @@ void Scheduler::OnDrawForLayerTreeFrameSink(bool resourceless_software_draw,
   OnBeginImplFrameDeadline();
 
   state_machine_->OnBeginImplFrameIdle();
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::OnDrawForLayerTreeFrameSink");
   ProcessScheduledActions();
   state_machine_->SetResourcelessSoftwareDraw(false);
 }
@@ -857,6 +876,7 @@ void Scheduler::BeginImplFrame(const viz::BeginFrameArgs& args,
     if (!has_damage)
       state_machine_->AbortDraw();
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::BeginImplFrame");
 
   ProcessScheduledActions();
 }
@@ -971,6 +991,7 @@ void Scheduler::OnBeginImplFrameDeadline() {
       compositor_frame_reporting_controller_->OnFinishImplFrame(
           begin_main_frame_args_.frame_id, waiting_for_main);
     }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::OnBeginImplFrameDeadline");
 
     state_machine_->OnBeginImplFrameDeadline();
     client_->OnBeginImplFrameDeadline();
@@ -1026,6 +1047,7 @@ void Scheduler::SetDeferBeginMainFrame(bool defer_begin_main_frame) {
                  "defer_begin_main_frame", defer_begin_main_frame);
     state_machine_->SetDeferBeginMainFrame(defer_begin_main_frame);
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetDeferBeginMainFrame");
   ProcessScheduledActions();
 }
 
@@ -1035,6 +1057,8 @@ void Scheduler::SetPauseRendering(bool pause_rendering) {
                  pause_rendering);
     state_machine_->SetPauseRendering(pause_rendering);
   }
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetPauseRendering");
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::SetMainThreadWantsBeginMainFrameNotExpected");
   ProcessScheduledActions();
 }
 

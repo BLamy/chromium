@@ -779,6 +779,8 @@ MessagePumpForIO::~MessagePumpForIO() = default;
 void MessagePumpForIO::ScheduleWork() {
   // This is the only MessagePumpForIO method which can be called outside of
   // |bound_thread_|.
+  recordreplay::Assert("[RUN-1815] MessagePumpForIO::ScheduleWork");
+
 
   bool not_scheduled = false;
   if (!native_msg_scheduled_.compare_exchange_strong(

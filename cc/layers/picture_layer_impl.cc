@@ -1220,6 +1220,9 @@ void PictureLayerImpl::UpdateTilingsForRasterScaleAndTranslation(
       // Nothing changed, no need to update tilings.
       DCHECK_EQ(HIGH_RESOLUTION, high_res->resolution());
       SanityCheckTilingState();
+
+  // https://linear.app/replay/issue/RUN-550
+  recordreplay::Assert("PictureLayerImpl::UpdateTilingsForRasterScaleAndTranslation Done");
       return;
     }
   }
