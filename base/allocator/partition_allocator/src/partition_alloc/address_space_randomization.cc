@@ -9,13 +9,51 @@
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/random.h"
 
+#if PA_BUILDFLAG(IS_POSIX)
+#include <dlfcn.h>
+#endif
+
 #if PA_BUILDFLAG(IS_WIN)
 #include <windows.h>
 #endif
 
 namespace partition_alloc {
 
+namespace {
+
+// Where a page goes isn't part of a recording, and a replay asks for pages a
+// recording didn't, at a pause for one: the random numbers for it are read
+// with events disallowed, as in Replay's Chromium 108. PartitionAlloc can't
+// use base, so this finds the driver itself.
+class RecordReplayDisallowEvents {
+ public:
+  RecordReplayDisallowEvents() {
+#if PA_BUILDFLAG(IS_POSIX)
+    static void (*begin)(const char*) = reinterpret_cast<void (*)(const char*)>(
+        dlsym(RTLD_DEFAULT, "RecordReplayBeginDisallowEventsWithLabel"));
+    static void (*end)() = reinterpret_cast<void (*)()>(
+        dlsym(RTLD_DEFAULT, "RecordReplayEndDisallowEvents"));
+    static bool attached = dlsym(RTLD_DEFAULT, "RecordReplayAttach") != nullptr;
+    if (attached && begin && end) {
+      begin("GetRandomPageBase");
+      end_ = end;
+    }
+#endif
+  }
+  ~RecordReplayDisallowEvents() {
+    if (end_) {
+      end_();
+    }
+  }
+
+ private:
+  void (*end_)() = nullptr;
+};
+
+}  // namespace
+
 uintptr_t GetRandomPageBase() {
+  RecordReplayDisallowEvents disallow;
   uintptr_t random = static_cast<uintptr_t>(internal::RandomValue());
 
 #if PA_BUILDFLAG(HAS_64_BIT_POINTERS)

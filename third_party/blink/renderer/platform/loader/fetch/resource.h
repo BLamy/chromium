@@ -655,7 +655,13 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
   HeapHashCountedSet<WeakMember<ResourceClient>> clients_;
   HeapHashCountedSet<WeakMember<ResourceClient>> clients_awaiting_callback_;
   HeapHashCountedSet<WeakMember<ResourceClient>> finished_clients_;
-  HeapHashSet<WeakMember<ResourceFinishObserver>> finish_observers_;
+  HeapHashSet<WeakMember<ResourceFinishObserver>,
+              WeakMemberHashTraitsRecordReplayId<ResourceFinishObserver>>
+      finish_observers_;
+  // Held when recording or replaying, so who's told doesn't depend on when the
+  // GC ran.
+  HeapHashSet<Member<ResourceClient>> replay_clients_strong_;
+  HeapHashSet<Member<ResourceFinishObserver>> replay_finish_observers_strong_;
 
   ResourceLoaderOptions options_;
 

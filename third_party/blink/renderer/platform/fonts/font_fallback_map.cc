@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/fonts/font_fallback_map.h"
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
 
 namespace blink {
@@ -27,6 +28,10 @@ FontFallbackList* FontFallbackMap::Get(
 }
 
 void FontFallbackMap::InvalidateAll() {
+  if (recordreplay::AreEventsDisallowed("leak-references")) {
+    // Leak fallback_list_for_description_ contents.
+    return;
+  }
   for (auto& entry : fallback_list_for_description_)
     entry.value->MarkInvalid();
   fallback_list_for_description_.clear();
@@ -46,6 +51,12 @@ void FontFallbackMap::InvalidateInternal(Predicate predicate) {
 
 void FontFallbackMap::FontsNeedUpdate(FontSelector*,
                                       FontInvalidationReason reason) {
+  if (recordreplay::AreEventsDisallowed("leak-references")) {
+    // Leak fallback_list_for_description_ contents to avoid divergence down the
+    // road.
+    return;
+  }
+
   switch (reason) {
     case FontInvalidationReason::kFontFaceLoaded:
       InvalidateInternal([](const FontFallbackList& fallback_list) {

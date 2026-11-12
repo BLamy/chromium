@@ -27,6 +27,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_LOADER_FETCH_MEMORY_CACHE_H_
 
 #include "base/gtest_prod_util.h"
+#include "base/record_replay.h"
 #include "base/memory_coordinator/memory_consumer.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -56,16 +57,32 @@ class KURL;
 // when the prefinalizer is executed.
 class MemoryCacheEntry final : public GarbageCollected<MemoryCacheEntry> {
  public:
-  explicit MemoryCacheEntry(Resource* resource) : resource_(resource) {}
+  explicit MemoryCacheEntry(Resource* resource) {
+    if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                             "MemoryCacheEntry")) {
+      strong_resource_ = resource;
+    } else {
+      resource_ = resource;
+    }
+  }
 
   void Trace(Visitor*) const;
-  Resource* GetResource() const { return resource_.Get(); }
+  Resource* GetResource() const {
+    if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                             "MemoryCacheEntry")) {
+      return strong_resource_.Get();
+    }
+    return resource_.Get();
+  }
 
  private:
   void ClearResourceWeak(const LivenessBroker&);
 
   // We use UntracedMember<> here to do custom weak processing.
   UntracedMember<Resource> resource_;
+  // Replay uses Member<> here to maintain a strong ref to avoid
+  // non-deterministic GC of resources.
+  Member<Resource> strong_resource_;
 };
 
 // This cache holds subresources used by Web pages: images, scripts,

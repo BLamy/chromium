@@ -22,6 +22,8 @@
 
 #include "third_party/blink/renderer/platform/loader/fetch/memory_cache.h"
 
+#include "base/record_replay.h"
+
 #include <iterator>
 #include <utility>
 
@@ -163,8 +165,14 @@ ScopedMemoryCacheForTesting::~ScopedMemoryCacheForTesting() {
 }
 
 void MemoryCacheEntry::Trace(Visitor* visitor) const {
-  visitor->template RegisterWeakCallbackMethod<
-      MemoryCacheEntry, &MemoryCacheEntry::ClearResourceWeak>(this);
+  // Don't bother to register for tracing events if we're instrumented.
+  if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                           "MemoryCacheEntry")) {
+    visitor->Trace(strong_resource_);
+  } else {
+    visitor->template RegisterWeakCallbackMethod<
+        MemoryCacheEntry, &MemoryCacheEntry::ClearResourceWeak>(this);
+  }
 }
 
 void MemoryCacheEntry::ClearResourceWeak(const LivenessBroker& info) {

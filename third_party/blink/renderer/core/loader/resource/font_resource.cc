@@ -26,6 +26,8 @@
 
 #include "third_party/blink/renderer/core/loader/resource/font_resource.h"
 
+#include "base/record_replay.h"
+
 #include <utility>
 
 #include "base/memory/raw_ptr.h"
@@ -291,16 +293,31 @@ void FontResource::StartLoadLimitTimersIfNecessary(
   DCHECK(!font_load_long_limit_.IsActive());
   load_limit_state_ = LoadLimitState::kUnderLimit;
 
-  font_load_short_limit_ = PostDelayedCancellableTask(
-      *task_runner, FROM_HERE,
-      blink::BindOnce(&FontResource::FontLoadShortLimitCallback,
-                      WrapWeakPersistent(this)),
-      kFontLoadWaitShort);
-  font_load_long_limit_ = PostDelayedCancellableTask(
-      *task_runner, FROM_HERE,
-      blink::BindOnce(&FontResource::FontLoadLongLimitCallback,
-                      WrapWeakPersistent(this)),
-      kFontLoadWaitLong);
+  // The timers hold the resource when recording or replaying, so whether they
+  // fire doesn't depend on when the GC ran.
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "FontResource")) {
+    font_load_short_limit_ = PostDelayedCancellableTask(
+        *task_runner, FROM_HERE,
+        blink::BindOnce(&FontResource::FontLoadShortLimitCallback,
+                        WrapPersistent(this)),
+        kFontLoadWaitShort);
+    font_load_long_limit_ = PostDelayedCancellableTask(
+        *task_runner, FROM_HERE,
+        blink::BindOnce(&FontResource::FontLoadLongLimitCallback,
+                        WrapPersistent(this)),
+        kFontLoadWaitLong);
+  } else {
+    font_load_short_limit_ = PostDelayedCancellableTask(
+        *task_runner, FROM_HERE,
+        blink::BindOnce(&FontResource::FontLoadShortLimitCallback,
+                        WrapWeakPersistent(this)),
+        kFontLoadWaitShort);
+    font_load_long_limit_ = PostDelayedCancellableTask(
+        *task_runner, FROM_HERE,
+        blink::BindOnce(&FontResource::FontLoadLongLimitCallback,
+                        WrapWeakPersistent(this)),
+        kFontLoadWaitLong);
+  }
 }
 
 const FontCustomPlatformData* FontResource::GetCustomFontData() {

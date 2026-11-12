@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/modules/storage/storage_controller.h"
 
+#include "base/record_replay.h"
+
 #include "base/feature_list.h"
 #include "base/system/sys_info.h"
 #include "third_party/blink/public/common/features.h"
@@ -88,6 +90,14 @@ StorageNamespace* StorageController::CreateSessionStorageNamespace(
   StorageNamespace* ns =
       MakeGarbageCollected<StorageNamespace>(page, this, namespace_id);
   namespaces_->insert(namespace_id, ns);
+  if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                           "StorageController")) {
+    if (!replay_strong_namespaces_) {
+      replay_strong_namespaces_ = MakeGarbageCollected<
+          GCedHeapHashMap<String, Member<StorageNamespace>>>();
+    }
+    replay_strong_namespaces_->Set(namespace_id, ns);
+  }
   return ns;
 }
 

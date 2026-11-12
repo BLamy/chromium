@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector_client.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
@@ -139,11 +140,19 @@ void CSSFontSelector::RegisterForInvalidationCallbacks(
     FontSelectorClient* client) {
   CHECK(client);
   clients_.insert(client);
+  if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                           "CSSFontSelector")) {
+    record_replay_strong_clients_.insert(client);
+  }
 }
 
 void CSSFontSelector::UnregisterForInvalidationCallbacks(
     FontSelectorClient* client) {
   clients_.erase(client);
+  if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                           "CSSFontSelector")) {
+    record_replay_strong_clients_.erase(client);
+  }
 }
 
 void CSSFontSelector::DispatchInvalidationCallbacks(
@@ -285,6 +294,7 @@ bool CSSFontSelector::IsAlive() const {
 void CSSFontSelector::Trace(Visitor* visitor) const {
   visitor->Trace(tree_scope_);
   visitor->Trace(clients_);
+  visitor->Trace(record_replay_strong_clients_);
   CSSFontSelectorBase::Trace(visitor);
 }
 

@@ -132,7 +132,9 @@ String GetAsAttributeFromResourceType(ResourceType type) {
 namespace {
 
 void NotifyFinishObservers(
-    GCedHeapHashSet<WeakMember<ResourceFinishObserver>>* observers) {
+    GCedHeapHashSet<WeakMember<ResourceFinishObserver>,
+                    WeakMemberHashTraitsRecordReplayId<ResourceFinishObserver>>* observers,
+    GCedHeapVector<Member<ResourceFinishObserver>>* observers_strong) {
   for (const auto& observer : *observers)
     observer->NotifyFinished();
 }
@@ -246,6 +248,8 @@ void Resource::Trace(Visitor* visitor) const {
   visitor->Trace(clients_awaiting_callback_);
   visitor->Trace(finished_clients_);
   visitor->Trace(finish_observers_);
+  visitor->Trace(replay_clients_strong_);
+  visitor->Trace(replay_finish_observers_strong_);
   visitor->Trace(options_);
 }
 
@@ -410,13 +414,24 @@ void Resource::TriggerNotificationForFinishObservers(
   if (finish_observers_.empty())
     return;
 
-  auto* new_collections =
-      MakeGarbageCollected<GCedHeapHashSet<WeakMember<ResourceFinishObserver>>>(
-          std::move(finish_observers_));
+  auto* new_collections_strong =
+      MakeGarbageCollected<GCedHeapVector<Member<ResourceFinishObserver>>>();
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "Resource")) {
+    for (const auto& observer : replay_finish_observers_strong_) {
+      new_collections_strong->push_back(observer);
+    }
+    replay_finish_observers_strong_.clear();
+  }
+  auto* new_collections = MakeGarbageCollected<
+      GCedHeapHashSet<WeakMember<ResourceFinishObserver>,
+                      WeakMemberHashTraitsRecordReplayId<ResourceFinishObserver>>>(
+      std::move(finish_observers_));
   finish_observers_.clear();
 
-  task_runner->PostTask(FROM_HERE, BindOnce(&NotifyFinishObservers,
-                                            WrapPersistent(new_collections)));
+  task_runner->PostTask(
+      FROM_HERE, BindOnce(&NotifyFinishObservers,
+                          WrapPersistent(new_collections),
+                          WrapPersistent(new_collections_strong)));
 
   DidRemoveClientOrObserver();
 }
@@ -756,6 +771,8 @@ void Resource::AddClient(ResourceClient* client,
 
   if (IsCacheValidator()) {
     clients_.insert(client);
+    if (recordreplay::IsRecordingOrReplaying("leak-references", "Resource"))
+      replay_clients_strong_.insert(client);
     return;
   }
 
@@ -764,6 +781,8 @@ void Resource::AddClient(ResourceClient* client,
   if ((ErrorOccurred() || !GetResponse().IsNull()) &&
       !NeedsSynchronousCacheHit(GetType(), options_)) {
     clients_awaiting_callback_.insert(client);
+    if (recordreplay::IsRecordingOrReplaying("leak-references", "Resource"))
+      replay_clients_strong_.insert(client);
     if (!async_finish_pending_clients_task_.IsActive()) {
       async_finish_pending_clients_task_ =
           PostCancellableTask(*task_runner, FROM_HERE,
@@ -774,6 +793,8 @@ void Resource::AddClient(ResourceClient* client,
   }
 
   clients_.insert(client);
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "Resource"))
+    replay_clients_strong_.insert(client);
   DidAddClient(client);
   return;
 }
@@ -787,6 +808,8 @@ void Resource::RemoveClient(ResourceClient* client) {
     clients_awaiting_callback_.erase(client);
   else
     clients_.erase(client);
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "Resource"))
+    replay_clients_strong_.erase(client);
 
   if (clients_awaiting_callback_.empty() &&
       async_finish_pending_clients_task_.IsActive()) {
@@ -803,6 +826,8 @@ void Resource::AddFinishObserver(ResourceFinishObserver* client,
 
   WillAddClientOrObserver();
   finish_observers_.insert(client);
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "Resource"))
+    replay_finish_observers_strong_.insert(client);
   if (IsLoaded())
     TriggerNotificationForFinishObservers(task_runner);
 }
@@ -811,6 +836,8 @@ void Resource::RemoveFinishObserver(ResourceFinishObserver* client) {
   CHECK(!is_add_remove_client_prohibited_);
 
   finish_observers_.erase(client);
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "Resource"))
+    replay_finish_observers_strong_.erase(client);
   DidRemoveClientOrObserver();
 }
 

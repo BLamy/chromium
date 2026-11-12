@@ -90,6 +90,10 @@ class MODULES_EXPORT StorageController : public mojom::blink::DomStorageClient {
   void ResetLocalStorageConnections() override;
 
   Persistent<GCedHeapHashMap<String, WeakMember<StorageNamespace>>> namespaces_;
+  // Held when recording or replaying, so a namespace is there or not whenever
+  // the GC ran.
+  Persistent<GCedHeapHashMap<String, Member<StorageNamespace>>>
+      replay_strong_namespaces_;
   Persistent<StorageNamespace> local_storage_namespace_;
   size_t total_cache_limit_;
 
