@@ -238,7 +238,7 @@ void ChildProcessLauncherHelper::ForceNormalProcessTerminationSync(
   if (getenv("RECORD_ALL_CONTENT")) {
     return;
   }
-  process.process.Terminate(RESULT_CODE_NORMAL_EXIT, false);
+  //process.process.Terminate(RESULT_CODE_NORMAL_EXIT, false);
   base::EnsureProcessTerminated(std::move(process.process));
 }
 

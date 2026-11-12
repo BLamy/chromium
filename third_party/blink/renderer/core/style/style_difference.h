@@ -10,6 +10,8 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
+#include "base/record_replay.h"
+
 
 namespace blink {
 

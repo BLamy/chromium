@@ -19,6 +19,7 @@
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
+#include "base/record_replay.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
@@ -360,7 +361,11 @@ void AudioProcessor::ProcessCapturedAudio(const media::AudioBus& audio_source,
   // Process and consume the data in the FIFO until there is not enough
   // data to process.
   AudioProcessorCaptureBus* process_bus;
+  int consume_count = 0;
   while (capture_fifo_->Consume(&process_bus, &capture_delay)) {
+    ++consume_count;
+    REPLAY_ASSERT("AudioProcessor::ProcessCapturedAudio consume %d",
+                  consume_count);
     // Use the process bus directly if audio processing is disabled.
     AudioProcessorCaptureBus* output_bus = process_bus;
     std::optional<double> new_volume;

@@ -18,6 +18,8 @@
 #include "base/trace_event/trace_event.h"
 #include "cc/raster/raster_source.h"
 #include "ui/gfx/geometry/rect_conversions.h"
+#include "base/record_replay.h"
+
 
 namespace cc {
 
@@ -69,7 +71,9 @@ PictureLayerTilingSet::PictureLayerTilingSet(
           skewport_extrapolation_limit_in_screen_pixels),
       tree_(tree),
       client_(client),
-      max_preraster_distance_(max_preraster_distance) {}
+      max_preraster_distance_(max_preraster_distance) {
+  recordreplay::RegisterPointer("PictureLayerTilingSet", this);
+}
 
 PictureLayerTilingSet::~PictureLayerTilingSet() = default;
 
@@ -156,6 +160,9 @@ void PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForActivation(
   }
 
   VerifyTilings(pending_twin_set);
+
+  // https://linear.app/replay/issue/RUN-465
+  recordreplay::Assert("PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForActivation Done");
 }
 
 void PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForCommit(
@@ -271,6 +278,8 @@ PictureLayerTiling* PictureLayerTilingSet::AddTiling(
   PictureLayerTiling* appended = tilings_.back().get();
   state_since_last_tile_priority_update_.added_tilings = true;
 
+  recordreplay::Assert("[RUN-550] PictureLayerTilingSet::AddTiling %.2f", appended->contents_scale_key());
+
   std::sort(tilings_.begin(), tilings_.end(), LargestToSmallestScaleFunctor());
   return appended;
 }
@@ -282,6 +291,8 @@ int PictureLayerTilingSet::NumHighResTilings() const {
 
 PictureLayerTiling* PictureLayerTilingSet::FindTilingWithScaleKey(
     float scale_key) const {
+  recordreplay::Assert("[RUN-550] PictureLayerImpl::FindTilingWithScaleKey %.2f", scale_key);
+
   for (const auto& tiling : tilings_) {
     if (tiling->contents_scale_key() == scale_key)
       return tiling.get();
@@ -343,6 +354,8 @@ void PictureLayerTilingSet::RemoveAllTilings() {
 }
 
 void PictureLayerTilingSet::Remove(PictureLayerTiling* tiling) {
+  recordreplay::Assert("[RUN-550] PictureLayerTilingSet::Remove %.2f", tiling->contents_scale_key());
+
   auto iter = std::ranges::find(tilings_, tiling,
                                 &std::unique_ptr<PictureLayerTiling>::get);
   if (iter == tilings_.end())

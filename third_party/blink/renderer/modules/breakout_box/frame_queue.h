@@ -156,7 +156,9 @@ class FrameQueue : public ThreadSafeRefCounted<FrameQueue<NativeFrameType>> {
   }
 
  private:
-  mutable base::Lock lock_;
+  // Ordered while recording/replaying: whether QueueFrame() pushes and posts
+  // a task depends on |queue_| not having been released on another thread.
+  mutable base::Lock lock_{"FrameQueueHandle.lock_"};
   Deque<NativeFrameType> queue_ GUARDED_BY(GetLock());
   const wtf_size_t max_size_;
   uint64_t total_frames_ GUARDED_BY(GetLock()) = 0;

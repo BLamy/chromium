@@ -81,6 +81,7 @@ Scheduler::Scheduler(
 
   // We want to handle animate_only BeginFrames.
   wants_animate_only_begin_frames_ = true;
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::Scheduler");
 
   ProcessScheduledActions();
 }
@@ -140,6 +141,7 @@ void Scheduler::SetCanDraw(bool can_draw) {
 void Scheduler::NotifyReadyToActivate() {
   if (state_machine_->NotifyReadyToActivate()) {
     compositor_timing_history_->ReadyToActivate();
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::NotifyReadyToActivate");
   }
 
   ProcessScheduledActions();
@@ -482,6 +484,7 @@ void Scheduler::PostPendingBeginFrameTask() {
 
   if (is_idle && needs_begin_frames && has_pending_begin_frame_args &&
       has_no_pending_begin_frame_task) {
+    recordreplay::Assert("[RUN-1230] Scheduler::PostPendingBeginFrameTask #1");
     pending_begin_frame_task_.Reset(base::BindOnce(
         &Scheduler::HandlePendingBeginFrame, base::Unretained(this)));
     task_runner_->PostTask(FROM_HERE, pending_begin_frame_task_.callback());
@@ -577,6 +580,7 @@ bool Scheduler::OnBeginFrameDerivedImpl(const viz::BeginFrameArgs& args) {
     // deadline has already run. If we're already inside
     // ProcessScheduledActions() this call will be a nop and the above will
     // happen at end of the top most call to ProcessScheduledActions().
+    recordreplay::Assert("[RUN-1230-1710] Scheduler::OnBeginFrameDerivedImpl");
     ProcessScheduledActions();
   } else {
     // This starts the begin frame immediately, and puts us in the
@@ -803,6 +807,7 @@ void Scheduler::FinishImplFrame() {
   }
 
   begin_impl_frame_tracker_.Finish();
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::FinishImplFrame");
 
   ProcessScheduledActions();
   DCHECK(!inside_scheduled_action_);
@@ -1191,6 +1196,7 @@ viz::BeginFrameAck Scheduler::CurrentBeginFrameAckForActiveTree() const {
 void Scheduler::ClearHistory() {
   // Ensure we reset decisions based on history from the previous navigation.
   compositor_timing_history_->ClearHistory();
+  recordreplay::Assert("[RUN-1230-1710] Scheduler::ClearHistory");
   ProcessScheduledActions();
 }
 

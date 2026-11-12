@@ -81,6 +81,8 @@
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/gfx/presentation_feedback.h"
+#include "base/record_replay.h"
+
 #include "ui/latency/latency_info.h"
 
 namespace {

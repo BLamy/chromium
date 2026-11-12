@@ -6,6 +6,7 @@
 #define MOJO_PUBLIC_CPP_BINDINGS_LIB_STRING_SERIALIZATION_H_
 
 #include <string.h>
+#include "base/record_replay.h"
 
 #include <string_view>
 

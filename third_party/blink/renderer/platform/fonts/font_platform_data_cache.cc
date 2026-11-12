@@ -33,6 +33,7 @@
 #include <cmath>
 
 #include "base/feature_list.h"
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/fonts/alternate_font_family.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"

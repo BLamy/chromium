@@ -10,6 +10,7 @@
 
 #include "base/containers/span.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/record_replay.h"
 #include "base/time/time.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/limits.h"

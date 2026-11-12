@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include <memory>
+#include <string>
 
 #include "base/allocator/early_zone_registration_apple.h"
 #include "base/compiler_specific.h"

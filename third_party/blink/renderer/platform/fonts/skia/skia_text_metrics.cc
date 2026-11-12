@@ -10,6 +10,8 @@
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/skia/include/core/SkFont.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "base/record_replay.h"
+
 #include "third_party/skia/include/core/SkStrikeRef.h"
 
 namespace blink {

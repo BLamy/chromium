@@ -372,6 +372,9 @@ SVGElement* SVGUseElement::InstanceRoot() const {
 }
 
 void SVGUseElement::BuildPendingResource() {
+  recordreplay::Assert(
+      "[RUN-2313] SVGUseElement::BuildPendingResource A %d",
+      RecordReplayId());
   if (!isConnected()) {
     DCHECK(!needs_shadow_tree_recreation_);
     DCHECK(!attach_load_event_delayer_);
@@ -380,6 +383,9 @@ void SVGUseElement::BuildPendingResource() {
   auto attach_load_event_delayer = std::move(attach_load_event_delayer_);
   CancelShadowTreeRecreation();
 
+  recordreplay::Assert(
+      "[RUN-2313] SVGUseElement::BuildPendingResource B");
+
   // Check if this element is scheduled (by an ancestor) to be replaced.
   SVGUseElement* ancestor = GeneratingUseElement();
   while (ancestor) {
@@ -387,6 +393,8 @@ void SVGUseElement::BuildPendingResource() {
       return;
     ancestor = ancestor->GeneratingUseElement();
   }
+
+  recordreplay::Assert("[RUN-2313] SVGUseElement::BuildPendingResource C");
 
   DetachShadowTree();
   ClearResourceReference();
@@ -483,6 +491,12 @@ void SVGUseElement::AttachShadowTree(SVGElement& target) {
   DCHECK(!InstanceRoot());
   DCHECK(!needs_shadow_tree_recreation_);
   DCHECK(!attach_load_event_delayer_);
+
+  recordreplay::Assert(
+      "[RUN-2313] SVGUseElement::AttachShadowTree A %d %d %d %d",
+      RecordReplayId(),
+      target.RecordReplayId(), IsDisallowedElement(target),
+      HasCycleUseReferencing(*this, target));
 
   // Do not allow self-referencing.
   if (IsDisallowedElement(target) || HasCycleUseReferencing(*this, target))
@@ -585,6 +599,9 @@ bool SVGUseElement::ShadowTreeRebuildPending() const {
 }
 
 void SVGUseElement::InvalidateShadowTree() {
+  recordreplay::Assert(
+      "[RUN-2313] SVGUseElement::InvalidateShadowTree %d %d",
+      RecordReplayId(), ShadowTreeRebuildPending());
   if (ShadowTreeRebuildPending())
     return;
   ScheduleShadowTreeRecreation();

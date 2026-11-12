@@ -18,6 +18,8 @@
 #include "third_party/blink/public/mojom/loader/local_resource_loader_config.mojom.h"
 #include "third_party/blink/public/platform/child_url_loader_factory_bundle.h"
 #include "third_party/blink/public/platform/web_common.h"
+#include "base/deterministic_containers.h"
+
 
 namespace blink {
 

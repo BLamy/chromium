@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "base/numerics/safe_conversions.h"
+#include "base/record_replay.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
@@ -49,6 +50,7 @@ Tile::~Tile() {
       "layer_id", layer_id_, "tiling_i_index", tiling_i_index_,
       "tiling_j_index", tiling_j_index_);
   deleted_ = true;
+  recordreplay::UnregisterPointer(this);
   tile_manager_->Release(this);
 }
 

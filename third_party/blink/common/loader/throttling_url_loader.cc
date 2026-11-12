@@ -27,6 +27,8 @@
 #include "services/network/public/cpp/record_ontransfersizeupdate_utils.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
+#include "base/json/json_writer.h"
+
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "base/record_replay.h"
 #include <optional>
@@ -279,6 +281,8 @@ std::unique_ptr<ThrottlingURLLoader> ThrottlingURLLoader::CreateLoaderAndStart(
 }
 
 ThrottlingURLLoader::~ThrottlingURLLoader() {
+  recordreplay::UnregisterPointer(this);
+
   TRACE_EVENT("loading", "ThrottlingURLLoader::~ThrottlingURLLoader",
               perfetto::TerminatingFlow::FromPointer(this));
   if (inside_delegate_calls_ > 0) {
@@ -379,6 +383,7 @@ ThrottlingURLLoader::ThrottlingURLLoader(
       traffic_annotation_(traffic_annotation) {
   TRACE_EVENT("loading", "ThrottlingURLLoader::ThrottlingURLLoader",
               perfetto::Flow::FromPointer(this));
+  recordreplay::RegisterPointer("ThrottlingURLLoader", this);
   throttles_.reserve(throttles.size());
   for (auto& throttle : throttles)
     throttles_.emplace_back(this, std::move(throttle));
@@ -450,6 +455,11 @@ void ThrottlingURLLoader::Start(
       if (!HandleThrottleResult(throttle, throttle_deferred, &deferred))
         return;
     }
+  }
+
+  if (recordreplay::IsInReplayCode()) {
+    // [TT-1422] Special treatment for Replay-only requests.
+    options |= network::mojom::kURLLoadOptionReplayRequest;
   }
 
   start_info_ = std::make_unique<StartInfo>(factory, request_id, options,

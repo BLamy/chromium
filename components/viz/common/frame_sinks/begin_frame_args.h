@@ -264,6 +264,8 @@ struct VIZ_COMMON_EXPORT BeginFrameArgs {
   // field IS serialized over Mojo.
   std::optional<base::TimeDelta> deadline_derived_interval;
 
+  bool replay_force_draw = false;
+
  private:
   BeginFrameArgs(uint64_t source_id,
                  uint64_t sequence_number,

@@ -86,6 +86,9 @@ class CC_EXPORT Task : public base::RefCountedThreadSafe<Task> {
   TaskState& state() { return state_; }
   void set_frame_number(int64_t frame_number) { frame_number_ = frame_number; }
   int64_t frame_number() { return frame_number_; }
+  int RecordReplayId() const { return record_replay_id_; }
+  void RecordReplayEnter();
+
 
   // Unique trace flow id for the given task, used to connect the places where
   // the task was posted from and the task itself.
@@ -105,6 +108,7 @@ class CC_EXPORT Task : public base::RefCountedThreadSafe<Task> {
  private:
   TaskState state_;
   int64_t frame_number_ = -1;
+  int record_replay_id_ = 0;
   uint64_t trace_task_id_;
 };
 

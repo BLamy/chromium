@@ -31,6 +31,8 @@
 #include "base/tracing_buildflags.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_message_pump.pbzero.h"
 
+#include "base/record_replay.h"
+
 namespace base {
 
 namespace {
@@ -116,6 +118,9 @@ void MessagePumpForUI::ScheduleWork() {
   if (!native_msg_scheduled_.compare_exchange_strong(
           not_scheduled, true, std::memory_order_relaxed)) {
     return;  // Someone else continued the pumping.
+  }
+
+  recordreplay::Assert("[RUN-1815] MessagePumpForIO::ScheduleWork #2");
   }
 
   const BOOL ret = ::PostMessage(message_window_.hwnd(), kMsgHaveWork, 0, 0);

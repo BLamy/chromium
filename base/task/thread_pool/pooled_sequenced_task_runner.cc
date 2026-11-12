@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/task/thread_pool/pooled_sequenced_task_runner.h"
+#include "base/record_replay.h"
 
 #include "base/message_loop/message_pump.h"
 #include "base/sequence_token.h"
@@ -21,7 +22,9 @@ PooledSequencedTaskRunner::PooledSequencedTaskRunner(
                                          GetCurrentTaskImportance(),
                                          inherit_task_importance_by_default)) {}
 
-PooledSequencedTaskRunner::~PooledSequencedTaskRunner() = default;
+PooledSequencedTaskRunner::~PooledSequencedTaskRunner() {
+  recordreplay::UnregisterPointer(this);
+}
 
 bool PooledSequencedTaskRunner::PostDelayedTask(const Location& from_here,
                                                 OnceClosure closure,

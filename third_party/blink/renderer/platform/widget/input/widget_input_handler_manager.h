@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <memory>
+#include "base/record_replay.h"
 #include <optional>
 
 #include "base/synchronization/lock.h"

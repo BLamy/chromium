@@ -14,6 +14,8 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
 #include "v8/include/v8-isolate.h"
+#include "base/record_replay.h"
+
 
 namespace blink {
 

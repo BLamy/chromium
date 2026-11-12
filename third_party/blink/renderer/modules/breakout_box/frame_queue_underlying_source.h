@@ -176,7 +176,9 @@ class FrameQueueUnderlyingSource : public UnderlyingSourceBase {
   // Main task runner for the window or worker context this source runs on.
   const scoped_refptr<base::SequencedTaskRunner> realm_task_runner_;
 
-  mutable base::Lock lock_;
+  // Ordered while recording/replaying: whether QueueFrame() posts a task
+  // depends on |num_pending_pulls_|, which the realm thread changes.
+  mutable base::Lock lock_{"FrameQueueUnderlyingSource.lock_"};
   // |frame_queue_| is a reference to an internal circular queue prior to the
   // stream controller's queue. It allows dropping older frames in case frames
   // accumulate due to slow consumption. Frames are normally pushed on a

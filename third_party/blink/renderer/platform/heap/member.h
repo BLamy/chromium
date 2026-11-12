@@ -4,6 +4,9 @@
 
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_HEAP_MEMBER_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_HEAP_MEMBER_H_
+#include "base/check_op.h"
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 
 #include "base/check.h"
 #include "base/record_replay.h"
@@ -233,7 +236,7 @@ struct WeakMemberHashTraitsRecordReplayRegisteredPointerId
 };
 
 // The same for elements that have a RecordReplayId() of their own (108's
-// MemberHashRecordReplayId).
+// MemberHashTraitsRecordReplayId).
 template <typename T, typename MemberType>
 struct BaseMemberHashTraitsRecordReplayId
     : BaseMemberHashTraits<T, MemberType> {

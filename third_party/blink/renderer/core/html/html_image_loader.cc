@@ -20,6 +20,7 @@
  */
 
 #include "third_party/blink/renderer/core/html/html_image_loader.h"
+#include "base/record_replay.h"
 
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"

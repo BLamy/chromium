@@ -85,6 +85,7 @@ class ThreadGroupImpl::ScopedCommandsExecutor
   }
 
   void ScheduleWakeUp(scoped_refptr<WorkerThread> worker) {
+    CHECK(outer_->RecordReplayUnordered() == worker->RecordReplayUnordered());
     workers_to_wake_up_.emplace_back(std::move(worker));
   }
 
@@ -695,6 +696,9 @@ bool ThreadGroupImpl::WorkerDelegate::CanCleanupLockRequired(
     return false;
   }
 
+  if (worker->RecordReplayUnordered())
+    return false;
+
   const TimeTicks last_used_time = worker->GetLastUsedTime();
   if (last_used_time.is_null() ||
       subtle::TimeTicksNowIgnoringOverride() - last_used_time <
@@ -975,6 +979,10 @@ void ThreadGroupImpl::MaintainAtLeastOneIdleWorkerLockRequired(
   if (recordreplay::AreEventsDisallowed()) {
     return;
   }
+
+  // Workers can't be created / started non-deterministically.
+  if (recordreplay::AreEventsDisallowed("ThreadGroupImpl::MaintainAtLeastOneIdleWorkerLockRequired"))
+    return;
 
   scoped_refptr<WorkerThread> new_worker =
       CreateAndRegisterWorkerLockRequired(executor);

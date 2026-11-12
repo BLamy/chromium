@@ -64,7 +64,12 @@ class PLATFORM_EXPORT MediaStreamSource final
  public:
   class PLATFORM_EXPORT Observer : public GarbageCollectedMixin {
    public:
-    virtual ~Observer() = default;
+    Observer() {
+      // Pointer registration is needed for notifying observers_ in pointer-id
+      // order.
+      recordreplay::RegisterPointer("MediaStreamSource::Observer", this);
+    }
+    virtual ~Observer() { recordreplay::UnregisterPointer(this); }
     virtual void SourceChangedState() = 0;
     virtual void SourceChangedCaptureConfiguration() = 0;
     virtual void SourceChangedCaptureHandle() = 0;

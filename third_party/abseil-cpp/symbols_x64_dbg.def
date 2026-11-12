@@ -4058,6 +4058,7 @@ EXPORTS
     ?RecordReservationSlow@container_internal@absl@@YAXPEAUHashtablezInfo@12@_K@Z
     ?RecordStorageChanged@HashtablezInfoHandle@container_internal@absl@@QEAAX_K0@Z
     ?RecordStorageChangedSlow@container_internal@absl@@YAXPEAUHashtablezInfo@12@_K1@Z
+    ?RecordReplayInitializeMutexSlowPath@absl@@YAXXZ
     ?Ref@CordRep@cord_internal@absl@@SAPEAU123@PEAU123@@Z
     ?Ref@CrcCordState@crc_internal@absl@@CAXPEAURefcountedRep@123@@Z
     ?Ref@Status@absl@@CAX_K@Z

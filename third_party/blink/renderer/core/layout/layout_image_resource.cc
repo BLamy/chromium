@@ -208,6 +208,9 @@ scoped_refptr<Image> LayoutImageResource::GetImage(
 
 scoped_refptr<Image> LayoutImageResource::GetImage(
     const gfx::SizeF& container_size) const {
+  recordreplay::Assert("[RUN-658-1901] LayoutImageResource::GetImage A %d %d %d",
+                       !!cached_image_, !cached_image_->ErrorOccurred(),
+                       cached_image_->HasImage());
   if (!cached_image_)
     return Image::NullImage();
 
@@ -220,6 +223,8 @@ scoped_refptr<Image> LayoutImageResource::GetImage(
   scoped_refptr<Image> image = cached_image_->GetImage();
 
   auto* svg_image = DynamicTo<SVGImage>(image.get());
+  recordreplay::Assert(
+      "[RUN-658-1901] LayoutImageResource::GetImage B %d", !!svg_image);
   if (!svg_image)
     return image;
 

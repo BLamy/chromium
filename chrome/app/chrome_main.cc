@@ -12,6 +12,7 @@
 
 #include "third_party/abseil-cpp/absl/synchronization/mutex.h"
 #include "base/record_replay.h"
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/functional/bind.h"

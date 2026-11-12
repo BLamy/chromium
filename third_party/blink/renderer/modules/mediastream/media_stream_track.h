@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_MEDIASTREAM_MEDIA_STREAM_TRACK_H_
 
 #include <memory>
+#include "base/record_replay.h"
 
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
@@ -58,7 +59,11 @@ class MODULES_EXPORT MediaStreamTrack
  public:
   class MODULES_EXPORT Observer : public GarbageCollectedMixin {
    public:
-    virtual ~Observer() = default;
+    Observer() {
+      // Pointer registration is needed for hashing in the tracks' observers_.
+      recordreplay::RegisterPointer("MediaStreamTrack::Observer", this);
+    }
+    virtual ~Observer() { recordreplay::UnregisterPointer(this); }
     virtual void TrackChangedState() = 0;
   };
 

@@ -1092,6 +1092,7 @@ EXPORTS
     ?RecordReservationSlow@container_internal@absl@@YAXPAUHashtablezInfo@12@I@Z
     ?RecordStorageChangedSlow@container_internal@absl@@YAXPAUHashtablezInfo@12@II@Z
     ?RefSharedEmptyRep@CrcCordState@crc_internal@absl@@CAPAURefcountedRep@123@XZ
+    ?RecordReplayInitializeMutexSlowPath@absl@@YAXXZ
     ?Register@CycleClockSource@base_internal@absl@@CAXP6A_JXZ@Z
     ?RegisterAbortHook@raw_log_internal@absl@@YAXP6AXPBDH000@Z@Z
     ?RegisterAndInitialize@log_internal@absl@@YAHPAVVLogSite@12@@Z

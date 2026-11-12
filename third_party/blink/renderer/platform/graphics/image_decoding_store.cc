@@ -31,13 +31,17 @@
 #include "third_party/blink/renderer/platform/graphics/image_frame_generator.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
-#include "third_party/blink/renderer/platform/wtf/threading.h"
+#include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
+
+#include <atomic>
 
 namespace blink {
 
 namespace {
 
 static const size_t kDefaultMaxTotalSizeOfHeapEntries = 32 * 1024 * 1024;
+static std::atomic<bool> gHasInstance{false};
+
 
 }  // namespace
 
@@ -57,6 +61,10 @@ ImageDecodingStore::~ImageDecodingStore() {
 ImageDecodingStore& ImageDecodingStore::Instance() {
   DEFINE_THREAD_SAFE_STATIC_LOCAL(ImageDecodingStore, store, ());
   return store;
+}
+
+bool ImageDecodingStore::HasInstance() {
+  return gHasInstance;
 }
 
 bool ImageDecodingStore::LockDecoder(

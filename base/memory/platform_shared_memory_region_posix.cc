@@ -54,6 +54,12 @@ std::optional<FDAccessModeError> CheckFDAccessMode(int fd, int expected_mode) {
   int fd_status = fcntl(fd, F_GETFL);
 
   // RUN-1685: Ignore the fcntl result after diverging from the recording,
+  // the recorder will start returning errors and we don't want to crash the process.
+  if (recordreplay::HasDivergedFromRecording())
+    return true;
+
+
+  // RUN-1685: Ignore the fcntl result after diverging from the recording,
   // the recorder will start returning errors and we don't want to crash the
   // process.
   if (recordreplay::HasDivergedFromRecording()) {

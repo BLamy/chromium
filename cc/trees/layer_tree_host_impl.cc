@@ -157,6 +157,8 @@
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/gfx/geometry/vector2d_f.h"
+#include "base/record_replay.h"
+
 #include "ui/gfx/skia_span_util.h"
 #include "ui/latency/latency_info.h"
 
@@ -809,6 +811,10 @@ LayerTreeHostImpl::LayerTreeHostImpl(
 }
 
 LayerTreeHostImpl::~LayerTreeHostImpl() {
+  
+  recordreplay::CommandDiagnostic(
+    "[RUN-2110-2761] ~LayerTreeHostImpl %d", id());
+
   DCHECK(task_runner_provider_->IsImplThread());
   TRACE_EVENT0("cc", "LayerTreeHostImpl::~LayerTreeHostImpl()");
   TRACE_EVENT_INSTANT(

@@ -328,6 +328,10 @@ class MultiplexRouter::MessageWrapper {
       value_.Reset();
       return Message();
     }
+
+    // https://linear.app/replay/issue/RUN-1228
+    recordreplay::Assert("[RUN-1228] MessageWrapper::DeserializeEndpointHandlesAndTake #2 isNull=%d",
+      value_.IsNull());
     return std::move(value_);
   }
 
@@ -414,8 +418,10 @@ MultiplexRouter::MultiplexRouter(
                  primary_interface_name),
       control_message_handler_(this),
       control_message_proxy_(&connector_) {
+  recordreplay::RegisterPointer("MultiplexRouter", this);
+
   if (config_ == MULTI_INTERFACE) {
-    lock_.emplace();
+    lock_.emplace("MultiplexRouter.lock_");
   }
 
   connector_.set_incoming_receiver(&dispatcher_);
@@ -464,6 +470,8 @@ void MultiplexRouter::StartReceiving() {
 }
 
 MultiplexRouter::~MultiplexRouter() {
+  recordreplay::UnregisterPointer(this);
+
   MayAutoLock locker(&lock_);
 
   being_destructed_ = true;
@@ -928,6 +936,8 @@ void MultiplexRouter::OnPipeConnectionError(bool force_async_dispatch) {
   }
 
   for (const auto& endpoint : endpoint_vector) {
+    REPLAY_ASSERT("MultiplexRouter::OnPipeConnectionError %u %d",
+                  endpoint->id(), !!endpoint->client());
     if (endpoint->client()) {
       base::flat_set<uint64_t> request_ids =
           endpoint->UnregisterAllExternalSyncWaiters();
@@ -1129,6 +1139,16 @@ bool MultiplexRouter::ProcessNotifyErrorTask(
   InterfaceEndpointClient* client = endpoint->client();
   std::optional<DisconnectReason> disconnect_reason(
       endpoint->disconnect_reason());
+  // crash-0100: router→client breadcrumb before NotifyError.
+  recordreplay::Diagnostic(
+      "[crash-0100] ProcessNotifyErrorTask this=%d endpoint=%u client=%d "
+      "reason=%d custom=%u desc=%s",
+      recordreplay::PointerId(this), endpoint->id(),
+      recordreplay::PointerId(client),
+      disconnect_reason.has_value(),
+      disconnect_reason ? disconnect_reason->custom_reason : 0u,
+      disconnect_reason ? disconnect_reason->description.c_str() : "");
+
 
   {
     // We must unlock before calling into |client| because it may call this
@@ -1224,6 +1244,9 @@ bool MultiplexRouter::ProcessIncomingMessage(
     // always accessed on the same sequence, including DetachEndpointClient().
     MayAutoUnlock unlocker(&lock_);
     Message tmp_message = message_wrapper->DeserializeEndpointHandlesAndTake();
+    recordreplay::Assert(
+        "[RUN-2229-2231] MultiplexRouter::ProcessIncomingMessage %d",
+        tmp_message.IsNull());
     result =
         !tmp_message.IsNull() && client->HandleIncomingMessage(&tmp_message);
   }

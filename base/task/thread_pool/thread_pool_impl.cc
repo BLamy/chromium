@@ -298,6 +298,14 @@ void ThreadPoolImpl::Start(const ThreadPoolInstance::InitParams& init_params,
         /*may_block_threshold_for_testing=*/{});
   }
 
+  if (record_replay_unordered_thread_group_) {
+    static_cast<ThreadGroupImpl*>(record_replay_unordered_thread_group_.get())
+        ->Start(max_best_effort_tasks, max_best_effort_tasks,
+                init_params.suggested_reclaim_time,
+                service_thread_task_runner, worker_thread_observer,
+                worker_environment, g_synchronous_thread_start_for_testing);
+  }
+
   started_ = true;
 }
 

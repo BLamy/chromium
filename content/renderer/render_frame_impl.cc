@@ -2275,6 +2275,10 @@ void RenderFrameImpl::Unload(
   recordreplay::AutoDependencyExecution record_replay_execute(
       recordreplay::NewDependencyGraphNode("{\"kind\":\"renderFrameUnload\"}"));
 
+  recordreplay::AutoDependencyExecution execute(
+    recordreplay::NewDependencyGraphNode("{\"kind\":\"renderFrameUnload\"}")
+  );
+
   // Send an UpdateState message before we get deleted.
   // TODO(dcheng): Improve this comment to clarify why it's important to sent
   // state updates.
@@ -6493,7 +6497,15 @@ void RenderFrameImpl::BeginNavigationInternal(
 
   int load_flags = info->url_request.GetLoadFlagsForWebUrlRequest();
   std::optional<base::DictValue> devtools_initiator;
-  if (!info->devtools_initiator_info.IsNull()) {
+
+  // Devtools behavior can vary when replaying, so record/replay the contents
+  // of the initiator.
+  std::string initiator_string = info->devtools_initiator_info.IsNull()
+      ? std::string()
+      : info->devtools_initiator_info.Utf8();
+  recordreplay::RecordReplayString("devtools_initiator_info", initiator_string);
+
+  if (initiator_string.length()) {
     std::optional<base::Value> devtools_initiator_value =
         base::JSONReader::Read(info->devtools_initiator_info.Utf8(),
                                base::JSON_PARSE_CHROMIUM_EXTENSIONS);

@@ -11,6 +11,7 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/record_replay.h"
 #include "base/functional/callback_forward.h"
 #include "base/strings/to_string.h"
 #include "base/synchronization/lock.h"

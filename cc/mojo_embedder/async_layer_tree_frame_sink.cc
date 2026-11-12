@@ -362,6 +362,14 @@ void AsyncLayerTreeFrameSink::OnBeginFrame(
 
   timing_details_.insert(timing_details.begin(), timing_details.end());
 
+  // After diverging from the recording, the only paints we want to perform are
+  // repaints, which are triggered from the main thread rather than OnBeginFrame
+  // IPC messages. Ignore any IPC messages replayed from the recording so that
+  // we can get to the repainting frame faster.
+  if (recordreplay::HasDivergedFromRecording()) {
+    return;
+  }
+
   for (const auto& pair : timing_details) {
     if (synthetic_begin_frame_source_ &&
         use_begin_frame_presentation_feedback_) {

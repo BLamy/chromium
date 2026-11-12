@@ -26,6 +26,8 @@
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "url/gurl.h"
+#include "base/record_replay.h"
+
 
 using base::AutoLock;
 

@@ -9,6 +9,8 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/mutation_observer.h"
 
+#include "base/record_replay.h"
+
 namespace blink {
 
 namespace {
@@ -109,6 +111,9 @@ bool Agent::IsWindowAgent() const {
 }
 
 void Agent::PerformMicrotaskCheckpoint() {
+  recordreplay::Assert("[RUN-2056-2211] Agent::PerformMicrotaskCheckpoint %d Start",
+    (int) RecordReplayId());
+
   event_loop_->PerformMicrotaskCheckpoint();
 }
 
@@ -118,6 +123,9 @@ RejectedPromises& Agent::GetRejectedPromises() {
 
 void Agent::NotifyRejectedPromises() {
   rejected_promises_->ProcessQueue();
+
+  recordreplay::Assert("[RUN-2056-2211] Agent::PerformMicrotaskCheckpoint %d Done",
+    (int) RecordReplayId());
 }
 
 }  // namespace blink

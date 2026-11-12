@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "third_party/blink/renderer/core/css/resolver/style_cascade.h"
+#include "base/record_replay.h"
 
 #include <bit>
 #include <optional>
@@ -325,6 +326,9 @@ void StyleCascade::Apply(CascadeFilter filter) {
   }
   if (resolver.RejectedFlags() & CSSProperty::kLegacyOverlapping) {
     state_.SetRejectedLegacyOverlapping();
+  recordreplay::Assert("[RUN-2424-3053] StyleCascade::Apply %d",
+                       state_.GetElement().RecordReplayId());
+
   }
 
   ApplyUnresolvedEnv(resolver);

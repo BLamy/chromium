@@ -253,6 +253,12 @@ class CORE_EXPORT InspectorCSSAgent final
   protocol::Response getStyleSheetText(const String& style_sheet_id,
                                        String* text) override;
 
+  /**
+   * [recordreplay] Use this to get access to the native StyleSheet object.
+   */
+  CSSStyleSheet* getStyleSheet(const String& style_sheet_id);
+
+
   // For a replay, which asks about styles without a DevTools session: knows
   // the documents' style sheets as an enabled agent does, without listening
   // for anything.

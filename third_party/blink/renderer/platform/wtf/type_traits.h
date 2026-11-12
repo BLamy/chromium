@@ -23,12 +23,16 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_TYPE_TRAITS_H_
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <utility>
 #include <variant>
 
 #include "base/compiler_specific.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "v8/include/cppgc/type-traits.h"  // nogncheck
 

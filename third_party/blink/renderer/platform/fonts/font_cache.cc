@@ -37,6 +37,7 @@
 #include "base/byte_size.h"
 #include "base/debug/alias.h"
 #include "base/feature_list.h"
+#include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/escape.h"
@@ -86,6 +87,15 @@ const char kMonoEmojiLocale[] = "und-Zsym";
 #if BUILDFLAG(IS_ANDROID)
 extern const char kNotoColorEmojiCompat[] = "Noto Color Emoji Compat";
 #endif
+
+namespace {
+
+scoped_refptr<SimpleFontData>& ReplayLastResortSimpleFontDataStorage() {
+  static base::NoDestructor<scoped_refptr<SimpleFontData>> font_data;
+  return *font_data;
+}
+
+}  // namespace
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 float FontCache::device_scale_factor_ = 1.0;

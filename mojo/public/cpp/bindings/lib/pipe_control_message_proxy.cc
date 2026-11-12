@@ -48,6 +48,12 @@ void PipeControlMessageProxy::NotifyPeerEndpointClosed(
           "PipeControlMessageProxy::NotifyPeerEndpointClosed")) {
     return;
   }
+  // IPC messages can't be sent at non-deterministic points, so just drop the
+  // close notification in that situation.
+  if (recordreplay::AreEventsDisallowed("PipeControlMessageProxy::NotifyPeerEndpointClosed")) {
+    return;
+  }
+
   Message message(ConstructPeerEndpointClosedMessage(id, reason));
   message.set_heap_profiler_tag(kMessageTag);
   std::ignore = receiver_->Accept(&message);

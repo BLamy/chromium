@@ -150,6 +150,9 @@ void ChannelPosix::ShutDownImpl() {
 }
 
 void ChannelPosix::Write(MessagePtr message) {
+  // https://linear.app/replay/issue/RUN-618
+  recordreplay::Assert("ChannelPosix::Write Start");
+
   RecordSentMessageMetricsSubsampled(message->data_num_bytes());
 
   base::TimeTicks start_time = base::TimeTicks::Now();
@@ -161,6 +164,8 @@ void ChannelPosix::Write(MessagePtr message) {
       return;
     }
     if (outgoing_messages_.empty()) {
+      // https://linear.app/replay/issue/RUN-618
+      recordreplay::Assert("ChannelPosix::Write #1");
       if (!WriteNoLock(MessageView(std::move(message), 0, start_time))) {
         reject_writes_ = write_error = true;
       }

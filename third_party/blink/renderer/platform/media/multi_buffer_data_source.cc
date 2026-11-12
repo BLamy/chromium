@@ -23,6 +23,8 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "url/gurl.h"
+#include "base/record_replay.h"
+
 
 namespace blink {
 
@@ -119,9 +121,13 @@ MultiBufferDataSource::MultiBufferDataSource(
     DownloadingCB downloading_cb)
     : render_task_runner_(task_runner),
       url_data_(std::move(url_data_arg)),
+      lock_("MultibufferDataSource.lock_"),
       media_log_(media_log->Clone()),
       host_(host),
       downloading_cb_(std::move(downloading_cb)) {
+  // https://linear.app/replay/issue/RUN-468
+  recordreplay::RegisterPointer("MultibufferDataSource", this);
+
   weak_ptr_ = weak_factory_.GetWeakPtr();
   DCHECK(host_);
   DCHECK(downloading_cb_);
@@ -133,6 +139,9 @@ MultiBufferDataSource::MultiBufferDataSource(
 }
 
 MultiBufferDataSource::~MultiBufferDataSource() {
+  // https://linear.app/replay/issue/RUN-468
+  recordreplay::UnregisterPointer(this);
+
   DCHECK(render_task_runner_->BelongsToCurrentThread());
 }
 
@@ -600,6 +609,10 @@ void MultiBufferDataSource::StartCallback() {
   if (stop_signal_received_) {
     return;
   }
+
+  // https://linear.app/replay/issue/RUN-468
+  recordreplay::Assert("MultibufferDataSource::StartCallback %lu",
+                       recordreplay::PointerId(this));
 
   if (!init_cb_) {
     // Can't call SetReader(nullptr) since we are holding the lock.

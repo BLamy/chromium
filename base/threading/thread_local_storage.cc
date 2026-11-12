@@ -18,7 +18,9 @@
 #include "build/build_config.h"
 #include "partition_alloc/buildflags.h"
 
-#if BUILDFLAG(IS_MAC) && defined(ARCH_CPU_X86_64)
+// Disabled for recording/replaying, as the GS segment register is not used in the
+// same way when replaying and pthread_getspecific needs to be called directly.
+#if 0 && BUILDFLAG(IS_MAC) && defined(ARCH_CPU_X86_64)
 #include <pthread.h>
 
 #include <type_traits>

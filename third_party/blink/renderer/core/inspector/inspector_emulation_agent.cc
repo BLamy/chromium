@@ -1060,6 +1060,9 @@ protocol::Response InspectorEmulationAgent::setLocaleOverride(
   String locale = maybe_locale.value_or(String());
   String error = LocaleController::instance().SetLocaleOverride(
       locale, locale_override_.Get().empty());
+  recordreplay::Assert(
+      "[RUN-1537-1538] InspectorEmulationAgent::setLocaleOverride B %d %s",
+      error.empty(), locale.Utf8().c_str());
   if (!error.empty())
     return protocol::Response::ServerError(error.Utf8());
   locale_override_.Set(locale);

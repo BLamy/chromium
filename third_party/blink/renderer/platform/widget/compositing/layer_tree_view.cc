@@ -47,6 +47,8 @@
 #include "third_party/blink/renderer/platform/graphics/raster_dark_mode_filter_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/public/widget_scheduler.h"
 #include "ui/gfx/presentation_feedback.h"
+#include "base/record_replay.h"
+
 
 namespace cc {
 class Layer;

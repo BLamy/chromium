@@ -129,7 +129,7 @@ class PLATFORM_EXPORT EventLoop final {
   WeakPersistent<Delegate> delegate_;
   const raw_ptr<v8::Isolate> isolate_;
   int microtasks_pause_count_ = 0;
-  Deque<base::OnceClosure> pending_microtasks_;
+  Deque<std::pair<base::OnceClosure, int>> pending_microtasks_;
   // For each of them, the node of the dependency graph a replay builds for
   // its queueing.
   Deque<int> record_replay_microtask_node_ids_;

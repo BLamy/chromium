@@ -1323,6 +1323,10 @@ void HTMLMediaElement::AddPendingTextTracksFromCurrentList() {
 
 void HTMLMediaElement::SelectMediaResource() {
   DVLOG(3) << "selectMediaResource(" << *this << ")";
+  recordreplay::AutoMarkerDependencyExecution execute(
+    "LoadEventDelay", "HTMLMediaElement::SelectMediaResource"
+  );
+
 
   recordreplay::AutoMarkerDependencyExecution record_replay_execute(
       "LoadEventDelay", "HTMLMediaElement::SelectMediaResource");
@@ -5243,7 +5247,11 @@ void HTMLMediaElement::DidPlayerMediaPositionStateChange(
     base::TimeDelta duration,
     base::TimeDelta position,
     bool end_of_media) {
+  // https://linear.app/replay/issue/RUN-616
+  recordreplay::Assert("HTMLMediaElement::DidPlayerMediaPositionStateChange");
   for (auto& observer : media_player_observer_remote_set_->Value()) {
+    // https://linear.app/replay/issue/RUN-616
+    recordreplay::Assert("HTMLMediaElement::DidPlayerMediaPositionStateChange #1");
     observer->OnMediaPositionStateChanged(
         media_session::mojom::blink::MediaPosition::New(
             playback_rate, duration, position, base::TimeTicks::Now(),

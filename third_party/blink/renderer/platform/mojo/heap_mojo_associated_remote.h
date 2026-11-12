@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_MOJO_HEAP_MOJO_ASSOCIATED_REMOTE_H_
 
 #include <utility>
+#include "base/record_replay.h"
 
 #include "base/gtest_prod_util.h"
 #include "base/task/sequenced_task_runner.h"

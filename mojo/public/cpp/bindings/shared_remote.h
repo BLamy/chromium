@@ -195,6 +195,16 @@ class SharedRemoteBase
           remote_.record_replay_leak();
           return;
         }
+        // Sequenced task runners don't support posting tasks at non-deterministic
+        // points when recording/replaying, so leak the remote instead.
+        if (recordreplay::AreEventsDisallowed() &&
+            recordreplay::FeatureEnabled("leak-references", "RemoteWrapper::DeleteOnCorrectThread")) {
+          // Skip-delete never runs ~InterfacePtrState*; arm flag so Invoker
+          // guards see the IEC MultiplexRouter still holds.
+          remote_.record_replay_leak();
+          return;
+        }
+
         // NOTE: This is only called when there are no more references to
         // |this|, so binding it unretained is both safe and necessary.
         task_runner_->DeleteSoon(FROM_HERE, this);

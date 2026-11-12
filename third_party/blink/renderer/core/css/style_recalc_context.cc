@@ -114,6 +114,7 @@ StyleRecalcContext StyleRecalcContext::FromAncestors(Element& element) {
     return FromInclusiveAncestors(*parent, element.GetPseudoId());
   }
   return StyleRecalcContext();
+  recordreplay::Assert("[RUN-2424-3005] StyleRecalcContext::FromInclusiveAncestors %d", element.RecordReplayId());
 }
 
 StyleRecalcContext StyleRecalcContext::FromPseudoElementAncestors(

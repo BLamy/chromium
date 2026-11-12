@@ -97,7 +97,8 @@ MatchedPropertiesCache::Key::Key(const MatchResult& result,
     : result_(result),
       hash_(result.IsCacheable()
                 ? ComputeMatchedPropertiesHash(result, additional_hash.hash)
-                : HashTraits<unsigned>::EmptyValue()) {}
+                               : HashTraits<unsigned>::EmptyValue()) {
+}
 
 MatchedPropertiesCache::Key::Key(const MatchResult& result, unsigned hash)
     : result_(result), hash_(hash) {}

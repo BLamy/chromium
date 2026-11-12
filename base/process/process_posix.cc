@@ -331,10 +331,20 @@ void Process::Close() {
 }
 
 #if !BUILDFLAG(IS_IOS)
+static inline bool MaybeRecordingOrReplaying() {
+  return true;
+}
+
 bool Process::Terminate(int exit_code, bool wait) const {
   // exit_code isn't supportable.
   DCHECK(IsValid());
   CHECK_GT(process_, 0);
+  // When recording/replaying the child process is responsible for exiting
+  // so that it can finish uploading any in progress recording.
+  if (MaybeRecordingOrReplaying()) {
+    return false;
+  }
+
   return TerminateInternal(exit_code, wait);
 }
 #endif

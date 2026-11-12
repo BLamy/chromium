@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/modules/webaudio/audio_scheduled_source_handler.h"
 
 #include <algorithm>
+#include "base/record_replay.h"
 
 #include "base/compiler_specific.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -24,6 +25,7 @@ AudioScheduledSourceHandler::AudioScheduledSourceHandler(NodeType node_type,
                                                          AudioNode& node,
                                                          float sample_rate)
     : AudioHandler(node_type, node, sample_rate),
+      process_lock_("AudioScheduledSourceHandler"),
       end_time_(kUnknownTime),
       playback_state_(UNSCHEDULED_STATE) {
   if (Context()->GetExecutionContext()) {
@@ -72,6 +74,10 @@ AudioScheduledSourceHandler::UpdateSchedulingInfo(size_t quantum_frame_size,
 
   // If we know the end time and it's already passed, then don't bother doing
   // any more rendering this cycle.
+  recordreplay::Assert(
+      "AudioScheduledSourceHandler::UpdateSchedulingInfo siteA end_time %f "
+      "end_frame %zu quantum_start_frame %zu quantum_end_frame %zu",
+      end_time_, end_frame, quantum_start_frame, quantum_end_frame);
   if (end_time_ != kUnknownTime && end_frame <= quantum_start_frame) {
     Finish();
   }

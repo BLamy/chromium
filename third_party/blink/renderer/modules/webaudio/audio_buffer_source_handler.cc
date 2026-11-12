@@ -10,6 +10,7 @@
 
 #include "base/containers/span.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_audio_buffer_source_options.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_graph_tracer.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_node_output.h"
@@ -926,9 +927,14 @@ void AudioBufferSourceHandler::HandleStoppableSourceNode() {
   // AudioScheduledSourceHandler::UpdateSchedulingInfo handles stopped nodes,
   // but we can get here if the node is stopped and then disconnected.  Then
   // UpdateSchedulingInfo never gets a chance to finish the node.
+  double now = Context()->currentTime();
+  REPLAY_ASSERT(
+      "AudioBufferSourceHandler::HandleStoppableSourceNode end %d %d %f %f",
+      recordreplay::PointerId(this),
+      end_time_ != AudioScheduledSourceHandler::kUnknownTime, now, end_time_);
 
   if (end_time_ != AudioScheduledSourceHandler::kUnknownTime &&
-      Context()->currentTime() > end_time_) {
+      now > end_time_) {
     Finish();
     return;
   }
@@ -944,6 +950,11 @@ void AudioBufferSourceHandler::HandleStoppableSourceNode() {
   // easily determine how long we looped so we don't know the actual duration
   // thus far, so don't try to do anything fancy.
   double min_playback_rate = GetMinPlaybackRate();
+  REPLAY_ASSERT(
+      "AudioBufferSourceHandler::HandleStoppableSourceNode duration %d %d %d "
+      "%d %f",
+      recordreplay::PointerId(this), !DidSetLooping(), !!Buffer(),
+      IsPlayingOrScheduled(), min_playback_rate);
   bool is_finite = !DidSetLooping() || is_duration_given_;
   if (is_finite && Buffer() && IsPlayingOrScheduled() &&
       min_playback_rate > 0) {
@@ -966,7 +977,10 @@ void AudioBufferSourceHandler::HandleStoppableSourceNode() {
         kExtraStopFrames / static_cast<double>(Context()->sampleRate());
 
     stop_time += extra_stop_time;
-    if (Context()->currentTime() > stop_time) {
+    REPLAY_ASSERT(
+        "AudioBufferSourceHandler::HandleStoppableSourceNode stopTime %d %f %f",
+        recordreplay::PointerId(this), now, stop_time);
+    if (now > stop_time) {
       // The context time has passed the time when the source nodes should have
       // stopped playing. Stop the node now and deref it.  Deliver the onended
       // event too, to match what Firefox does.

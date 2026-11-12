@@ -5,6 +5,8 @@
 #include "base/memory/platform_shared_memory_mapper.h"
 
 #include <aclapi.h>
+#include "base/record_replay.h"
+
 
 #include "base/compiler_specific.h"
 #include "base/logging.h"

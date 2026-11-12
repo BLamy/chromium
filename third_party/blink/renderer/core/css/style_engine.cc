@@ -4287,6 +4287,10 @@ void StyleEngine::UpdateStyleAndLayoutTree() {
 
   UpdateViewportStyle();
 
+  recordreplay::Assert("[RUN-1436-1437] Element::RecalcStyle A %d %d",
+                       !!GetDocument().documentElement(),
+                       NeedsStyleRecalc());
+
   if (GetDocument().documentElement()) {
     UpdateViewportSize();
     NthIndexCache nth_index_cache(GetDocument());
@@ -4295,6 +4299,7 @@ void StyleEngine::UpdateStyleAndLayoutTree() {
       SCOPED_BLINK_UMA_HISTOGRAM_TIMER_HIGHRES("Style.RecalcTime");
       Element* viewport_defining = GetDocument().ViewportDefiningElement();
       RecalcStyle();
+      recordreplay::Assert("[RUN-1436-1437] Element::RecalcStyle B");
       if (viewport_defining != GetDocument().ViewportDefiningElement()) {
         ViewportDefiningElementDidChange();
       }
@@ -4940,6 +4945,7 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(view_transition_rule_);
   visitor->Trace(view_transition_preview_rule_);
   visitor->Trace(style_image_cache_);
+  visitor->Trace(style_sheet_contents_strong_);
   visitor->Trace(fill_or_clip_path_uri_value_cache_);
   visitor->Trace(style_containment_scope_tree_);
   visitor->Trace(scroll_target_group_scope_tree_);

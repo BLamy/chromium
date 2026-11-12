@@ -188,6 +188,9 @@ DisplayResourceProviderSoftware::ScopedReadLockSkImage::ScopedReadLockSkImage(
 
 DisplayResourceProviderSoftware::ScopedReadLockSkImage::
     ~ScopedReadLockSkImage() {
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    return;
+  }
   if (!resource_provider_) {
     return;
   }

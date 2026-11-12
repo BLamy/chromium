@@ -27,6 +27,7 @@
  */
 
 #include "third_party/blink/renderer/core/css/resolver/scoped_style_resolver.h"
+#include "base/record_replay.h"
 
 #include <ranges>
 

@@ -28,6 +28,8 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/record_replay.h"
+
 #include "base/synchronization/lock.h"
 #include "base/system/sys_info_internal.h"
 

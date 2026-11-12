@@ -681,6 +681,10 @@ Node& TreeScope::Retarget(const Node& target) const {
   return To<ShadowRoot>(first_different_scope_root).host();
 }
 
+int TreeScope::RecordReplayId() const {
+  return root_node_->RecordReplayId();
+}
+
 // The result of retargeting an Element is always an Element, since the
 // retarget algorithm either returns the target itself or a shadow host.
 Element& TreeScope::Retarget(const Element& target) const {
