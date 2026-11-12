@@ -691,7 +691,8 @@ void MainThreadSchedulerImpl::ShutdownAllQueues() {
 
 bool MainThreadSchedulerImpl::
     IsAnyOrdinaryMainFrameWaitingForFirstMeaningfulPaint() const {
-  for (const PageSchedulerImpl* ps : main_thread_only().page_schedulers) {
+  for (const PageSchedulerImpl* ps : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     if (ps->IsOrdinary() && ps->IsWaitingForMainFrameMeaningfulPaint())
       return true;
   }
@@ -700,7 +701,8 @@ bool MainThreadSchedulerImpl::
 
 bool MainThreadSchedulerImpl::
     IsAnyOrdinaryMainFrameWaitingForFirstContentfulPaint() const {
-  for (const PageSchedulerImpl* ps : main_thread_only().page_schedulers) {
+  for (const PageSchedulerImpl* ps : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     if (ps->IsOrdinary() && ps->IsWaitingForMainFrameContentfulPaint())
       return true;
   }
@@ -841,7 +843,8 @@ scoped_refptr<MainThreadTaskQueue> MainThreadSchedulerImpl::NewTaskQueue(
 }
 
 bool MainThreadSchedulerImpl::IsIpcTrackingEnabledForAllPages() {
-  for (auto* scheduler : main_thread_only().page_schedulers) {
+  for (auto* scheduler : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     if (!(scheduler->IsInBackForwardCache() &&
           scheduler->has_ipc_detection_enabled())) {
       return false;
@@ -1190,7 +1193,8 @@ void MainThreadSchedulerImpl::SetBatterySaverEnabled(bool enabled) {
 
   // Energy saver gates fullscreen video timer throttling, so re-evaluate the
   // throttling policy for all pages (and their frames).
-  for (PageSchedulerImpl* page_scheduler : main_thread_only().page_schedulers) {
+  for (PageSchedulerImpl* page_scheduler : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     page_scheduler->UpdatePolicy();
   }
 }
@@ -1213,7 +1217,8 @@ void MainThreadSchedulerImpl::ResumeTimersForAndroidWebView() {
 
 void MainThreadSchedulerImpl::OnAudioStateChanged() {
   bool is_audio_playing = false;
-  for (PageSchedulerImpl* page_scheduler : main_thread_only().page_schedulers) {
+  for (PageSchedulerImpl* page_scheduler : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     is_audio_playing = is_audio_playing || page_scheduler->IsAudioPlaying();
   }
 
@@ -2002,7 +2007,8 @@ void MainThreadSchedulerImpl::OnVirtualTimeEnabled() {
 
   ForceUpdatePolicy();
 
-  for (auto* page_scheduler : main_thread_only().page_schedulers) {
+  for (auto* page_scheduler : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     page_scheduler->OnVirtualTimeEnabled();
   }
 }
@@ -2098,7 +2104,8 @@ void MainThreadSchedulerImpl::WriteIntoTraceLocked(
   dict.Add("is_audio_playing", main_thread_only().is_audio_playing);
   dict.Add("page_schedulers", [&](perfetto::TracedValue context) {
     auto array = std::move(context).WriteArray();
-    for (const auto* page_scheduler : main_thread_only().page_schedulers) {
+    for (const auto* page_scheduler : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
       page_scheduler->WriteIntoTrace(array.AppendItem(), optional_now);
     }
   });
@@ -2735,7 +2742,8 @@ void MainThreadSchedulerImpl::OnStart(
   CreateTraceEventObjectSnapshot();
 
   tracing_controller_.OnTraceLogEnabled();
-  for (PageSchedulerImpl* page_scheduler : main_thread_only().page_schedulers) {
+  for (PageSchedulerImpl* page_scheduler : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     page_scheduler->OnTraceLogEnabled();
   }
 }
@@ -2992,7 +3000,8 @@ MainThreadSchedulerImpl::ComputeCompositorPriorityForMainFrame() const {
 bool MainThreadSchedulerImpl::AllPagesFrozen() const {
   if (main_thread_only().page_schedulers.empty())
     return false;
-  for (const auto* scheduler : main_thread_only().page_schedulers) {
+  for (const auto* scheduler : recordreplay::SortedByPointerId(
+           main_thread_only().page_schedulers)) {
     if (!scheduler->IsFrozen())
       return false;
   }

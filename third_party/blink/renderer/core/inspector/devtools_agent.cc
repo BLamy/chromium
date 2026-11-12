@@ -191,7 +191,8 @@ bool DevToolsAgent::IsInterruptingExecution() {
 }
 
 void DevToolsAgent::Dispose() {
-  HeapHashSet<Member<DevToolsSession>> copy(sessions_);
+  HeapHashSet<Member<DevToolsSession>,
+              MemberHashTraitsRecordReplayId<DevToolsSession>> copy(sessions_);
   for (auto& session : copy)
     session->Detach();
   CleanupConnection();

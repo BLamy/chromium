@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/core/loader/long_task_detector.h"
 
+#include "base/record_replay.h"
+
 #include "base/time/time.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
@@ -53,7 +55,13 @@ void LongTaskDetector::DidProcessTask(
     return;
 
   iterating_ = true;
+  HeapVector<Member<LongTaskObserver>> observers_vector;
   for (auto& observer : observers_) {
+    observers_vector.push_back(observer);
+  }
+  std::sort(observers_vector.begin(), observers_vector.end(),
+            recordreplay::CompareMemberByPointerId<Member<LongTaskObserver>>());
+  for (auto& observer : observers_vector) {
     observer->OnLongTaskDetected(start_time, end_time);
   }
   iterating_ = false;

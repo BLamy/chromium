@@ -8,6 +8,7 @@
 
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
+#include "base/record_replay.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/common/lazy_now.h"
@@ -242,6 +243,8 @@ FrameSchedulerImpl::FrameSchedulerImpl(
               *tracing_track_),
           &tracing_controller_,
           YesNoStateToString) {
+  // Pointer registration is needed for sorting in PageSchedulerImpl.
+  recordreplay::RegisterPointer("FrameSchedulerImpl", this);
   frame_task_queue_controller_ = base::WrapUnique(
       new FrameTaskQueueController(main_thread_scheduler_, this, this));
   back_forward_cache_disabling_feature_tracker_.SetDelegate(delegate_);
@@ -285,6 +288,8 @@ FrameSchedulerImpl::~FrameSchedulerImpl() {
     if (opted_out_from_aggressive_throttling())
       parent_page_scheduler_->OnThrottlingStatusUpdated();
   }
+
+  recordreplay::UnregisterPointer(this);
 }
 
 AgentGroupSchedulerImpl& FrameSchedulerImpl::GetAgentGroupSchedulerImpl() {

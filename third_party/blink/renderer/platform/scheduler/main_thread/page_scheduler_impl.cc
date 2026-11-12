@@ -11,6 +11,7 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/memory/post_delayed_memory_reduction_task.h"
+#include "base/record_replay.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
@@ -173,6 +174,8 @@ PageSchedulerImpl::PageSchedulerImpl(
       unimportant_timers_throttled_wake_up_interval_(base::Milliseconds(
           features::kUnimportantFrameTimersThrottledWakeUpIntervalMills
               .Get())) {
+  // Pointer registration is needed for sorting in MainThreadSchedulerImpl.
+  recordreplay::RegisterPointer("PageSchedulerImpl", this);
   do_throttle_cpu_time_callback_.Reset(base::BindRepeating(
       &PageSchedulerImpl::DoThrottleCPUTime, base::Unretained(this)));
   do_intensively_throttle_wake_ups_callback_.Reset(
@@ -190,13 +193,14 @@ PageSchedulerImpl::~PageSchedulerImpl() {
   // frame.
   {
     PolicyUpdater policy_updater;
-    for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+    for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
       frame_scheduler->OnPageSchedulerDeletion(policy_updater);
     }
     agent_group_scheduler_->RemovePageScheduler(this);
   }
 
   main_thread_scheduler_->RemovePageScheduler(this);
+  recordreplay::UnregisterPointer(this);
 }
 
 // static
@@ -215,7 +219,7 @@ void PageSchedulerImpl::SetPageVisible(bool page_visible) {
   page_visibility_ = page_visibility;
   page_visibility_changed_time_ = main_thread_scheduler_->NowTicks();
 
-  for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+  for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
     frame_scheduler->OnPageVisibilityChange(page_visibility_, policy_updater);
   }
 
@@ -254,7 +258,7 @@ void PageSchedulerImpl::SetPageFrozenImpl(
   if (is_frozen_ == frozen)
     return;
   is_frozen_ = frozen;
-  for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+  for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
     frame_scheduler->SetPageFrozenForTracing(frozen);
     frame_scheduler->SetShouldReportPostedTasksWhenDisabled(frozen);
   }
@@ -275,7 +279,7 @@ void PageSchedulerImpl::SetPageFrozenImpl(
     set_ipc_posted_handler_task_.Cancel();
     has_ipc_detection_enabled_ = false;
     main_thread_scheduler_->UpdateIpcTracking();
-    for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+    for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
       frame_scheduler->DetachOnIPCTaskPostedWhileInBackForwardCacheHandler();
     }
 
@@ -336,7 +340,7 @@ void PageSchedulerImpl::SetUpIPCTaskDetection() {
   DCHECK(is_stored_in_back_forward_cache_);
   has_ipc_detection_enabled_ = true;
   main_thread_scheduler_->UpdateIpcTracking();
-  for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+  for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
     frame_scheduler->SetOnIPCTaskPostedWhileInBackForwardCacheHandler();
   }
 }
@@ -469,7 +473,7 @@ bool PageSchedulerImpl::IsCPUTimeThrottled() const {
 
 void PageSchedulerImpl::OnThrottlingStatusUpdated() {
   bool opted_out_from_aggressive_throttling = false;
-  for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+  for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
     opted_out_from_aggressive_throttling |=
         frame_scheduler->opted_out_from_aggressive_throttling();
   }
@@ -491,7 +495,7 @@ void PageSchedulerImpl::OnVirtualTimeEnabled() {
 
 void PageSchedulerImpl::OnTraceLogEnabled() {
   tracing_controller_.OnTraceLogEnabled();
-  for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+  for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
     frame_scheduler->OnTraceLogEnabled();
   }
 }
@@ -780,7 +784,7 @@ void PageSchedulerImpl::UpdateWakeUpBudgetPools(base::LazyNow* lazy_now) {
 }
 
 void PageSchedulerImpl::UpdatePolicy() {
-  for (FrameSchedulerImpl* frame_scheduler : frame_schedulers_) {
+  for (FrameSchedulerImpl* frame_scheduler : recordreplay::SortedByPointerId(frame_schedulers_)) {
     frame_scheduler->UpdatePolicy();
   }
 

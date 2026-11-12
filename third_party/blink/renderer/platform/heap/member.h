@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_HEAP_MEMBER_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_HEAP_MEMBER_H_
 
+#include "base/check.h"
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/heap/thread_state_storage.h"
 #include "third_party/blink/renderer/platform/heap/write_barrier.h"
@@ -193,6 +195,81 @@ struct WeakMemberHashTraits : BaseMemberHashTraits<T, blink::WeakMember<T>> {
 };
 template <typename T>
 struct HashTraits<blink::WeakMember<T>> : WeakMemberHashTraits<T> {};
+
+// Replay's traits for tables of Member<>-derived elements, as in its Chromium
+// 108 (MemberHashRecordReplayRegisteredPointerId): an element is hashed by
+// the ID its pointer was registered with, so a table has the same order in a
+// recording and every replay of it, where an address isn't the same.
+template <typename T, typename MemberType>
+struct BaseMemberHashTraitsRecordReplayRegisteredPointerId
+    : BaseMemberHashTraits<T, MemberType> {
+  static uint32_t GetHash(const T* key) {
+    if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+      if (int id = recordreplay::PointerId(key)) {
+        return blink::GetHash(static_cast<uint32_t>(id));
+      }
+    }
+    return BaseMemberHashTraits<T, MemberType>::GetHash(key);
+  }
+  template <typename Member>
+    requires(IsAnyMemberType<Member>::value)
+  static uint32_t GetHash(const Member& m) {
+    return GetHash(m.Get());
+  }
+};
+template <typename T>
+struct MemberHashTraitsRecordReplayRegisteredPointerId
+    : BaseMemberHashTraitsRecordReplayRegisteredPointerId<T, blink::Member<T>> {
+  static constexpr bool kCanTraceConcurrently = true;
+  static constexpr bool kSupportsCompaction = true;
+};
+template <typename T>
+struct WeakMemberHashTraitsRecordReplayRegisteredPointerId
+    : BaseMemberHashTraitsRecordReplayRegisteredPointerId<
+          T,
+          blink::WeakMember<T>> {
+  static constexpr bool kCanTraceConcurrently = true;
+  static constexpr bool kSupportsCompaction = true;
+};
+
+// The same for elements that have a RecordReplayId() of their own (108's
+// MemberHashRecordReplayId).
+template <typename T, typename MemberType>
+struct BaseMemberHashTraitsRecordReplayId
+    : BaseMemberHashTraits<T, MemberType> {
+  static uint32_t GetHash(const T* key) {
+    if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+      int id = key->RecordReplayId();
+      // Ids are allowed to be zero if we've diverged from the recording.
+      if (recordreplay::HasDivergedFromRecording()) {
+        if (id > 0) {
+          return blink::GetHash(static_cast<uint32_t>(id));
+        }
+      } else {
+        CHECK(id > 0);  // Should have been registered.
+        return blink::GetHash(static_cast<uint32_t>(id));
+      }
+    }
+    return BaseMemberHashTraits<T, MemberType>::GetHash(key);
+  }
+  template <typename Member>
+    requires(IsAnyMemberType<Member>::value)
+  static uint32_t GetHash(const Member& m) {
+    return GetHash(m.Get());
+  }
+};
+template <typename T>
+struct MemberHashTraitsRecordReplayId
+    : BaseMemberHashTraitsRecordReplayId<T, blink::Member<T>> {
+  static constexpr bool kCanTraceConcurrently = true;
+  static constexpr bool kSupportsCompaction = true;
+};
+template <typename T>
+struct WeakMemberHashTraitsRecordReplayId
+    : BaseMemberHashTraitsRecordReplayId<T, blink::WeakMember<T>> {
+  static constexpr bool kCanTraceConcurrently = true;
+  static constexpr bool kSupportsCompaction = true;
+};
 
 // Custom HashTraits<UntracedMember<Type>> can inherit this type.
 template <typename T>

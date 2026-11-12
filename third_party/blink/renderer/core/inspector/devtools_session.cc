@@ -201,6 +201,7 @@ DevToolsSession::DevToolsSession(
       injected_script_manager_(
           MakeGarbageCollected<InspectorInjectedScriptManager>(
               agent_->inspected_frames_.Get())) {
+  record_replay_id_ = recordreplay::NewIdAnyThread("DevToolsSession");
   receiver_.Bind(std::move(main_receiver), mojo_task_runner);
 
   io_session_ =

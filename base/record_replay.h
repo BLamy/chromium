@@ -16,9 +16,11 @@
 #include "base/base_export.h"
 #include "v8/include/replayio-macros.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <initializer_list>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #include <memory>
@@ -216,6 +218,19 @@ struct CompareByPointerId {
     return (uintptr_t)a < (uintptr_t)b;
   }
 };
+
+// A pointer container's elements in the order their pointers were registered
+// when recording or replaying, for walking a container whose own order is by
+// address or by an address's hash, and so isn't a replay's.
+template <typename Container>
+auto SortedByPointerId(const Container& container) {
+  std::vector<std::remove_cvref_t<decltype(*container.begin())>> sorted(
+      container.begin(), container.end());
+  if (IsRecordingOrReplaying("pointer-ids")) {
+    std::sort(sorted.begin(), sorted.end(), CompareByPointerId());
+  }
+  return sorted;
+}
 
 // stl comparator for classes that have a RecordReplayId() method.
 struct CompareByRecordReplayId {
