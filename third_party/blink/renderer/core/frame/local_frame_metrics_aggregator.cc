@@ -11,6 +11,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
+#include "base/record_replay.h"
 #include "base/strings/strcat.h"
 #include "base/time/default_tick_clock.h"
 #include "cc/metrics/begin_main_frame_metrics.h"
@@ -277,8 +278,16 @@ LocalFrameMetricsAggregator::GetScopedForcedLayoutTimer(
   // avoid overflowing the counters.
   bool should_report_uma_this_frame = !calls_to_next_forced_style_layout_uma_;
   if (should_report_uma_this_frame) {
-    calls_to_next_forced_style_layout_uma_ = base::RandIntInclusive(
-        0, mean_calls_between_forced_style_layout_uma_ * 2);
+    // Replay: no random draw in a recorded or replayed process. Asking for a
+    // computed style at a pause forces a layout and gets here, where a replay
+    // has no recorded bytes to answer with. The mean is what the draw averages.
+    if (recordreplay::IsRecordingOrReplaying()) {
+      calls_to_next_forced_style_layout_uma_ =
+          mean_calls_between_forced_style_layout_uma_;
+    } else {
+      calls_to_next_forced_style_layout_uma_ = base::RandIntInclusive(
+          0, mean_calls_between_forced_style_layout_uma_ * 2);
+    }
   } else {
     DCHECK_GT(calls_to_next_forced_style_layout_uma_, 0u);
     --calls_to_next_forced_style_layout_uma_;

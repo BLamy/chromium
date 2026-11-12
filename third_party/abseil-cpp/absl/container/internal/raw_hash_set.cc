@@ -91,11 +91,14 @@ inline size_t RandomSeed() {
   size_t value = counter.fetch_add(kIncrement, std::memory_order_relaxed);
 #endif  // ABSL_HAVE_THREAD_LOCAL
   // Replay: no address in it in a recorded or replayed process, for the reason
-  // given at MixingHashState::Seed(). The count alone still differs from table
-  // to table, and is the same on a replay for a thread that does the same.
+  // given at MixingHashState::Seed(), and no count either. A thread makes
+  // tables where nothing is recorded (a GC, an allocation that's sampled, what
+  // a replay runs for itself), so the count of tables it has made isn't the
+  // same on a replay, and every later table would be walked in another order:
+  // a receiver set then closed its pipes in another order than the recording.
   static const bool replay = dlsym(RTLD_DEFAULT, "RecordReplayAttach") != nullptr;
   if (replay) {
-    return value;
+    return kIncrement;
   }
   return value ^ static_cast<size_t>(reinterpret_cast<uintptr_t>(&counter));
 }

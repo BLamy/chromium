@@ -16,6 +16,7 @@
 #include "base/logging.h"
 #include "base/memory/page_size.h"
 #include "base/rand_util.h"
+#include "base/record_replay.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/lock.h"
 #include "build/build_config.h"
@@ -265,6 +266,7 @@ GuardedPageAllocator::~GuardedPageAllocator() {
 #endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_GWP_ASAN_STORE)
 
 void* GuardedPageAllocator::MapRegionHint() const {
+  recordreplay::AutoDisallowEvents disallow("GuardedPageAllocator::MapRegionHint");
 #if defined(ARCH_CPU_64_BITS)
   // Mapping the GWP-ASan region in to the lower 32-bits of address space makes
   // it much more likely that a bad pointer dereference points into our region
