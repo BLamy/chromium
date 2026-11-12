@@ -125,6 +125,13 @@ bool WaitableEvent::IsSignaled() const {
 }
 
 bool WaitableEvent::IsDefinitelySignaled() const {
+  // The estimate is written by the signaling thread with nothing ordering it
+  // against this read, so a replay can see it set where the recording saw it
+  // clear, and peek at the port where the recording waited on it. It's only a
+  // way to skip the wait, so don't use it. Chromium 108 has no such estimate.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return false;
+  }
   return signal_estimate_.load(std::memory_order_relaxed) && IsSignaled();
 }
 
