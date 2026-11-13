@@ -259,6 +259,17 @@ sync() {
     exit 1'
   echo "--- gclient runhooks"
   "$dir/build-in-container.sh" --root "$r" -- bash -c 'cd /chromium && gclient runhooks'
+  # The lastchange hook looks for the newest commit with a Change-Id trailer,
+  # and this fork's branch has none: its history starts at an import commit
+  # ("Import Chromium 158.0.8127.18") that has no trailer and no parent. The
+  # hook then writes a commit time of 0, the build timestamp gn derives from it
+  # comes out negative, and devtools' generate_css_js_files.js refuses a
+  # negative --build-timestamp. So stamp the tree from the commit being built,
+  # whatever its message says.
+  echo "--- LASTCHANGE from the commit being built"
+  "$dir/build-in-container.sh" --root "$r" -- bash -c '
+    python3 build/util/lastchange.py --filter= -o build/util/LASTCHANGE &&
+    cat build/util/LASTCHANGE build/util/LASTCHANGE.committime'
 }
 
 list() {
