@@ -1887,8 +1887,14 @@ bool LayerTreeImpl::UpdateDrawProperties(
     bool update_tiles,
     bool update_image_animation_controller,
     LayerImplList* output_update_layer_list_for_testing) {
-  if (!needs_update_draw_properties_)
+  // https://linear.app/replay/issue/RUN-550
+  recordreplay::Assert("[RUN-550] LayerTreeImpl::UpdateDrawProperties Start");
+
+  if (!needs_update_draw_properties_) {
+    // https://linear.app/replay/issue/RUN-550
+    recordreplay::Assert("[RUN-550] LayerTreeImpl::UpdateDrawProperties #1");
     return true;
+  }
 
   TRACE_EVENT0("cc,benchmark", "LayerTreeImpl::UpdateDrawProperties");
 

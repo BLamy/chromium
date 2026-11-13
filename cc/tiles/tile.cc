@@ -38,7 +38,9 @@ Tile::Tile(TileManager* tile_manager,
       tiling_i_index_(info.tiling_i_index),
       tiling_j_index_(info.tiling_j_index),
       can_use_lcd_text_(info.can_use_lcd_text),
-      id_(tile_manager->GetUniqueTileId()) {}
+      id_(tile_manager->GetUniqueTileId()) {
+  recordreplay::RegisterPointer("Tile", this);
+}
 
 Tile::~Tile() {
   // Emit both the pointer-based "id" (used by Catapult's ObjectCollection to

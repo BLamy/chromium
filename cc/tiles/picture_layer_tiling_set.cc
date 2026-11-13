@@ -128,6 +128,9 @@ void PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForActivation(
     const Region& layer_invalidation,
     float minimum_contents_scale,
     float maximum_contents_scale) {
+  // https://linear.app/replay/issue/RUN-465
+  recordreplay::Assert("PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForActivation");
+
   RemoveTilingsBelowScaleKey(minimum_contents_scale);
   RemoveTilingsAboveScaleKey(maximum_contents_scale);
 
@@ -170,6 +173,10 @@ void PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForCommit(
     const Region& layer_invalidation,
     float minimum_contents_scale,
     float maximum_contents_scale) {
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForCommit %d %d",
+                       raster_source->size().width(), raster_source->size().height());
+
   RemoveTilingsBelowScaleKey(minimum_contents_scale);
   RemoveTilingsAboveScaleKey(maximum_contents_scale);
 
