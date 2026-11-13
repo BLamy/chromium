@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding.h"
 #include "base/record_replay.h"
+#include "third_party/blink/renderer/platform/bindings/record_replay_throw.h"
 #include <optional>
 
 namespace blink {
@@ -294,6 +295,12 @@ ScriptPromise<DOMArrayBuffer> Body::arrayBuffer(
 
 ScriptPromise<Blob> Body::blob(ScriptState* script_state,
                                ExceptionState& exception_state) {
+  // Copying the body into a blob needs a data pipe, whose shared memory comes
+  // from a synchronous broker call to the browser process, and registering
+  // the blob needs the browser process too.
+  if (RecordReplayThrowIfEventsUnavailable("Body.blob", &exception_state))
+    return EmptyPromise();
+
   auto create_loader = [this, script_state]() {
     ExecutionContext* context = ExecutionContext::From(script_state);
     return FetchDataLoader::CreateLoaderAsBlobHandle(

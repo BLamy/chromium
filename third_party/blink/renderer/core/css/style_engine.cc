@@ -1327,6 +1327,10 @@ void StyleEngine::AddStyleSheetContents(const String& text,
     key = AtomicString(text);
   }
   text_to_sheet_cache_.Set(key, contents);
+
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "StyleEngine")) {
+    style_sheet_contents_strong_.insert(contents);
+  }
 }
 
 void StyleEngine::CollectUserStyleFeaturesTo(RuleFeatureSet& features) const {

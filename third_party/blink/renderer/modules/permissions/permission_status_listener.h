@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_PERMISSIONS_PERMISSION_STATUS_LISTENER_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_PERMISSIONS_PERMISSION_STATUS_LISTENER_H_
 
+#include "base/record_replay.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
@@ -30,11 +31,19 @@ class PermissionStatusListener final
  public:
   class Observer : public GarbageCollectedMixin {
    public:
+    Observer() {
+      record_replay_id = recordreplay::NewIdAnyThread("PermissionStatusListener::Observer");
+    }
     virtual ~Observer() = default;
+
+    int RecordReplayId() const { return record_replay_id; }
 
     virtual void OnPermissionStatusChange(MojoPermissionStatusWithDetails) = 0;
 
     void Trace(Visitor* visitor) const override {}
+
+   private:
+    int record_replay_id = 0;
   };
 
   static PermissionStatusListener* Create(ExecutionContext*,
@@ -76,7 +85,7 @@ class PermissionStatusListener final
 
   MojoPermissionStatusWithDetails status_;
   MojoPermissionDescriptor descriptor_;
-  HeapHashSet<WeakMember<Observer>> observers_;
+  HeapHashSet<WeakMember<Observer>, WeakMemberHashTraitsRecordReplayId<Observer>> observers_;
   HeapMojoReceiver<mojom::blink::PermissionObserver, PermissionStatusListener>
       receiver_;
 };

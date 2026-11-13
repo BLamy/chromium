@@ -417,6 +417,18 @@ void DeferredTaskHandler::ClearHandlersToBeDeleted() {
   active_source_handlers_.clear();
 }
 
+void DeferredTaskHandler::RecordReplayKeepDisposedHandler(
+    scoped_refptr<AudioHandler> handler) {
+  DCHECK(IsMainThread());
+  replay_strong_disposed_handlers_.push_back(std::move(handler));
+}
+
+void DeferredTaskHandler::RecordReplayLeakDisposedHandlers() {
+  for (scoped_refptr<AudioHandler>& handler : replay_strong_disposed_handlers_)
+    handler->AddRef();
+  replay_strong_disposed_handlers_.clear();
+}
+
 void DeferredTaskHandler::ClearContextFromOrphanHandlers() {
   DCHECK(IsMainThread());
 

@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "base/record_replay.h"
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_events.h"
 #include <optional>
 
 using DecrementOnDelete = blink::ScriptedIdleTaskController::DecrementOnDelete;
@@ -335,6 +336,9 @@ void ScriptedIdleTaskController::RunIdleTask(
                               idle_task->async_task_context());
   probe::UserCallback probe(GetExecutionContext(), "requestIdleCallback",
                             AtomicString(), true);
+
+  recordreplay::UserEventProbe replayEvent("requestIdleCallback",
+                                           AtomicString());
 
   bool cross_origin_isolated_capability =
       GetExecutionContext() &&

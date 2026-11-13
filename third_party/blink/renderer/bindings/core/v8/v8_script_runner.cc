@@ -980,6 +980,8 @@ ScriptEvaluationResult V8ScriptRunner::EvaluateModule(
     probe::ExecuteScript probe(execution_context, module_script->SourceUrl(),
                                script_id);
 
+    recordreplay::UserEventProbe replayEvent;
+
     LocalDOMWindow* window = DynamicTo<LocalDOMWindow>(execution_context);
     LocalFrame* frame = window ? window->GetFrame() : nullptr;
     TRACE_EVENT(

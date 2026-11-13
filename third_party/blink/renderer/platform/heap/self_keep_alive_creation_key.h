@@ -31,6 +31,8 @@ class SelfKeepAliveCreationKey final {
   friend class InspectorFileReaderLoaderClient;
   friend class LanguageModelPromptBuilder;
   friend class MediaStreamAudioTrackUnderlyingSource;
+  // Replay: kept alive while recording or replaying, as in its Chromium 108.
+  friend class MediaStreamTrackImpl;
   friend class MIDIAccessInitializer;
   friend class MojoWatcher;
   friend class PausableScriptExecutor;

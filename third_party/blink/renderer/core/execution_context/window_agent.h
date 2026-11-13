@@ -47,6 +47,9 @@ class WindowAgent final : public Agent, public AgentGroupScheduler::Agent {
   // AgentGroupScheduler::Agent overrides.
   void PerformMicrotaskCheckpoint() override;
 
+  // Both bases declare this; the agent's own ID is the answer for each.
+  int RecordReplayId() const override { return blink::Agent::RecordReplayId(); }
+
   AgentGroupScheduler& GetAgentGroupScheduler();
 
  private:

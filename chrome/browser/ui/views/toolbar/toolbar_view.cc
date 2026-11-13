@@ -106,7 +106,6 @@
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/home_button.h"
-#include "chrome/browser/ui/views/toolbar/record_replay_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/overflow_menu.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
@@ -353,9 +352,6 @@ void ToolbarView::Init() {
         chrome::BrowserCommandController::From(browser_), this,
         display_mode_ != DisplayMode::kNormal);
   }
-  if (record_replay_button)
-    record_replay_button_ = AddChildView(std::move(record_replay_button));
-
 
   // Make sure the toolbar shows by default.
   size_animation_.Reset(1);
@@ -433,14 +429,6 @@ void ToolbarView::Init() {
                            browser_->GetProfile()));
   }
 #endif
-
-  // RecordReplay: #RUN-2762
-  // Only show the record-button if our chromium UI is enabled.
-  std::unique_ptr<RecordReplayToolbarButton> record_replay_button;
-  if (getenv("CHROMIUM_UI")) {
-    record_replay_button =
-      std::make_unique<RecordReplayToolbarButton>(browser_);
-  }
 
   // Always add children in order from left to right, for accessibility.
   if (!features::IsWebUIBackForwardButtonEnabled()) {

@@ -865,14 +865,47 @@ void XMLHttpRequest::send(Document* document, ExceptionState& exception_state) {
 }
 
 void XMLHttpRequest::send(const String& body, ExceptionState& exception_state) {
+  // RUN-1350: Use the recording stream to adjust the string value here to
+  // meet expectations.  Sometimes divergences in elsewhere will cause
+  // the sent data to be slightly different.  This will lead to spurious
+  // mmap-related asserts down the line.  To avoid this, massage the
+  // string value here (to a limit) to match the recorded value.
+  std::optional<String> adj_body;
+  if (recordreplay::IsRecordingOrReplaying("values", "XMLHttpRequest::send")) {
+    size_t length = body.length();
+    size_t recorded_length =
+      recordreplay::RecordReplayValue("XMLHttpRequest::send", body.length());
+    if (length != recorded_length) {
+      bool mismatch_too_large =
+        (length < recorded_length * 0.95 || length > recorded_length * 1.05) &&
+        (length < recorded_length - 2 || length > recorded_length + 2);
+      recordreplay::Warning("XMLHttpRequestSendLengthMismatch",
+                            {{"recordedLength", recorded_length},
+                             {"replayedLength", length},
+                             {"tooLarge", mismatch_too_large}});
+      // If the difference in strings is too big (off by more than 5 percent
+      // or so, then don't adjust the string).
+      if (mismatch_too_large) {
+        recordreplay::Warning("XMLHttpRequestSendLengthMismatchNotAdjusted");
+      } else if (length < recorded_length) {
+        size_t padding = recorded_length - length;
+        std::string spaces(padding, ' ');
+        adj_body = StrCat({body, String(spaces)});
+      } else {
+        adj_body = body.DeprecatedSubstring(0, (unsigned int) recorded_length);
+      }
+    }
+  }
+  const String& use_body = adj_body.has_value() ? *adj_body : body;
+
   if (!InitSend(exception_state))
     return;
 
   scoped_refptr<EncodedFormData> http_body;
 
-  if (!body.IsNull() && AreMethodAndURLValidForSend()) {
+  if (!use_body.IsNull() && AreMethodAndURLValidForSend()) {
     http_body = EncodedFormData::Create(
-        Utf8Encoding().Encode(body, UnencodableHandling::kNone));
+        Utf8Encoding().Encode(use_body, UnencodableHandling::kNone));
     UpdateContentTypeAndCharset(AtomicString("text/plain;charset=UTF-8"),
                                 "UTF-8");
   }

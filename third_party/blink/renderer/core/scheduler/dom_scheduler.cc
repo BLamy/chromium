@@ -4,6 +4,10 @@
 
 #include "third_party/blink/renderer/core/scheduler/dom_scheduler.h"
 
+#include "base/functional/bind.h"
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/core/record_replay/deterministic_retainer.h"
+
 #include "third_party/blink/public/common/scheduler/task_attribution_id.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
@@ -61,6 +65,19 @@ V8TaskPriority::Enum V8TaskEnumFromWebSchedulingPriority(
 }
 }  // namespace
 
+namespace {
+
+// KeepAlive OwnerGraph: Retain DOMScheduler (Oilpan root) until
+// ~FrameSchedulerImpl after Detach-ordered StreamTouch + CleanUpQueue.
+// ContextDestroyed is too early (before frame_scheduler_.reset()).
+recordreplay::DeterministicRetainer<DOMScheduler>& DomSchedulerRetainer() {
+  DEFINE_STATIC_LOCAL(recordreplay::DeterministicRetainer<DOMScheduler>,
+                      retainer, ("DOMScheduler"));
+  return retainer;
+}
+
+}  // namespace
+
 const char DOMScheduler::kSupplementName[] = "DOMScheduler";
 
 DOMScheduler* DOMScheduler::scheduler(ExecutionContext& context) {
@@ -83,11 +100,22 @@ DOMScheduler::DOMScheduler(ExecutionContext* context)
   CHECK(context->GetScheduler());
   CreateFixedPriorityTaskQueues(context, WebSchedulingQueueType::kTaskQueue,
                                 fixed_priority_task_queues_);
+  DomSchedulerRetainer().Retain(this);
+  context->GetScheduler()->SetReplaySchedulingOwnerRelease(BindOnce(
+      [](DOMScheduler* self) { DomSchedulerRetainer().Release(self); },
+      WrapPersistent(this)));
 }
 
 void DOMScheduler::ContextDestroyed() {
-  fixed_priority_task_queues_.clear();
-  signal_to_task_queue_map_.clear();
+  REPLAY_ASSERT("[TT-1465] DOMScheduler::ContextDestroyed %u %u",
+    fixed_priority_task_queues_.size(),
+    signal_to_task_queue_map_.size());
+
+  // Keep queues alive until DOMScheduler itself is GC-collected.
+  if (!recordreplay::EnterLeakMemory("DOMScheduler")) {
+    fixed_priority_task_queues_.clear();
+    signal_to_task_queue_map_.clear();
+  }
 }
 
 void DOMScheduler::Trace(Visitor* visitor) const {

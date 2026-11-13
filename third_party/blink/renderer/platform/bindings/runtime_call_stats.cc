@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/time/default_tick_clock.h"
@@ -154,7 +155,10 @@ void RuntimeCallStats::ClearRuntimeCallStatsForTesting() {
 // This function exists to remove runtime_enabled_features.h dependnency from
 // runtime_call_stats.h.
 bool RuntimeCallStats::IsEnabled() {
-  return RuntimeEnabledFeatures::BlinkRuntimeCallStatsEnabled();
+  // Force-disable call stats when recording/replaying, as calls can occur at
+  // non-deterministic points and will also bloat the recording.
+  return RuntimeEnabledFeatures::BlinkRuntimeCallStatsEnabled() &&
+         !recordreplay::IsRecordingOrReplaying("no-call-stats");
 }
 
 #if BUILDFLAG(RCS_COUNT_EVERYTHING)

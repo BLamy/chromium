@@ -4,6 +4,8 @@
 
 #include "components/ui_devtools/devtools_client.h"
 
+#include "base/record_replay.h"
+
 #include <string_view>
 
 #include "base/notimplemented.h"

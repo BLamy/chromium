@@ -176,6 +176,18 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
   // Clear the context from the rendering and deletable orphan handlers.
   void ClearContextFromOrphanHandlers();
 
+  // Keeps the handler of a node the GC disposed while recording or replaying,
+  // without disposing the handler, until the context closes or is destroyed,
+  // and then leaks it. Only the main thread touches the list of kept handlers,
+  // so keeping one doesn't need the graph lock, which the GC can't take.
+  void RecordReplayKeepDisposedHandler(scoped_refptr<AudioHandler>);
+  void RecordReplayLeakDisposedHandlers();
+
+ private:
+  Vector<scoped_refptr<AudioHandler>> replay_strong_disposed_handlers_;
+
+ public:
+
   bool AcceptsTailProcessing() const { return accepts_tail_processing_; }
   void StopAcceptingTailProcessing() { accepts_tail_processing_ = false; }
 

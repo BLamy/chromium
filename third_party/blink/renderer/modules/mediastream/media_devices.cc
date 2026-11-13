@@ -563,9 +563,9 @@ ScriptPromise<IDLSequence<MediaDeviceInfo>> MediaDevices::enumerateDevices(
   const bool video_input = !recordreplay::IsRecordingOrReplaying("no-video");
   LocalFrame* frame = LocalDOMWindow::From(script_state)->GetFrame();
   GetDispatcherHost(frame).EnumerateDevices(
-      /*request_audio_input=*/true, /*request_video_input=*/true,
+      /*request_audio_input=*/true, /*request_video_input=*/video_input,
       /*request_audio_output=*/true,
-      /*request_video_input_capabilities=*/true,
+      /*request_video_input_capabilities=*/video_input,
       /*request_audio_input_capabilities=*/
       base::FeatureList::IsEnabled(kEnumerateDevicesRequestAudioCapabilities),
       BindOnce(&MediaDevices::DevicesEnumerated, WrapPersistent(this),

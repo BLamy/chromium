@@ -475,11 +475,6 @@ ChromeWebUIControllerFactory::GetFaviconResourceBytes(
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
 #endif  // !BUILDFLAG(IS_ANDROID)
-  // recordreplay
-  if (url.host_piece() == chrome::kChromeUIRecordReplayHost)
-    return &NewWebUI<RecordReplayUI>;
-  // /recordreplay
-
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (page_url.host() == chrome::kChromeUIExtensionsHost) {

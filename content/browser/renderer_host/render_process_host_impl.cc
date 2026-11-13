@@ -1676,9 +1676,6 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
     if (site_instance->IsPdf()) {
       flags |= RenderProcessFlags::kPdf;
     }
-    if (site_instance->RecordReplayIsForRecording()) {
-      flags |= RenderProcessFlags::kRecordReplayForRecording;
-    }
     if (site_instance->IsPrivileged()) {
       flags |= RenderProcessFlags::kPrivileged;
     }
@@ -2829,14 +2826,6 @@ void RenderProcessHostImpl::WriteIntoTrace(
   if (ChildProcessSecurityPolicyImpl::GetInstance())
     dict.Add("process_lock", GetProcessLock().ToString());
 }
-void RenderProcessHostImpl::SendRecordReplayBrowserEvent(
-    const std::string& name,
-    base::Value&& value) {
-  fprintf(stderr, "SendRecordReplayBrowserEvent CRASH\n");
-  CHECK(0);
-  //GetRendererInterface()->RecordReplayBrowserEvent(name, std::move(value));
-}
-
 
 void RenderProcessHostImpl::CreateEmbeddedFrameSinkProvider(
     mojo::PendingReceiver<blink::mojom::EmbeddedFrameSinkProvider> receiver) {
@@ -3843,10 +3832,6 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
 
   if (IsPdf())
     command_line->AppendSwitch(switches::kPdfRenderer);
-  if (IsRecordReplayForRecording()) {
-    command_line->AppendSwitch("--record-replay-for-recording");
-  }
-
 
 #if BUILDFLAG(IS_WIN)
   if (command_line->HasSwitch(kExtensionProcess)) {
@@ -5469,8 +5454,6 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
   TRACE_EVENT("navigation",
               "RenderProcessHostImpl::GetProcessHostForSiteInstance",
               ChromeTrackEvent::kSiteInstance, site_instance);
-  bool record_replay_is_for_recording = site_instance->RecordReplayIsForRecording();
-
   const SiteInfo& site_info = site_instance->GetSiteInfo();
   ProcessReusePolicy process_reuse_policy =
       site_instance->process_reuse_policy();
@@ -5554,7 +5537,7 @@ RenderProcessHost* RenderProcessHostImpl::GetProcessHostForSiteInstance(
   // If not (or if none found), see if the spare RenderProcessHost can be used.
   auto& spare_process_manager = SpareRenderProcessHostManagerImpl::Get();
   bool spare_was_taken = false;
-  if (!render_process_host && !record_replay_is_for_recording) {
+  if (!render_process_host) {
     render_process_host = spare_process_manager.MaybeTakeSpare(
         browser_context, site_instance, allocation_context);
     if (render_process_host) {

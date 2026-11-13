@@ -6,7 +6,12 @@
 
 #include <ostream>
 
+#include "partition_alloc/build_config.h"
 #include "partition_alloc/partition_alloc_check.h"
+
+#if PA_BUILDFLAG(IS_POSIX)
+#include <dlfcn.h>
+#endif
 #include "partition_alloc/partition_lock.h"
 
 namespace partition_alloc {
@@ -37,6 +42,17 @@ std::atomic<PartitionAllocHooks::QuarantineOverrideHook*>
 
 void PartitionAllocHooks::SetObserverHooks(AllocationObserverHook* alloc_hook,
                                            FreeObserverHook* free_hook) {
+#if PA_BUILDFLAG(IS_POSIX)
+  // Always use the default allocators when recording/replaying, as in Replay's
+  // Chromium 108. PartitionAlloc can't use base, so this finds the driver
+  // itself.
+  static const bool record_replay_attached =
+      dlsym(RTLD_DEFAULT, "RecordReplayAttach") != nullptr;
+  if (record_replay_attached) {
+    return;
+  }
+#endif
+
   internal::ScopedGuard guard(GetHooksLock());
 
   // Chained hooks are not supported. Registering a non-null hook when a

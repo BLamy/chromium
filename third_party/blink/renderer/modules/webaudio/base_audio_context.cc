@@ -927,6 +927,30 @@ void BaseAudioContext::StartRendering() {
   }
 }
 
+void BaseAudioContext::RecordReplaySetConnectedNode(AudioNode* node,
+                                                    bool connected) {
+  if (connected && ContextState() != V8AudioContextState::Enum::kClosed) {
+    replay_strong_connected_nodes_.insert(node);
+  } else {
+    replay_strong_connected_nodes_.erase(node);
+  }
+}
+
+void BaseAudioContext::RecordReplayKeepDisposedHandler(
+    scoped_refptr<AudioHandler> handler) {
+  if (ContextState() != V8AudioContextState::Enum::kClosed) {
+    GetDeferredTaskHandler().RecordReplayKeepDisposedHandler(std::move(handler));
+    return;
+  }
+  // Destroying a disposed handler has effects outside the graph even when
+  // nothing renders it anymore: a MediaStreamAudioSource handler removes its
+  // sink from the track, changing the sinks the audio capture thread delivers
+  // to. Which handlers the GC disposes before the context closes, and when,
+  // depends on GC timing, so once the context is closed none of them is
+  // destroyed.
+  handler->AddRef();
+}
+
 void BaseAudioContext::Trace(Visitor* visitor) const {
   visitor->Trace(destination_node_);
   visitor->Trace(listener_);

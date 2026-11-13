@@ -195,7 +195,32 @@ void DoFinishRecording() {
 // Set when another thread has asked the main thread to finish the recording.
 std::atomic<bool> gFinishRecordingRequested{false};
 
+// What wakes the main thread when it's blocked waiting for a sync reply, so
+// that it can finish the recording: see MaybeTerminate().
+std::atomic<void (*)(void*)> gTerminateCallback{nullptr};
+std::atomic<void*> gTerminateCallbackData{nullptr};
+
 }  // namespace
+
+BASE_EXPORT void MaybeFinishRecording();
+
+// Used to make sure we finish recordings on the main thread, even if we're
+// blocked in a sync event, as Replay's V8 did on Chromium 108. With a
+// callback: the main thread is about to block, and the callback wakes it.
+// Without one: the main thread woke for it, and the recording is finished if
+// that was asked for.
+BASE_EXPORT void MaybeTerminate(void (*callback)(void*), void* data) {
+  if (!Active() || !IsMainThread()) {
+    return;
+  }
+  if (callback) {
+    gTerminateCallbackData.store(data, std::memory_order_release);
+    gTerminateCallback.store(callback, std::memory_order_release);
+    return;
+  }
+  gTerminateCallback.store(nullptr, std::memory_order_release);
+  MaybeFinishRecording();
+}
 
 // Finishes the recording if it's been asked for, on the main thread, and only
 // with events allowed: the driver writes nothing of a recording's end with
@@ -239,6 +264,12 @@ void FinishRecording() {
   // this hands over and waits to be ended, as Replay's V8 did on Chromium 108.
   Print("PendingFinishRecording");
   gFinishRecordingRequested.store(true, std::memory_order_release);
+  // Wake the main thread if it's blocked waiting for a sync reply.
+  if (auto* wake = gTerminateCallback.exchange(nullptr,
+                                               std::memory_order_acq_rel)) {
+    AutoPassThroughEvents pass_through;
+    wake(gTerminateCallbackData.load(std::memory_order_acquire));
+  }
   if (!gMainThreadTaskRunner ||
       !gMainThreadTaskRunner->PostTask(FROM_HERE,
                                        base::BindOnce(&MaybeFinishRecording))) {

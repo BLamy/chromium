@@ -151,6 +151,10 @@ void MessagePumpCFRunLoopBase::ScheduleDelayedWork(
     const Delegate::NextWorkInfo& next_work_info) {
   DCHECK(!next_work_info.is_immediate());
 
+  recordreplay::Assert(
+    "[RUN-2801-2978] MessagePumpCFRunLoopBase::ScheduleDelayedWork A %lld",
+    next_work_info.delayed_run_time.ToInternalValue());
+
   // The tolerance needs to be set before the fire date or it may be ignored.
   if (GetAlignWakeUpsEnabled() &&
       g_timer_slack.load(std::memory_order_relaxed) &&

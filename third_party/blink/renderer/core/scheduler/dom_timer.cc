@@ -51,6 +51,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/scheduling_policy.h"
 #include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "base/record_replay.h"
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_events.h"
 #include <optional>
 #include <string>
 
@@ -453,6 +454,8 @@ void DOMTimer::Fired() {
 
   probe::UserCallback probe(context, is_interval ? "setInterval" : "setTimeout",
                             g_null_atom, true);
+
+  recordreplay::UserEventProbe replayEvent(is_interval ? "setInterval" : "setTimeout", g_null_atom);
   probe::InvokeCallback invoke_probe(
       CHECK_DEREF(action_->GetScriptState()),
       is_interval ? "TimerHandler:setInterval" : "TimerHandler:setTimeout",

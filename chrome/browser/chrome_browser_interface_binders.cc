@@ -173,22 +173,6 @@ namespace chrome::internal {
 
 namespace {
 
-void BindRecordReplayAuthTokenStore(
-    content::RenderFrameHost* frame_host,
-    mojo::PendingReceiver<auth_token::mojom::RecordReplayAuthTokenStore> receiver) {
-
-  // we only bind the receiver if the frame's origin is app.replay.io
-  if (frame_host->GetLastCommittedOrigin().host() != "app.replay.io") {
-    return;
-  }
-
-  content::BrowserContext* browser_context =
-      frame_host->GetProcess()->GetBrowserContext();
-
-  auth_token::RecordReplayAuthTokenServiceFactory::GetForBrowserContext(browser_context)
-      ->BindAuthTokenStore(std::move(receiver));
-}
-
 #if BUILDFLAG(ENABLE_UNHANDLED_TAP)
 void BindUnhandledTapWebContentsObserver(
     content::RenderFrameHost* const host,
@@ -487,12 +471,6 @@ void BindCredentialManager(
 void PopulateChromeFrameBinders(
     mojo::BinderMapWithContext<content::RenderFrameHost*>* map,
     content::RenderFrameHost* render_frame_host) {
-
-  if (getenv("CHROMIUM_UI")) {
-    map->Add<auth_token::mojom::RecordReplayAuthTokenStore>(
-        base::BindRepeating(&BindRecordReplayAuthTokenStore));
-  }
-
   map->Add<glic::mojom::WebClientHandler>(&glic::BindGlicWebClientHandler);
   // Defense in depth: privileged capability interfaces are not even registered
   // for a frame outside a privileged process, so a non-PWC frame cannot

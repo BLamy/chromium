@@ -41,14 +41,15 @@ class DeterministicRetainer {
   }
 
  private:
-  blink::HeapHashSet<blink::Member<T>>& EnsureSet() {
+  blink::GCedHeapHashSet<blink::Member<T>>& EnsureSet() {
     if (!set_)
-      set_ = blink::MakeGarbageCollected<blink::HeapHashSet<blink::Member<T>>>();
+      set_ =
+          blink::MakeGarbageCollected<blink::GCedHeapHashSet<blink::Member<T>>>();
     return *set_;
   }
 
   const char* label_;
-  blink::Persistent<blink::HeapHashSet<blink::Member<T>>> set_;
+  blink::Persistent<blink::GCedHeapHashSet<blink::Member<T>>> set_;
 };
 
 }  // namespace recordreplay

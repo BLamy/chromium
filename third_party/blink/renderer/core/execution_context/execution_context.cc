@@ -102,7 +102,14 @@ ExecutionContext::ExecutionContext(v8::Isolate* isolate,
   DCHECK(agent_);
 }
 
-ExecutionContext::~ExecutionContext() = default;
+ExecutionContext::~ExecutionContext() {
+  // Leak the policy container if we are being destroyed at a non-deterministic
+  // point while recording/replaying, as this releases mojo resources which must
+  // happen at specific points.
+  if (recordreplay::AreEventsDisallowed("~ExecutionContext")) {
+    (void)policy_container_.release();
+  }
+}
 
 // static
 ExecutionContext* ExecutionContext::From(const ScriptState* script_state) {
