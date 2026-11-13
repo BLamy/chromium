@@ -294,7 +294,7 @@ class CORE_EXPORT SVGSMILElement : public SVGElement {
   bool is_waiting_for_first_interval_;
   bool is_scheduled_;
 
-  using TimeDependentSet = HeapHashSet<Member<SVGSMILElement>>;
+  using TimeDependentSet = HeapHashSet<Member<SVGSMILElement>, MemberHashTraitsRecordReplayId<SVGSMILElement>>;
   TimeDependentSet sync_base_dependents_;
 
   // Instance time lists

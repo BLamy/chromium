@@ -27,6 +27,7 @@
 
 #include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
 
+#include "base/record_replay.h"
 #include "base/check.h"
 #include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/core/animation/document_animations.h"
@@ -101,7 +102,10 @@ SVGImage::SVGImage(ImageObserver* observer, bool is_multipart)
                                  ->Scheduler()
                                  ->ToMainThreadScheduler()
                                  ->CreateAgentGroupScheduler()),
-      has_pending_timeline_rewind_(false) {}
+      has_pending_timeline_rewind_(false) {
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "SVGImage"))
+    replay_strong_image_observer_ = observer;
+}
 
 SVGImage::~SVGImage() {
   if (document_host_) {

@@ -43,15 +43,19 @@ class SVGElementRareData final : public GarbageCollected<SVGElementRareData> {
   const SVGElementSet& OutgoingReferences() const {
     return outgoing_references_;
   }
+  HeapHashSet<Member<SVGElement>>& ReplayStrongElementInstances() {
+    return replay_strong_element_instances_;
+  }
+
   SVGElementSet& IncomingReferences() { return incoming_references_; }
   const SVGElementSet& IncomingReferences() const {
     return incoming_references_;
   }
 
-  HeapHashSet<WeakMember<SVGElement>>& ElementInstances() {
+  HeapHashSet<WeakMember<SVGElement>, WeakMemberHashTraitsRecordReplayId<SVGElement>>& ElementInstances() {
     return element_instances_;
   }
-  const HeapHashSet<WeakMember<SVGElement>>& ElementInstances() const {
+  const HeapHashSet<WeakMember<SVGElement>, WeakMemberHashTraitsRecordReplayId<SVGElement>>& ElementInstances() const {
     return element_instances_;
   }
 
@@ -92,7 +96,8 @@ class SVGElementRareData final : public GarbageCollected<SVGElementRareData> {
  private:
   SVGElementSet outgoing_references_;
   SVGElementSet incoming_references_;
-  HeapHashSet<WeakMember<SVGElement>> element_instances_;
+  HeapHashSet<WeakMember<SVGElement>, WeakMemberHashTraitsRecordReplayId<SVGElement>> element_instances_;
+  HeapHashSet<Member<SVGElement>> replay_strong_element_instances_;
   Member<SVGElement> corresponding_element_;
   Member<SVGElementResourceClient> resource_client_;
   Member<ElementSMILAnimations> smil_animations_;

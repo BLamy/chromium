@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/core/svg/svg_use_element.h"
 
+#include "base/record_replay.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
@@ -507,6 +508,9 @@ void SVGUseElement::AttachShadowTree(SVGElement& target) {
   // <symbol> yet.
   UseShadowRoot().AppendChild(CreateInstanceTree(target));
 
+  recordreplay::Assert("[RUN-2313] SVGUseElement::AttachShadowTree B %d",
+                       UseShadowRoot().RecordReplayId());
+
   // Assure shadow tree building was successful.
   DCHECK(InstanceRoot());
   DCHECK_EQ(InstanceRoot()->GeneratingUseElement(), this);
@@ -646,7 +650,7 @@ void SVGUseElement::QueueOrDispatchPendingEvent(
     // Queue the event if the page is in back/forward cache.
     EnqueueEvent(*Event::Create(event_name), TaskType::kDOMManipulation);
   } else {
-    DispatchEvent(*Event::Create(event_name));
+    DispatchEvent(*Event::Create(event_name), "SVGUseElement::DispatchPendingEvent");
   }
 }
 

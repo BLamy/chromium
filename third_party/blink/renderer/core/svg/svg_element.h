@@ -140,7 +140,7 @@ class CORE_EXPORT SVGElement : public Element {
     EnsureUniqueElementData().SetPresentationAttributeStyleIsDirty(true);
   }
 
-  const HeapHashSet<WeakMember<SVGElement>>& InstancesForElement() const;
+  const HeapHashSet<WeakMember<SVGElement>, WeakMemberHashTraitsRecordReplayId<SVGElement>>& InstancesForElement() const;
   void AddInstance(SVGElement*);
   void RemoveInstance(SVGElement*);
 

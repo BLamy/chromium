@@ -68,7 +68,7 @@ class CORE_EXPORT SVGDocumentExtensions final
 
  private:
   Member<Document> document_;
-  HeapHashSet<Member<SVGSVGElement>> time_containers_;
+  HeapHashSet<Member<SVGSVGElement>, MemberHashTraitsRecordReplayId<SVGSVGElement>> time_containers_;
   gfx::Vector2dF translate_;
 };
 
