@@ -147,7 +147,8 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
   void CloseSoon();
   bool IsClosing() const { return is_closing_; }
 
-  using PageSet = HeapHashSet<WeakMember<Page>>;
+  // recordreplay stable hasher for the page set.
+  using PageSet = HeapHashSet<WeakMember<Page>, WeakMemberHashTraitsRecordReplayId<Page>>;
 
   // Return the current set of full-fledged, ordinary pages.
   // Each created and owned by a WebView.
@@ -506,6 +507,8 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
       blink::FencedFrame::DeprecatedFencedFrameMode mode) {
     fenced_frame_mode_ = mode;
   }
+  int RecordReplayId() const { return record_replay_id_; }
+
   blink::FencedFrame::DeprecatedFencedFrameMode DeprecatedFencedFrameMode() {
     return fenced_frame_mode_;
   }
@@ -737,6 +740,8 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
       blink::FencedFrame::DeprecatedFencedFrameMode::kDefault;
 
   WebScopedVirtualTimePauser history_navigation_virtual_time_pauser_;
+
+  int record_replay_id_ = 0;
 
   Member<v8_compile_hints::V8CrowdsourcedCompileHintsProducer>
       v8_compile_hints_producer_;

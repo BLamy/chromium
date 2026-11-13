@@ -21,6 +21,8 @@
 
 #include "third_party/blink/renderer/core/page/page.h"
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/core/record_replay/lifecycle.h"
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
@@ -287,6 +289,7 @@ Page::Page(base::PassKey<Page>,
           MakeGarbageCollected<
               v8_compile_hints::V8CrowdsourcedCompileHintsConsumer>()),
       browsing_context_group_token_(browsing_context_group_token) {
+  record_replay_id_ = recordreplay::NewIdMainThread("Page");
   DCHECK(!AllPages().Contains(this));
   AllPages().insert(this);
 
@@ -817,12 +820,21 @@ void Page::SetVisibilityState(
       visibility_state == mojom::blink::PageVisibilityState::kVisible;
 
   lifecycle_state_->visibility = visibility_state;
+  // ideally we could use an observer for this (and we might eventually find that we can),
+  // but in the interest of always getting paints, we need do this even if
+  // is_initial_state == true.
+  recordreplay::NotifyPageVisibilityStateChanged(this);
+
 
   if (is_initial_state)
     return;
 
   HeapVector<Member<PageVisibilityObserver>> observers(
       page_visibility_observer_set_);
+  if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+    std::sort(observers.begin(), observers.end(),
+              recordreplay::CompareMemberByPointerId<Member<PageVisibilityObserver>>());
+  }
   for (auto& observer : observers) {
     if (page_visibility_observer_set_.Contains(observer)) {
       observer->PageVisibilityChanged();
@@ -1408,6 +1420,21 @@ void Page::WillBeDestroyed() {
     observer->ObserverSetWillBeCleared();
   }
   page_visibility_observer_set_.clear();
+
+  if (recordreplay::AreEventsDisallowed("Page::WillBeDestroyed")) {
+    // If the dtor is called during GC (usually from |~SVGImage|):
+    // leak the scheduler, to avoid calling
+    // MainThreadSchedulerImpl::RemovePageScheduler.
+    // https://linear.app/replay/issue/RUN-1347#comment-bc4e3f9d
+    PageScheduler* s = page_scheduler_.release();
+
+    // We're about to destroy this page, which acts as the page scheduler's
+    // delegate.  Make sure we break that linkage before we go away.
+    // https://linear.app/replay/issue/RUN-2733
+    s->BreakLinkages();
+  }
+
+  recordreplay::NotifyPageWillBeDestroyed(this);
 
   page_scheduler_ = nullptr;
 

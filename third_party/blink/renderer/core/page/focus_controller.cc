@@ -82,6 +82,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "base/record_replay.h"
+#include "third_party/blink/renderer/core/record_replay/lifecycle.h"
 
 namespace blink {
 
@@ -1169,7 +1170,7 @@ inline void DispatchEventsOnWindowAndFocusedElement(Document* document,
 
   if (LocalDOMWindow* window = document->domWindow()) {
     window->DispatchEvent(*Event::Create(focused ? event_type_names::kFocus
-                                                 : event_type_names::kBlur));
+                                                 : event_type_names::kBlur), "DispatchEventsOnWindowAndFocusedElement");
   }
   if (focused && document->FocusedElement()) {
     Element* focused_element(document->FocusedElement());
@@ -1876,13 +1877,13 @@ void FocusController::SetFocusedFrame(Frame* frame, bool notify_embedder) {
   if (old_frame && old_frame->View()) {
     old_frame->Selection().SetFrameIsFocused(false);
     old_frame->DomWindow()->DispatchEvent(
-        *Event::Create(event_type_names::kBlur));
+        *Event::Create(event_type_names::kBlur), "FocusController::SetFocusedFrame #1");
   }
 
   if (new_frame && new_frame->View() && IsFocused()) {
     new_frame->Selection().SetFrameIsFocused(true);
     new_frame->DomWindow()->DispatchEvent(
-        *Event::Create(event_type_names::kFocus));
+        *Event::Create(event_type_names::kFocus), "FocusController::SetFocusedFrame #2");
   }
 
   is_changing_focused_frame_ = false;
@@ -2552,6 +2553,7 @@ bool FocusController::SetFocusedElement(Element* element,
 }
 
 void FocusController::ActiveHasChanged() {
+  recordreplay::NotifyPageFocusControllerActiveChanged(page_);
   Frame* frame = FocusedOrMainFrame();
   if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
     Document* const document = local_frame->LocalFrameRoot().GetDocument();
