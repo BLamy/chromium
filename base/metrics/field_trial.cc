@@ -668,6 +668,10 @@ void FieldTrialList::CreateTrialsInChildProcess(const CommandLine& cmd_line) {
     return;
   }
 
+  recordreplay::Assert(
+      "[RUN-2350-2356] FieldTrialList::CreateTrialsFromCommandLine %d %d",
+      recordreplay::IsRecordingOrReplaying(), recordreplay::FeatureEnabled("no-field-trials"));
+
 #if BUILDFLAG(USE_BLINK)
   // TODO(crbug.com/41403903): Change to a CHECK.
   if (cmd_line.HasSwitch(switches::kFieldTrialHandle)) {
