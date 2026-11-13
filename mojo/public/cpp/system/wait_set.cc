@@ -341,7 +341,19 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
   std::map<Handle, scoped_refptr<Context>> handle_to_context_;
   std::map<Handle, ReadyState> ready_handles_;
   std::vector<scoped_refptr<Context>> cancelled_contexts_;
-  std::set<raw_ptr<base::WaitableEvent, SetExperimental>> user_events_;
+  // Ordered by the IDs the events were registered with, so that the set has
+  // the same order on a replay (recordreplay::CompareByPointerId, for the
+  // raw_ptr elements this set has here).
+  struct CompareEventByPointerId {
+    bool operator()(
+        const raw_ptr<base::WaitableEvent, SetExperimental>& a,
+        const raw_ptr<base::WaitableEvent, SetExperimental>& b) const {
+      return recordreplay::CompareByPointerId()(a.get(), b.get());
+    }
+  };
+  std::set<raw_ptr<base::WaitableEvent, SetExperimental>,
+           CompareEventByPointerId>
+      user_events_;
 
   // Event signaled any time a handle notification is received.
   base::WaitableEvent handle_event_;

@@ -390,6 +390,8 @@ InterfaceEndpointClient::InterfaceEndpointClient(
       interface_name_(interface_name),
       method_info_callback_(method_info_callback),
       method_name_callback_(method_name_callback) {
+  recordreplay::RegisterPointer("InterfaceEndpointClient", this);
+
   DCHECK(interface_name_);
   DCHECK(handle_.is_valid());
   sequence_checker_.DetachFromSequence();
@@ -421,6 +423,7 @@ InterfaceEndpointClient::~InterfaceEndpointClient() {
   if (controller_) {
     handle_.group_controller()->DetachEndpointClient(handle_);
   }
+  recordreplay::UnregisterPointer(this);
 }
 
 AssociatedGroup* InterfaceEndpointClient::associated_group() {
@@ -500,8 +503,30 @@ bool InterfaceEndpointClient::AcceptWithResponder(
                                   std::move(responder));
 }
 
+// Check that IPC messages are the same size when replaying, but if they
+// aren't resize the message to its size when recording so that we are
+// more likely to be able to continue replaying.
+static void RecordReplayEnsureConsistentMessageSize(Message* message) {
+  size_t recorded_bytes =
+    recordreplay::RecordReplayValue("EnsureConsistentMessageSize",
+                                    message->data_num_bytes());
+
+  recordreplay::Assert("EnsureConsistentMessageSize %zu %zu",
+                       recorded_bytes, (size_t)message->data_num_bytes());
+
+  if (recorded_bytes != message->data_num_bytes()) {
+    char* new_payload = new char[recorded_bytes];
+    memset(new_payload, 0, recorded_bytes);
+    memcpy(new_payload, message->data(),
+           std::min<size_t>(recorded_bytes, message->data_num_bytes()));
+    *message->payload_buffer() = internal::Buffer(new_payload, recorded_bytes, recorded_bytes);
+  }
+}
+
 bool InterfaceEndpointClient::SendMessage(Message* message,
                                           bool is_control_message) {
+  RecordReplayEnsureConsistentMessageSize(message);
+
   CHECK(sequence_checker_.CalledOnValidSequence());
   DCHECK(!message->has_flag(Message::kFlagExpectsResponse));
 
@@ -550,6 +575,10 @@ bool InterfaceEndpointClient::SendMessageWithResponder(
     bool is_control_message,
     SyncSendMode sync_send_mode,
     std::unique_ptr<MessageReceiver> responder) {
+  RecordReplayEnsureConsistentMessageSize(message);
+  recordreplay::Assert(
+      "[RUN-1307-1773] InterfaceEndpointClient::SendMessageWithResponder");
+
   CHECK(sequence_checker_.CalledOnValidSequence());
   DCHECK(message->has_flag(Message::kFlagExpectsResponse));
   DCHECK(!handle_.pending_association());
@@ -644,11 +673,21 @@ bool InterfaceEndpointClient::HandleIncomingMessage(Message* message) {
   // members we need for logging in case of an error.
   const char* interface_name = interface_name_;
   uint32_t name = message->name();
+
+  recordreplay::Assert(
+      "[RUN-2229-2231] InterfaceEndpointClient::HandleIncomingMessage A %u",
+      name);
   if (!dispatcher_.Accept(message)) {
+    recordreplay::Assert(
+        "[RUN-2229-2231] InterfaceEndpointClient::HandleIncomingMessage B %u",
+        name);
     LOG(ERROR) << "Message " << name << " rejected by interface "
                << interface_name;
     return false;
   }
+  recordreplay::Assert(
+      "[RUN-2229-2231] InterfaceEndpointClient::HandleIncomingMessage C %u",
+      name);
 
   return true;
 }
@@ -674,6 +713,13 @@ void InterfaceEndpointClient::NotifyError(
               });
 
   CHECK(sequence_checker_.CalledOnValidSequence());
+
+  // https://linear.app/replay/issue/RUN-965
+  recordreplay::Assert(
+      "InterfaceEndpointClient::NotifyError %d %d %s %d %d",
+      encountered_error_, recordreplay::PointerId(this),
+      interface_name_ ? interface_name_ : "", !!error_handler_,
+      !!error_with_reason_handler_);
 
   if (encountered_error_) {
     return;
@@ -909,6 +955,10 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
         perfetto::Flow::Global(message->GetTraceId())(ctx);
       });
 
+  recordreplay::Assert("[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage A %lu %lu %lu %lu",
+                       (unsigned long)handle_.id(), (unsigned long)message->interface_id(),
+                       (unsigned long)message->header()->flags, (unsigned long)message->header()->name);
+
   DCHECK_EQ(handle_.id(), message->interface_id());
 
   int64_t creation_timeticks_us = message->creation_timeticks_us();
@@ -969,6 +1019,9 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
     }
   } else if (message->has_flag(Message::kFlagIsResponse)) {
     uint64_t request_id = message->request_id();
+    recordreplay::Assert(
+        "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage D %llu",
+        (unsigned long long)request_id);
 
     if (message->has_flag(Message::kFlagIsSync)) {
       auto it = sync_responses_.find(request_id);
@@ -977,7 +1030,12 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
       }
 
       if (it->second) {
+        recordreplay::Assert(
+            "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage F %u",
+            message->name());
         if (message->name() != it->second->request_message_name) {
+          recordreplay::Assert(
+              "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage G");
           return false;
         }
 
@@ -1003,13 +1061,19 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
     }
 
     if (message->name() != pending_response->request_message_name) {
+      recordreplay::Assert(
+          "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage I");
       return false;
     }
 
     internal::MessageDispatchContext dispatch_context(message);
+    recordreplay::Assert(
+        "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage J");
     return leaked || pending_response->responder->Accept(message);
   } else {
     if (mojo::internal::ControlMessageHandler::IsControlMessage(message)) {
+      recordreplay::Assert(
+          "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage K");
       return control_message_handler_.Accept(message);
     }
 
@@ -1025,6 +1089,8 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
     }
   }
 
+  recordreplay::Assert(
+      "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage L");
   return accepted_interface_message;
 }
 
