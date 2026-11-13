@@ -28,8 +28,14 @@ Status GenerateWebCryptoSecretKey(const blink::WebCryptoKeyAlgorithm& algorithm,
   std::vector<uint8_t> random_bytes(keylen_bytes, 0);
 
   if (keylen_bytes > 0) {
-    if (!RAND_bytes(random_bytes.data(), keylen_bytes))
-      return Status::OperationError();
+    // Avoid calling RAND_bytes when recording/replaying as it can behave in
+    // non-deterministic ways.
+    if (recordreplay::IsRecordingOrReplaying()) {
+      crypto::RandBytes(random_bytes);
+    } else {
+      if (!RAND_bytes(random_bytes.data(), keylen_bytes))
+        return Status::OperationError();
+    }
     TruncateToBitLength(keylen_bits, &random_bytes);
   }
 

@@ -144,8 +144,6 @@ class MutationObserverAgentData
       "ScriptExecution", "MutationObserverAgentData::DeliverMutations"
     );
 
-    recordreplay::AutoMarkerDependencyExecution record_replay_execute(
-        "ScriptExecution", "MutationObserverAgentData::DeliverMutations");
     // These steps are defined in DOM Standard's "notify mutation observers".
     // https://dom.spec.whatwg.org/#notify-mutation-observers
     DCHECK(IsMainThread());

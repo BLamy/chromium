@@ -90,8 +90,6 @@ void PendingLinkPreload::NotifyFinished() {
     "ScriptExecution", "PendingLinkPreload::NotifyFinished"
   );
 
-  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
-      "ScriptExecution", "PendingLinkPreload::NotifyFinished");
   UnblockRendering();
   DCHECK(finish_observer_);
   if (loader_)

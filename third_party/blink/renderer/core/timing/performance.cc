@@ -1311,8 +1311,6 @@ void Performance::DeliverObservationsTimerFired(TimerBase*) {
     "ScriptExecution", "Performance::DeliverObservationsTimerFired"
   );
 
-  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
-      "ScriptExecution", "Performance::DeliverObservationsTimerFired");
   if (HasObserverFor(PerformanceEntry::kContainer)) {
     PopulateContainerTimingEntries();
   }

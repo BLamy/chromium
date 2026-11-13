@@ -107,12 +107,20 @@ bool TaskQueueImpl::GuardedTaskPoster::PostTask(PostedTask task) {
   // has to do this) as it can lead to a deadlock and defer it instead.
   ScopedDeferTaskPosting disallow_task_posting;
 
-  auto token = operations_controller_.TryBeginOperation();
-  if (!token) {
-    return false;
-  }
+  if (recordreplay::AreEventsDisallowed("unordered-tasks") ||
+      recordreplay::AreEventsPassedThrough("unordered-tasks")) {
+    auto token = record_replay_unordered_operations_controller_.value().TryBeginOperation();
+    if (!token)
+      return false;
 
-  outer_->PostTask(std::move(task));
+    outer_->PostTask(std::move(task));
+  } else {
+    auto token = operations_controller_.TryBeginOperation();
+    if (!token)
+      return false;
+
+    outer_->PostTask(std::move(task));
+  }
   return true;
 }
 

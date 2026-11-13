@@ -76,6 +76,13 @@ void AudioOutputDeviceThreadCallback::Process(uint32_t control_signal) {
   // Read the glitch info.
   media::AudioGlitchInfo glitch_info =
       buffer_helper_.GetGlitchIncrementSinceLastCall(buffer->params);
+  // The glitch counts come from the shared memory buffer, which the other end
+  // writes, as 108's frames_skipped did.
+  glitch_info.duration = base::Microseconds(recordreplay::RecordReplayValue(
+      "audioparams::glitch_duration_us",
+      glitch_info.duration.InMicroseconds()));
+  glitch_info.count = static_cast<unsigned int>(recordreplay::RecordReplayValue(
+      "audioparams::glitch_count", glitch_info.count));
 
   // RUN-1667: Record the delay_us param from the shared memory buffer (this is mutated by the other end.)
   base::TimeDelta delay = base::Microseconds(

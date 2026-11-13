@@ -315,9 +315,6 @@ void DedicatedWorkerMessagingProxy::PostMessageToWorkerObject(
   if (!worker_object_ || AskedToTerminate())
     return;
 
-  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
-      "ScriptExecution", "DedicatedWorkerMessagingProxy::PostMessageToWorkerObject");
-
   recordreplay::AutoMarkerDependencyExecution execute(
     "ScriptExecution", "DedicatedWorkerMessagingProxy::PostMessageToWorkerObject"
   );
