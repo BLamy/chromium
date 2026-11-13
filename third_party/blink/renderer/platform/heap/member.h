@@ -219,6 +219,8 @@ struct BaseMemberHashTraitsRecordReplayRegisteredPointerId
   static uint32_t GetHash(const Member& m) {
     return GetHash(m.Get());
   }
+
+  static constexpr bool kIsRecordReplayDeterministicHash = true;
 };
 template <typename T>
 struct MemberHashTraitsRecordReplayRegisteredPointerId
@@ -260,6 +262,8 @@ struct BaseMemberHashTraitsRecordReplayId
   static uint32_t GetHash(const Member& m) {
     return GetHash(m.Get());
   }
+
+  static constexpr bool kIsRecordReplayDeterministicHash = true;
 };
 template <typename T>
 struct MemberHashTraitsRecordReplayId
@@ -342,6 +346,12 @@ class ConstructTraits<Member<T>, Traits, Allocator> final
 template <typename T, typename Traits, typename Allocator>
 class ConstructTraits<WeakMember<T>, Traits, Allocator> final
     : public MemberConstructTraits<WeakMember<T>> {};
+
+template <typename T>
+struct IsPointerType<blink::WeakMember<T>> : std::true_type {};
+
+template <typename T>
+struct IsPointerType<blink::Member<T>> : std::true_type {};
 
 }  // namespace blink
 

@@ -111,6 +111,58 @@ struct IsSubclassOfTemplateTypenameSizeTypename {
   static const bool value = sizeof(SubclassCheck(t_)) == sizeof(YesType);
 };
 
+// Replay: whether a hash is one that gives a table the same order in a
+// recording and its replays, as in Replay's Chromium 108.
+template <typename T, typename = void>
+struct IsRecordReplayDeterministicHash : std::false_type {};
+
+template <typename T>
+struct IsRecordReplayDeterministicHash<
+    T,
+    std::enable_if_t<T::kIsRecordReplayDeterministicHash>> : std::true_type {};
+
+template <typename T>
+constexpr bool IsRecordReplayDeterministicHashV =
+    IsRecordReplayDeterministicHash<T>::value;
+
+template <typename T>
+struct IsPointerType : std::false_type {};
+
+template <typename T>
+struct IsPointerType<T*> : std::true_type {};
+
+template <typename T>
+struct IsPointerType<const T*> : std::true_type {};
+
+template <typename T, typename U>
+struct IsPointerType<std::unique_ptr<T, U>> : std::true_type {};
+
+template <typename T>
+struct IsPointerType<scoped_refptr<T>> : std::true_type {};
+
+template <typename T>
+struct IsPointerType<base::WeakPtr<T>> : std::true_type {};
+
+template <typename T, base::RawPtrTraits U>
+struct IsPointerType<raw_ptr<T, U>> : std::true_type {};
+
+template <typename T>
+constexpr bool IsPointerTypeV = IsPointerType<T>::value;
+
+// This is a helper template to check if iteration over a container might
+// have non-deterministic ordering due to hashing pointer values.
+//
+// Example usage:
+//   inline typename HashSet<T, U, V, W>::iterator HashSet<T, U, V, W>::begin()
+//       const {
+//     static_assert(!IsRecordReplayNonDeterministicContainerV<T, U>,
+//                   "Using non-deterministic pointer hash");
+//     return impl_.begin();
+//   }
+template <typename Key, typename Hash>
+constexpr bool IsRecordReplayNonDeterministicContainerV =
+    !IsRecordReplayDeterministicHashV<Hash> && IsPointerTypeV<Key>;
+
 template <typename T>
 struct IsTraceable : cppgc::internal::IsTraceable<T> {};
 
