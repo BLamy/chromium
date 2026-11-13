@@ -47,6 +47,11 @@ void TilingData::SetTilingRect(const gfx::Rect& tiling_rect) {
   DCHECK_GE(tiling_rect.x(), 0);
   DCHECK_GE(tiling_rect.y(), 0);
   tiling_rect_ = tiling_rect;
+
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("TilingData::SetTilingSize %d %d",
+                       tiling_rect_.width(), tiling_rect_.height());
+
   RecomputeNumTiles();
 }
 

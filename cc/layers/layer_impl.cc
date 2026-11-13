@@ -971,7 +971,11 @@ gfx::Rect LayerImpl::VisibleLayerRect() const {
 }
 
 int LayerImpl::GetSortingContextId() const {
-  return GetTransformTree().Node(transform_tree_index()).sorting_context_id;
+  int rv = GetTransformTree().Node(transform_tree_index()).sorting_context_id;
+
+  recordreplay::Assert("[RUN-550] LayerImpl::GetSortingContextId %d %d", transform_tree_index(), rv);
+
+  return rv;
 }
 
 Region LayerImpl::GetInvalidationRegionForDebugging() {
