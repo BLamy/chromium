@@ -173,6 +173,7 @@
 #include "ui/display/screen_info.h"
 #include "v8/include/v8.h"
 #include "base/record_replay.h"
+#include "third_party/blink/renderer/platform/bindings/record_replay_throw.h"
 
 namespace blink {
 
@@ -266,7 +267,12 @@ LocalDOMWindow::LocalDOMWindow(LocalFrame& frame, WindowAgent* agent)
       token_(frame.GetLocalFrameToken()),
       network_state_observer_(MakeGarbageCollected<NetworkStateObserver>(this)),
       closewatcher_stack_(
-          MakeGarbageCollected<CloseWatcher::WatcherStack>(this)) {}
+          MakeGarbageCollected<CloseWatcher::WatcherStack>(this)) {
+  CHECK(IsMainThread());
+  if (!gValidDOMWindowPointers)
+    gValidDOMWindowPointers = new std::unordered_set<LocalDOMWindow*>();
+  gValidDOMWindowPointers->insert(this);
+}
 
 void LocalDOMWindow::BindContentSecurityPolicy() {
   DCHECK(!GetContentSecurityPolicy()->IsBound());
@@ -1082,7 +1088,11 @@ void LocalDOMWindow::DispatchPopstateEvent(
   NavigationEventTiming event_timing_scope(GetFrame(), *event);
   DispatchEvent(*event);
 }
-LocalDOMWindow::~LocalDOMWindow() = default;
+LocalDOMWindow::~LocalDOMWindow() {
+  CHECK(IsMainThread());
+  CHECK(gValidDOMWindowPointers);
+  gValidDOMWindowPointers->erase(this);
+}
 
 void LocalDOMWindow::Dispose() {
   BackForwardCacheBufferLimitTracker::Get()
@@ -2004,6 +2014,10 @@ ScriptPromise<ScrollResult> LocalDOMWindow::scrollBy(ScriptState* script_state,
 ScriptPromise<ScrollResult> LocalDOMWindow::scrollBy(
     ScriptState* script_state,
     const ScrollToOptions* scroll_to_options) const {
+  if (RecordReplayThrowIfEventsUnavailable("Window.scrollBy")) {
+    return EmptyPromise();
+  }
+
   ScrollPromiseResolver* resolver =
       MakeGarbageCollected<ScrollPromiseResolver>(script_state);
 
@@ -2071,6 +2085,10 @@ ScriptPromise<ScrollResult> LocalDOMWindow::scrollTo(ScriptState* script_state,
 ScriptPromise<ScrollResult> LocalDOMWindow::scrollTo(
     ScriptState* script_state,
     const ScrollToOptions* scroll_to_options) const {
+  if (RecordReplayThrowIfEventsUnavailable("Window.scrollTo")) {
+    return EmptyPromise();
+  }
+
   ScrollPromiseResolver* resolver =
       MakeGarbageCollected<ScrollPromiseResolver>(script_state);
 
