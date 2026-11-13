@@ -632,6 +632,19 @@ void ArgsGetProgressCounter(const v8::FunctionCallbackInfo<v8::Value>& args) {
 }
 
 // A hook the replay put into the program's code marks what it does as its own.
+// A page asks for a checkpoint here and now, as Replay's own tests do. From
+// Replay's Chromium 108.
+void ArgsForceCheckpoint(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  CHECK(args.Length() == 0 && "must be called without arguments");
+  if (recordreplay::IsInReplayCode("forceCheckpoint")) {
+    return;
+  }
+
+  // Use a flushed checkpoint so explicit test checkpoints are not dropped by
+  // the normal time-based checkpoint throttle.
+  recordreplay::NewCheckpointFlushed();
+}
+
 void ArgsBeginReplayCode(const v8::FunctionCallbackInfo<v8::Value>& args) {
   v8::String::Utf8Value label(args.GetIsolate(), args[0]);
   V8RecordReplayBeginReplayCode(*label ? *label : "ReplayCode");
@@ -1191,6 +1204,8 @@ void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
                  ArgsCheckPersistentId) ||
       !SetNative(isolate, context, args, "registerRootFrameScript",
                  ArgsRegisterRootFrameScript) ||
+      !SetNative(isolate, context, args, "forceCheckpoint",
+                 ArgsForceCheckpoint) ||
       !SetNative(isolate, context, args, "beginReplayCode",
                  ArgsBeginReplayCode) ||
       !SetNative(isolate, context, args, "endReplayCode", ArgsEndReplayCode) ||
