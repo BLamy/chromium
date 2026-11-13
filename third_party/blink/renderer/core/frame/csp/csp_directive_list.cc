@@ -8,6 +8,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/feature_list.h"
 #include "base/notreached.h"
 #include "services/network/public/cpp/content_security_policy/content_security_policy.h"
@@ -266,6 +267,9 @@ void ReportWasmEvalViolation(
 }
 
 bool CheckAllowEval(const network::mojom::blink::CSPSourceList* directive) {
+  // Allow privileged evaluations when inspecting state while replaying.
+  if (recordreplay::IsReplaying() && recordreplay::AreEventsDisallowed())
+    return true;
   // unsafe-eval is ignored if eval hashes are present.
   return !directive ||
          (!CSPSourceListIsEvalHashPresent(*directive) && directive->allow_eval);

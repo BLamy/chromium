@@ -184,10 +184,26 @@ std::unique_ptr<SavedFormState> SavedFormState::Deserialize(
 
 void SavedFormState::SerializeTo(Vector<String>& state_vector) const {
   state_vector.push_back(String::Number(control_state_count_));
+  // In the order of the keys' names and types, as in Replay's Chromium 108,
+  // and not in the order of a table of string addresses.
   std::vector<ControlKey> keys;
   for (const auto& form_control : state_for_new_controls_) {
-    const ControlKey& key = form_control.key;
-    const Deque<FormControlState>& queue = form_control.value;
+    keys.push_back(form_control.key);
+  }
+  std::sort(keys.begin(), keys.end(),
+            [](const ControlKey& a, const ControlKey& b) {
+              int by_name = CodeUnitCompare(a.GetName().GetString(),
+                                            b.GetName().GetString());
+              if (by_name != 0) {
+                return by_name < 0;
+              }
+              return CodeUnitCompare(a.GetType().GetString(),
+                                     b.GetType().GetString()) < 0;
+            });
+  for (const ControlKey& key : keys) {
+    const auto it = state_for_new_controls_.find(key);
+    CHECK(it != state_for_new_controls_.end());
+    const Deque<FormControlState>& queue = it->value;
     for (const FormControlState& form_control_state : queue) {
       state_vector.push_back(key.GetName());
       state_vector.push_back(key.GetType());

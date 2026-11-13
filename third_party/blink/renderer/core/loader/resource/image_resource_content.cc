@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
@@ -376,6 +377,10 @@ void ImageResourceContent::NotifyObservers(
       ProhibitAddRemoveObserverInScope prohibit_add_remove_observer_in_scope(
           this);
       finished_observers_as_vector.assign(finished_observers_.Values());
+      if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+        std::sort(finished_observers_as_vector.begin(), finished_observers_as_vector.end(),
+                  recordreplay::CompareMemberByPointerId<Member<ImageResourceObserver>>());
+      }
     }
 
     for (ImageResourceObserver* observer : finished_observers_as_vector) {
@@ -389,6 +394,10 @@ void ImageResourceContent::NotifyObservers(
       ProhibitAddRemoveObserverInScope prohibit_add_remove_observer_in_scope(
           this);
       observers_as_vector.assign(observers_.Values());
+      if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+        std::sort(observers_as_vector.begin(), observers_as_vector.end(),
+                  recordreplay::CompareMemberByPointerId<Member<ImageResourceObserver>>());
+      }
     }
 
     for (ImageResourceObserver* observer : observers_as_vector) {

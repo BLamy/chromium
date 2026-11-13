@@ -205,7 +205,7 @@ void StyleSheetCollection::PrepareUpdateActiveStyleSheets() {
 
 void StyleSheetCollection::UpdateMixins(
     const MediaQueryEvaluator& medium,
-    HeapHashSet<Member<TreeScope>>& scopes_with_changed_mixins) {
+    HeapHashSet<Member<TreeScope>, MemberHashTraitsRecordReplayId<TreeScope>>& scopes_with_changed_mixins) {
   TRACE_EVENT0("blink,blink_style", "StyleSheetCollection::updateMixins");
   MixinMap new_mixins;
   HeapHashMap<Member<StyleSheetContents>, uint64_t> new_mixin_cache_revisions;

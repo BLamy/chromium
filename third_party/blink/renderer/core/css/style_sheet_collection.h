@@ -114,7 +114,7 @@ class CORE_EXPORT StyleSheetCollection
   // Updates mixins_ from the pending active stylesheets. Adds this
   // collection's TreeScope if the effective mixins changed.
   void UpdateMixins(const MediaQueryEvaluator&,
-                    HeapHashSet<Member<TreeScope>>& scopes_with_changed_mixins);
+                    HeapHashSet<Member<TreeScope>, MemberHashTraitsRecordReplayId<TreeScope>>& scopes_with_changed_mixins);
 
   void RefreshMixinMapIdentityForInheritedChange();
 
