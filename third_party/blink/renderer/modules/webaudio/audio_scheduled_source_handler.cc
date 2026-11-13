@@ -165,6 +165,10 @@ AudioScheduledSourceHandler::UpdateSchedulingInfo(size_t quantum_frame_size,
       }
     }
 
+    recordreplay::Assert(
+        "[CRASH-0012] UpdateSchedulingInfo Finish siteB end_time %f "
+        "end_frame %zu quantum_start_frame %zu quantum_end_frame %zu",
+        end_time_, end_frame, quantum_start_frame, quantum_end_frame);
     Finish();
   }
 

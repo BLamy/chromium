@@ -1608,6 +1608,11 @@ float PictureLayerImpl::MinimumRasterContentsScaleForWillChangeTransform()
 
 void PictureLayerImpl::CleanUpTilings(
     const std::vector<float>& tiling_scales_to_clean_up) {
+  // Replay's Chromium 108 asserts this in PictureLayerTilingSet::CleanUpTilings,
+  // which removed the tilings itself.
+  recordreplay::Assert(
+      "[RUN-550-1469] PictureLayerTilingSet::CleanUpTilings B %zu",
+      tiling_scales_to_clean_up.size());
   for (float scale : tiling_scales_to_clean_up) {
     if (auto* tiling = tilings_->FindTilingWithScaleKey(scale)) {
       tilings_->Remove(tiling);

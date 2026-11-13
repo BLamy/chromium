@@ -578,6 +578,10 @@ bool Connector::DispatchMessage(ScopedMessageHandle handle) {
     has_receiver = recordreplay::RecordReplayValue(
         "Connector::DispatchMessage has_receiver", has_receiver);
   }
+  if (has_receiver) {
+    recordreplay::Assert("Connector::DispatchMessage has_receiver %d",
+                         !!incoming_receiver_);
+  }
   bool receiver_result = has_receiver && incoming_receiver_ &&
                          incoming_receiver_->Accept(&message);
   if (!weak_self) {

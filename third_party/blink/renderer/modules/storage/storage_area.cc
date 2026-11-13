@@ -194,6 +194,8 @@ NamedPropertySetterResult StorageArea::setItem(
         StrCat({"Setting the value of '", key, "' exceeded the quota."}));
     return NamedPropertySetterResult::kIntercepted;
   }
+  recordreplay::Assert("[RUN-1307-1773] StorageArea::setItem C %s",
+                       key.Utf8().c_str());
   return NamedPropertySetterResult::kIntercepted;
 }
 

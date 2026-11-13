@@ -31,6 +31,7 @@
 #include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/process/internal_linux.h"
+#include "base/record_replay.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/platform_thread_internal_posix.h"
@@ -115,10 +116,15 @@ void SetCurrentThreadTypeImpl(ThreadType thread_type,
                               MessagePumpType pump_type_hint) {
   const PlatformThreadId thread_id = PlatformThread::CurrentId();
 
+  recordreplay::Assert("[RUN-1967-2038] SetCurrentThreadTypeImpl A %d %d",
+                       (int)thread_type, (int)pump_type_hint);
   if (g_thread_type_delegate &&
       g_thread_type_delegate->HandleThreadTypeChange(thread_id, thread_type)) {
     return;
   }
+
+  recordreplay::Assert("[RUN-1967-2038] SetCurrentThreadTypeImpl B %d %d",
+                       (int)thread_type, (int)pump_type_hint);
 
   internal::SetThreadType(getpid(), thread_id, thread_type);
 }

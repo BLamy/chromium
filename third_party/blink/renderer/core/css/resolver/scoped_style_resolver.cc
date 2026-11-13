@@ -292,6 +292,10 @@ void ScopedStyleResolver::ForAllStylesheets(ElementRuleCollector& collector,
   }
 #endif
 
+  // Replay's Chromium 108 asserts on the sheets it gathers into requests; here
+  // the groups are made ahead, so there's only their number.
+  recordreplay::Assert("[RUN-2424-3233] ForAllStylesheets size %d",
+                       (int)rule_set_groups_.size());
   for (RuleSetGroup& rule_set_group : rule_set_groups_) {
     func(MatchRequest(rule_set_group, &scope_root, collector));
   }

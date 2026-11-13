@@ -40,6 +40,9 @@ TilingData::TilingData(const gfx::Size& max_texture_size,
                        const gfx::Rect& tiling_rect,
                        int border_texels)
     : max_texture_size_(max_texture_size), border_texels_(border_texels) {
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("TilingData::TilingData #2 %d %d", tiling_rect.width(),
+                       tiling_rect.height());
   SetTilingRect(tiling_rect);
 }
 
