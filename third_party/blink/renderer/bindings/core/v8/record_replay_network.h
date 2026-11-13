@@ -39,6 +39,12 @@ CORE_EXPORT void RecordReplayOnNetworkNavigationRedirect(
     const ResourceRequest& request,
     const ResourceResponse& redirect_response);
 
+// The response that redirects a request, whether the redirect is then
+// followed or refused.
+CORE_EXPORT void RecordReplayOnNetworkRedirectResponse(
+    uint64_t inspector_id,
+    const ResourceResponse& redirect_response);
+
 CORE_EXPORT void RecordReplayOnNetworkResponse(uint64_t inspector_id,
                                                const ResourceResponse& response,
                                                bool from_memory_cache);

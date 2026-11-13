@@ -959,7 +959,20 @@ void ResourceFetcher::DidLoadResourceFromMemoryCache(
         request.InspectorId(), request, resource->GetResponse(), resource,
         ResourceLoadObserver::ResponseSource::kFromMemoryCache);
 
-    if (resource->EncodedSize() > 0) {
+    // [RecordReplay] A recording has the body of a response served from the
+    // memory cache, as Replay's Chromium 108 gave it, so the bytes are given
+    // and not only how many there are.
+    scoped_refptr<const SharedBuffer> record_replay_body;
+    if (recordreplay::IsRecordingOrReplaying("notify-network")) {
+      record_replay_body = resource->ResourceBuffer();
+    }
+    if (record_replay_body && record_replay_body->size() > 0) {
+      const SegmentedBuffer::DeprecatedFlatData flat_data(
+          record_replay_body.get());
+      resource_load_observer_->DidReceiveData(
+          request.InspectorId(),
+          base::SpanOrSize<const char>(base::span<const char>(flat_data)));
+    } else if (resource->EncodedSize() > 0) {
       resource_load_observer_->DidReceiveData(
           request.InspectorId(),
           base::SpanOrSize<const char>(resource->EncodedSize()));

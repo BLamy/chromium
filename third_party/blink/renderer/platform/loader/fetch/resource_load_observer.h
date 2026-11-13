@@ -70,6 +70,12 @@ class PLATFORM_EXPORT ResourceLoadObserver
                                   const Resource* resource,
                                   ResponseSource) = 0;
 
+  // [RecordReplay] Called with the response that redirects a request, before
+  // the redirect is followed or refused: a refused one has no other report.
+  virtual void RecordReplayDidReceiveRedirectResponse(
+      uint64_t identifier,
+      const ResourceResponse& redirect_response) {}
+
   // Called when a response body chunk is received.
   virtual void DidReceiveData(uint64_t identifier,
                               base::SpanOrSize<const char> chunk) = 0;

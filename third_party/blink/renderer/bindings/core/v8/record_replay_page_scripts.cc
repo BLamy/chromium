@@ -1168,6 +1168,67 @@ bool Disabled(const char* name) {
 
 }  // namespace
 
+// The natives of __RECORD_REPLAY_ARGUMENTS__, which evaluations at a pause call
+// in whichever world their frame is in.
+static bool SetArgumentNatives(v8::Isolate* isolate,
+                        v8::Local<v8::Context> context,
+                        v8::Local<v8::Object> args) {
+  return SetNative(isolate, context, args, "log", ArgsLog) &&
+         SetNative(isolate, context, args, "getProgressCounter",
+                 ArgsGetProgressCounter) &&
+         SetNative(isolate, context, args, "getRecordingId",
+                 ArgsGetRecordingId) &&
+         SetNative(isolate, context, args, "sha256DigestHex",
+                 ArgsSha256DigestHex) &&
+         SetNative(isolate, context, args, "getRecordingFilePath",
+                 ArgsGetRecordingFilePath) &&
+         SetNative(isolate, context, args, "recordingDirectoryFileExists",
+                 ArgsRecordingDirectoryFileExists) &&
+         SetNative(isolate, context, args, "readFromRecordingDirectory",
+                 ArgsReadFromRecordingDirectory) &&
+         SetNative(isolate, context, args, "writeToRecordingDirectory",
+                 ArgsWriteToRecordingDirectory) &&
+         SetNative(isolate, context, args, "addRecordingEvent",
+                 ArgsAddRecordingEvent) &&
+         SetNative(isolate, context, args, "getScriptSource",
+                 ArgsGetScriptSource) &&
+         SetNative(isolate, context, args, "getPersistentId",
+                 ArgsGetPersistentId) &&
+         SetNative(isolate, context, args, "checkPersistentId",
+                 ArgsCheckPersistentId) &&
+         SetNative(isolate, context, args, "registerRootFrameScript",
+                 ArgsRegisterRootFrameScript) &&
+         SetNative(isolate, context, args, "forceCheckpoint",
+                 ArgsForceCheckpoint) &&
+         SetNative(isolate, context, args, "beginReplayCode",
+                 ArgsBeginReplayCode) &&
+         SetNative(isolate, context, args, "endReplayCode", ArgsEndReplayCode) &&
+         SetNative(isolate, context, args, "setCommandCallback",
+                 ArgsSetCommandCallback) &&
+         SetNative(isolate, context, args, "takePendingEvaluations",
+                 ArgsTakePendingEvaluations);
+}
+
+void RecordReplayInstallIsolatedWorldGlobals(v8::Isolate* isolate,
+                                             v8::Local<v8::Context> context) {
+  if (!recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
+  v8::HandleScope handle_scope(isolate);
+  v8::Context::Scope context_scope(context);
+  // None of this is the page's, so none of it is in the recording.
+  recordreplay::AutoDisallowEvents disallow("RecordReplayIsolatedWorldGlobals");
+  v8::Local<v8::Object> args = v8::Object::New(isolate);
+  // The command API is the root main world's alone, so that the renderer's
+  // command service has one owner. Here the object has nothing in it.
+  v8::Local<v8::Object> api = v8::Object::New(isolate);
+  if (!SetArgumentNatives(isolate, context, args) ||
+      !SetHidden(isolate, context, context->Global(), kArgumentsName, args) ||
+      !SetHidden(isolate, context, context->Global(), kApiName, api)) {
+    return;
+  }
+}
+
 void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
                                          v8::Local<v8::Context> context) {
   if (!recordreplay::IsRecordingOrReplaying()) {
@@ -1179,40 +1240,7 @@ void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
   recordreplay::AutoDisallowEvents disallow("RecordReplayRootFrameScripts");
   v8::Local<v8::Object> args = v8::Object::New(isolate);
   v8::Local<v8::Object> api = v8::Object::New(isolate);
-  if (!SetNative(isolate, context, args, "log", ArgsLog) ||
-      !SetNative(isolate, context, args, "getProgressCounter",
-                 ArgsGetProgressCounter) ||
-      !SetNative(isolate, context, args, "getRecordingId",
-                 ArgsGetRecordingId) ||
-      !SetNative(isolate, context, args, "sha256DigestHex",
-                 ArgsSha256DigestHex) ||
-      !SetNative(isolate, context, args, "getRecordingFilePath",
-                 ArgsGetRecordingFilePath) ||
-      !SetNative(isolate, context, args, "recordingDirectoryFileExists",
-                 ArgsRecordingDirectoryFileExists) ||
-      !SetNative(isolate, context, args, "readFromRecordingDirectory",
-                 ArgsReadFromRecordingDirectory) ||
-      !SetNative(isolate, context, args, "writeToRecordingDirectory",
-                 ArgsWriteToRecordingDirectory) ||
-      !SetNative(isolate, context, args, "addRecordingEvent",
-                 ArgsAddRecordingEvent) ||
-      !SetNative(isolate, context, args, "getScriptSource",
-                 ArgsGetScriptSource) ||
-      !SetNative(isolate, context, args, "getPersistentId",
-                 ArgsGetPersistentId) ||
-      !SetNative(isolate, context, args, "checkPersistentId",
-                 ArgsCheckPersistentId) ||
-      !SetNative(isolate, context, args, "registerRootFrameScript",
-                 ArgsRegisterRootFrameScript) ||
-      !SetNative(isolate, context, args, "forceCheckpoint",
-                 ArgsForceCheckpoint) ||
-      !SetNative(isolate, context, args, "beginReplayCode",
-                 ArgsBeginReplayCode) ||
-      !SetNative(isolate, context, args, "endReplayCode", ArgsEndReplayCode) ||
-      !SetNative(isolate, context, args, "setCommandCallback",
-                 ArgsSetCommandCallback) ||
-      !SetNative(isolate, context, args, "takePendingEvaluations",
-                 ArgsTakePendingEvaluations) ||
+  if (!SetArgumentNatives(isolate, context, args) ||
       !SetHidden(isolate, context, context->Global(), kArgumentsName, args) ||
       !SetHidden(isolate, context, context->Global(), kEternalStateName,
                  EternalState(isolate)) ||

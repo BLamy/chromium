@@ -67,6 +67,8 @@ struct RequestState {
   size_t response_data_received = 0;
   // Made by one of the replay's own scripts: not the page's traffic.
   bool replay_internal = false;
+  // The current hop's redirect response was already told.
+  bool redirect_response_emitted = false;
 };
 
 std::map<uint64_t, RequestState>& States() {
@@ -388,9 +390,13 @@ void RecordReplayOnNetworkRequest(const Document* document,
   if (is_redirect) {
     // The response that redirected ends the hop before this one.
     redirect_source_id = RequestId(identifier);
-    EmitResponse(redirect_source_id, redirect_response,
-                 redirect_response.WasCached());
-    States()[identifier].redirect_count++;
+    RequestState& previous = States()[identifier];
+    if (!previous.redirect_response_emitted) {
+      EmitResponse(redirect_source_id, redirect_response,
+                   redirect_response.WasCached());
+    }
+    previous.redirect_response_emitted = false;
+    previous.redirect_count++;
   }
   RequestState& state = States()[identifier];
   state.bookmark = bookmark;
@@ -434,6 +440,25 @@ void RecordReplayOnNetworkRequest(const Document* document,
              request.HttpMethod() != http_names::kHEAD) {
     EmitRequestBody(request_id, state.form_body);
   }
+}
+
+void RecordReplayOnNetworkRedirectResponse(
+    uint64_t inspector_id,
+    const ResourceResponse& redirect_response) {
+  if (!ShouldReport()) {
+    return;
+  }
+  // Telling the driver can have it ask about the page there and then, with
+  // the replay's own script, from where the page's scripts aren't allowed.
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
+  const uint64_t identifier = Identifier(inspector_id);
+  auto it = States().find(identifier);
+  if (it == States().end() || it->second.redirect_response_emitted) {
+    return;
+  }
+  it->second.redirect_response_emitted = true;
+  EmitResponse(RequestId(identifier), redirect_response,
+               redirect_response.WasCached());
 }
 
 void RecordReplayOnNetworkNavigationRedirect(

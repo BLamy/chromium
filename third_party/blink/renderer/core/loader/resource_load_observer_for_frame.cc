@@ -302,6 +302,12 @@ void ResourceLoadObserverForFrame::CheckGuardrailsPolicyForSizeLimit(
   }
 }
 
+void ResourceLoadObserverForFrame::RecordReplayDidReceiveRedirectResponse(
+    uint64_t identifier,
+    const ResourceResponse& redirect_response) {
+  RecordReplayOnNetworkRedirectResponse(identifier, redirect_response);
+}
+
 void ResourceLoadObserverForFrame::DidReceiveData(
     uint64_t identifier,
     base::SpanOrSize<const char> chunk) {

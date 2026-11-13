@@ -231,6 +231,11 @@ void ProxyImpl::InitializeLayerTreeFrameSinkOnImpl(
 
   ClientLayerTreeHostImpl* host_impl = host_impl_.get();
   bool success = host_impl->InitializeFrameSink(layer_tree_frame_sink);
+  if (success && recordreplay::IsRecordingOrReplaying() &&
+      layer_tree_frame_sink->shared_image_interface()) {
+    record_replay_shared_image_interface_ =
+        layer_tree_frame_sink->shared_image_interface();
+  }
   MainThreadTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&ProxyMain::DidInitializeLayerTreeFrameSink,
                                 proxy_main_weak_ptr_, success));
@@ -1176,10 +1181,11 @@ namespace {
 class RecordReplayRepaintFrameSink : public LayerTreeFrameSink,
                                      public viz::ExternalBeginFrameSourceClient {
  public:
-  explicit RecordReplayRepaintFrameSink(
-      scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner)
+  RecordReplayRepaintFrameSink(
+      scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
+      scoped_refptr<gpu::SharedImageInterface> shared_image_interface)
       : LayerTreeFrameSink(nullptr, nullptr, std::move(compositor_task_runner),
-                           nullptr) {}
+                           std::move(shared_image_interface)) {}
 
   bool BindToClient(LayerTreeFrameSinkClient* client) override {
     if (!LayerTreeFrameSink::BindToClient(client)) {
@@ -1235,10 +1241,15 @@ void ProxyImpl::RecordReplayRepaintPending() {
   // first, since its task was posted first. A frame sink lost while frames
   // keep the scheduler from asking for another isn't replaced, and the repaint
   // times out.
+  // Tiles are rastered into shared images, which this Chromium makes through
+  // the interface a frame sink carries (Chromium 108 rastered software tiles
+  // into bitmaps of its own). The repaint's sink carries the one the lost sink
+  // had; with none there is nothing to raster into.
   if (scheduler_->RecordReplayCreatingFrameSink() &&
-      !record_replay_frame_sink_) {
+      !record_replay_frame_sink_ && record_replay_shared_image_interface_) {
     auto frame_sink = std::make_unique<RecordReplayRepaintFrameSink>(
-        task_runner_provider_->ImplThreadTaskRunner());
+        task_runner_provider_->ImplThreadTaskRunner(),
+        record_replay_shared_image_interface_);
     if (host_impl_->InitializeFrameSink(frame_sink.get())) {
       record_replay_frame_sink_ = std::move(frame_sink);
       scheduler_->DidCreateAndInitializeLayerTreeFrameSink();

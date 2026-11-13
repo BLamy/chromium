@@ -248,6 +248,8 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
   // [RecordReplay] The frame sink a repaint initialized while the compositor
   // waited for one.
   std::unique_ptr<LayerTreeFrameSink> record_replay_frame_sink_;
+  // What the last frame sink made shared images with, for a repaint's own.
+  scoped_refptr<gpu::SharedImageInterface> record_replay_shared_image_interface_;
 
   struct DataForCommit {
     DataForCommit(

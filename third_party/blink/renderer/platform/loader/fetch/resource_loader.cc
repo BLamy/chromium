@@ -563,6 +563,16 @@ bool ResourceLoader::WillFollowRedirect(
     bool insecure_scheme_was_upgraded) {
   DCHECK(!passed_redirect_response.IsNull());
 
+  // [RecordReplay] The redirect's response is reported once, here, before
+  // following and refusing part ways, as in Replay's Chromium 108.
+  if (recordreplay::IsRecordingOrReplaying("notify-network")) {
+    if (auto* observer = fetcher_->GetResourceLoadObserver()) {
+      observer->RecordReplayDidReceiveRedirectResponse(
+          resource_->InspectorId(),
+          passed_redirect_response.ToResourceResponse());
+    }
+  }
+
   if (passed_redirect_response.HasAuthorizationCoveredByWildcardOnPreflight()) {
     fetcher_->GetUseCounter().CountDeprecation(
         mojom::WebFeature::kAuthorizationCoveredByWildcard);

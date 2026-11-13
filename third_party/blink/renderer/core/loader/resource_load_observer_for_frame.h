@@ -47,6 +47,9 @@ class CORE_EXPORT ResourceLoadObserverForFrame final
                           const ResourceResponse& response,
                           const Resource* resource,
                           ResponseSource) override;
+  void RecordReplayDidReceiveRedirectResponse(
+      uint64_t identifier,
+      const ResourceResponse& redirect_response) override;
   void DidReceiveData(uint64_t identifier,
                       base::SpanOrSize<const char> chunk) override;
   void DidReceiveTransferSizeUpdate(uint64_t identifier,

@@ -174,6 +174,11 @@ int gRepaintJPEGQuality;
 std::atomic<base::WaitableEvent*> gRepaintEvent;
 std::atomic<char*> gRepaintResult;
 
+// What a repaint's draw got as far as, said when it comes back with nothing.
+std::atomic<int> gRepaintFramesSubmitted;
+std::atomic<int> gRepaintFramesForOtherSurface;
+std::atomic<int> gRepaintFramesPainted;
+
 base::Lock& ViewportSizeLock() {
   static base::NoDestructor<base::Lock> lock;
   return *lock;
@@ -239,6 +244,9 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
   static base::NoDestructor<base::WaitableEvent> event;
   event->Reset();
   gRepaintResult = nullptr;
+  gRepaintFramesSubmitted = 0;
+  gRepaintFramesForOtherSurface = 0;
+  gRepaintFramesPainted = 0;
   gRepaintEvent = event.get();
 
   // Have the compositor thread draw a frame.
@@ -249,6 +257,12 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
     gRepaintResult = nullptr;
   }
   gRepaintEvent = nullptr;
+  if (!gRepaintResult) {
+    Print("[RuntimeError] Repaint drew nothing: %d frames submitted, %d for "
+          "another surface, %d painted.",
+          gRepaintFramesSubmitted.load(), gRepaintFramesForOtherSurface.load(),
+          gRepaintFramesPainted.load());
+  }
   return gRepaintResult;
 }
 
@@ -270,6 +284,7 @@ void NotifyRasterBuffer(scoped_refptr<gpu::ClientSharedImage> image) {
 void SubmitCompositorFrame(const viz::LocalSurfaceId& local_surface_id,
                            const viz::CompositorFrame& frame) {
   CHECK(IsRecordingOrReplaying());
+  gRepaintFramesSubmitted++;
 
   if (TakePaintSurfaceReset()) {
     delete gSurfaceId;
@@ -296,6 +311,7 @@ void SubmitCompositorFrame(const viz::LocalSurfaceId& local_surface_id,
   if (gSurfaceId->child_sequence_number() !=
           local_surface_id.child_sequence_number() ||
       gSurfaceId->embed_token() != local_surface_id.embed_token()) {
+    gRepaintFramesForOtherSurface++;
     return;
   }
 
@@ -389,6 +405,7 @@ void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
   }
   if (HasDivergedFromRecording()) {
     // Probably a repaint, and nothing a recording has a point for either way.
+    gRepaintFramesPainted++;
     if (gRepaintEvent) {
       gRepaintResult = EncodeBitmapContents(gRepaintMimeType, gRepaintJPEGQuality);
     }

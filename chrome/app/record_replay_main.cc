@@ -330,35 +330,9 @@ static bool RecordReplayShouldRecord(int* pargc, const char*** pargv) {
 
   // If there is no type, this is the main process. Add a couple command line
   // arguments which are required to record/replay.
-  const char** nargv = new const char*[*pargc + 5];
+  const char** nargv = new const char*[*pargc + 4];
   memcpy(nargv, *pargv, *pargc * sizeof(char*));
   *pargv = nargv;
-
-  // The browser gives a renderer only the origin of a redirected navigation's
-  // first URL (SanitizeOriginalUrlDuringNavigation). A recording reports each
-  // request of the navigation with its URL, as Chromium 108 let it. The last
-  // --disable-features is the one read, so the feature is added to each, or
-  // given in one of its own.
-  static const char kFeature[] = "SanitizeOriginalUrlDuringNavigation";
-  static const char kDisableFeatures[] = "--disable-features=";
-  bool has_disable_features = false;
-  for (int i = 0; i < *pargc; i++) {
-    const char* arg = (*pargv)[i];
-    if (!strncmp(arg, kDisableFeatures, strlen(kDisableFeatures))) {
-      size_t length = strlen(arg) + 1 + strlen(kFeature) + 1;
-      char* merged = static_cast<char*>(malloc(length));
-      snprintf(merged, length, "%s,%s", arg, kFeature);
-      (*pargv)[i] = merged;
-      has_disable_features = true;
-    }
-  }
-  if (!has_disable_features) {
-    size_t length = strlen(kDisableFeatures) + strlen(kFeature) + 1;
-    char* added = static_cast<char*>(malloc(length));
-    snprintf(added, length, "%s%s", kDisableFeatures, kFeature);
-    (*pargv)[*pargc] = added;
-    *pargc += 1;
-  }
 
   // Recording processes currently need the sandbox disabled in order to
   // write out recording IDs to the specified path name.

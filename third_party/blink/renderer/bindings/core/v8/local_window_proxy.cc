@@ -332,6 +332,10 @@ void LocalWindowProxy::Initialize() {
     RecordReplayInstallPageScripts(GetIsolate(), context,
                                    GetFrame()->IsMainFrame());
   }
+  if (world_->IsIsolatedWorld() &&
+      recordreplay::IsRecordingOrReplaying("commands")) {
+    RecordReplayInstallIsolatedWorldGlobals(GetIsolate(), context);
+  }
 
   {
     TRACE_EVENT2("v8", "ContextCreatedNotification", "IsMainFrame",

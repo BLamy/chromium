@@ -15,6 +15,12 @@ namespace blink {
 void RecordReplayInstallRootFrameScripts(v8::Isolate* isolate,
                                          v8::Local<v8::Context> context);
 
+// Gives an isolated world's new window the natives evaluations use at a pause
+// (__RECORD_REPLAY_ARGUMENTS__) and an empty __RECORD_REPLAY__, as Replay's
+// Chromium 108 does.
+void RecordReplayInstallIsolatedWorldGlobals(v8::Isolate* isolate,
+                                             v8::Local<v8::Context> context);
+
 // Gives a new main-world window the annotation hook and the devtools
 // stand-ins, which are the root frame's, when the page is being recorded or
 // replayed.
