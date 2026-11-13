@@ -355,6 +355,8 @@ prepare() {
   fi
   # A version costs around 100 GB here (the tree, its dependencies and the
   # build outputs), on a volume other jobs share, so say so before taking it.
+  # The first checkout on an agent: df needs the directory to be there.
+  mkdir -p "$(dirname "$r")"
   local free
   free=$(df -BG --output=avail "$(dirname "$r")" 2>/dev/null | tail -1 | tr -dc 0-9)
   if [ -n "$free" ]; then
