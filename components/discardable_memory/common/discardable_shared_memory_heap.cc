@@ -40,7 +40,13 @@ DiscardableSharedMemoryHeap::Span::Span(
     : memory_segment_(memory_segment),
       shared_memory_(shared_memory),
       first_block_(first_block),
-      num_blocks_(num_blocks) {}
+      num_blocks_(num_blocks) {
+  INIT_RECORD_REPLAY_ID(DiscardableSharedMemoryHeap::Span);
+  recordreplay::Assert(
+      "[TT-1252-1255] ClientDiscardableSharedMemoryManager::DiscardableMemoryImpl::Purge %d %d",
+      record_replay_id_,
+      shared_memory_ ? recordreplay::PointerId(shared_memory_) : -1);
+}
 
 DiscardableSharedMemoryHeap::ScopedMemorySegment::ScopedMemorySegment(
     DiscardableSharedMemoryHeap* heap,

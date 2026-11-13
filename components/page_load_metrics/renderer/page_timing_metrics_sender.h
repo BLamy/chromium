@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/byte_size.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/small_map.h"
@@ -170,7 +171,18 @@ class PageTimingMetricsSender {
 
   // Set of all resources that have completed or received a transfer
   // size update since the last timimg update.
-  base::flat_set<raw_ptr<PageResourceDataUse, CtnExperimental>>
+  // Ordered by the IDs the resources were registered with, so that the set is
+  // sent in the same order on a replay (recordreplay::CompareByPointerId, for
+  // the raw_ptr elements this set has here).
+  struct CompareResourceByPointerId {
+    bool operator()(
+        const raw_ptr<PageResourceDataUse, CtnExperimental>& a,
+        const raw_ptr<PageResourceDataUse, CtnExperimental>& b) const {
+      return recordreplay::CompareByPointerId()(a.get(), b.get());
+    }
+  };
+  base::flat_set<raw_ptr<PageResourceDataUse, CtnExperimental>,
+                 CompareResourceByPointerId>
       modified_resources_;
 
   // Field trial for alternating page timing metrics sender buffer timer delay.
