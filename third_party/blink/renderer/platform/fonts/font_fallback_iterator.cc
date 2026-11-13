@@ -155,8 +155,20 @@ FontDataForRangeSet* FontFallbackIterator::Next(const HintCharList& hint_list) {
 
   if (fallback_stage_ == kFirstCandidateForNotdefGlyph) {
     fallback_stage_ = kOutOfLuck;
-    if (!first_candidate_)
-      FontCache::CrashWithFontInfo(&font_description_);
+    if (!first_candidate_) {
+      // [replay] hackfix: try not to crash if a font symbol cannot be found
+      const SimpleFontData* system_font =
+          UniqueSystemFontForHintList(hint_list);
+      if (system_font) {
+        // Fallback fonts are not retained in the FontDataCache.
+        return UniqueOrNext(
+            MakeGarbageCollected<FontDataForRangeSet>(system_font), hint_list);
+      }
+      // [RecordReplay] crash-0079: match upstream kOutOfLuck — empty set, never
+      // null. Diverged UniqueSystemFontForHintList can leave first_candidate_
+      // unset; returning null made ShapeSegment skipCheck-break without clear.
+      return MakeGarbageCollected<FontDataForRangeSet>();
+    }
     return first_candidate_;
   }
 
