@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <string>
@@ -20,6 +21,7 @@
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/time/time.h"
+#include "base/unguessable_token.h"
 #include "cc/animation/animation_events.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/proxy_common.h"
@@ -183,8 +185,37 @@ gfx::Size& ViewportSize() {
 
 cc::ProxyMain* gCurrentCompositorProxy;
 
+// The main thread's live compositor proxies. A process has one for each
+// window it renders, e.g. a page and a popup it opened.
+std::vector<cc::ProxyMain*>* gCompositorProxies;
+
+// Embed token of `gSurfaceId`, which identifies the window owning the paint
+// surface, for repaints on the main thread: `gSurfaceId` belongs to the
+// compositor thread.
+std::atomic<const base::UnguessableToken*> gSurfaceEmbedToken;
+
+// The proxy to repaint with. Only frames submitted to the paint surface are
+// drawn, so a repaint needs the proxy of the window which owns that surface.
+// The current proxy is the one which last began a main frame, and with several
+// windows in the process that can be another window's: after a page opens a
+// popup, either window can own the paint surface while both keep running main
+// frames. A repaint with the other window's proxy draws a frame which
+// SubmitCompositorFrame ignores, and returns nothing.
+cc::ProxyMain* RepaintCompositorProxy() {
+  const base::UnguessableToken* embed_token = gSurfaceEmbedToken;
+  if (embed_token && gCompositorProxies) {
+    for (cc::ProxyMain* proxy : *gCompositorProxies) {
+      if (proxy->RecordReplayLocalSurfaceId().embed_token() == *embed_token) {
+        return proxy;
+      }
+    }
+  }
+  return gCurrentCompositorProxy;
+}
+
 char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
   CHECK(IsMainThread());
+  gCurrentCompositorProxy = RepaintCompositorProxy();
   if (!gCurrentCompositorProxy) {
     return nullptr;
   }
@@ -195,6 +226,10 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
   auto state = std::make_unique<cc::BeginMainFrameAndCommitState>();
   state->mutator_events = std::make_unique<cc::AnimationEvents>();
   state->commit_data = std::make_unique<cc::CompositorCommitData>();
+  // The pause can leave a frame's tree pending behind one that was never
+  // drawn, so the compositor has to be told about the repaint before its
+  // commit, which waits for the pending tree.
+  gCurrentCompositorProxy->RecordReplayRepaintPending();
   gCurrentCompositorProxy->RecordReplayBeginMainFrame(std::move(state));
 
   // A draw that an earlier repaint which timed out still forces doesn't end
@@ -242,12 +277,22 @@ void SubmitCompositorFrame(const viz::LocalSurfaceId& local_surface_id,
   }
   if (!gSurfaceId) {
     gSurfaceId = new viz::LocalSurfaceId(local_surface_id);
+    // Never freed: the main thread may be reading the one before.
+    gSurfaceEmbedToken =
+        new base::UnguessableToken(local_surface_id.embed_token());
     if (!gRenderer) {
       InitializeRenderer();
     }
   }
 
-  // A surface can have another parent sequence number than it began with.
+  // A surface can have another parent sequence number than it began with, and
+  // newer child sequence numbers: the widget allocates one whenever its frame
+  // sink is recreated, e.g. after the GPU process restarts.
+  if (gSurfaceId->embed_token() == local_surface_id.embed_token() &&
+      local_surface_id.child_sequence_number() >
+          gSurfaceId->child_sequence_number()) {
+    *gSurfaceId = local_surface_id;
+  }
   if (gSurfaceId->child_sequence_number() !=
           local_surface_id.child_sequence_number() ||
       gSurfaceId->embed_token() != local_surface_id.embed_token()) {
@@ -362,12 +407,22 @@ void OnRepaintFinished() {
 void SetCompositorProxy(cc::ProxyMain* proxy) {
   if (IsMainThread()) {
     gCurrentCompositorProxy = proxy;
+    if (!gCompositorProxies) {
+      gCompositorProxies = new std::vector<cc::ProxyMain*>();
+    }
+    if (std::ranges::find(*gCompositorProxies, proxy) ==
+        gCompositorProxies->end()) {
+      gCompositorProxies->push_back(proxy);
+    }
   }
 }
 
 void CompositorProxyDestroyed(cc::ProxyMain* proxy) {
   if (gCurrentCompositorProxy == proxy) {
     gCurrentCompositorProxy = nullptr;
+  }
+  if (gCompositorProxies && IsMainThread()) {
+    std::erase(*gCompositorProxies, proxy);
   }
 }
 

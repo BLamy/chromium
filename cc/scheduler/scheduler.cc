@@ -319,6 +319,20 @@ void Scheduler::OnBeginFrame(const viz::BeginFrameArgs& args) {
   viz::BeginFrameObserverBase::OnBeginFrame(args);
 }
 
+void Scheduler::RecordReplayRepaintPending() {
+  state_machine_->SetReplayRepaintPending();
+  ProcessScheduledActions();
+}
+
+bool Scheduler::RecordReplayCreatingFrameSink() const {
+  return state_machine_->RecordReplayCreatingFrameSink();
+}
+
+void Scheduler::RecordReplayReuseLostLayerTreeFrameSink() {
+  state_machine_->RecordReplayReuseLostLayerTreeFrameSink();
+  UpdateCompositorTimingHistoryRecordingEnabled();
+}
+
 void Scheduler::SetNeedsRedraw() {
   state_machine_->SetNeedsRedraw();
   ProcessScheduledActions();
@@ -508,6 +522,13 @@ void Scheduler::PostPendingBeginFrameTask() {
 }
 
 void Scheduler::OnBeginFrameSourcePausedChanged(bool paused) {
+  // [RecordReplay] A repaint draws in this process and doesn't need the
+  // browser's begin frames. The begin frame source of a lost frame sink that a
+  // repaint reuses repeats its pause when the scheduler starts observing it
+  // again.
+  if (paused && recordreplay::HasDivergedFromRecording()) {
+    return;
+  }
   if (state_machine_->begin_frame_source_paused() == paused) {
     return;
   }

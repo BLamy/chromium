@@ -131,6 +131,8 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
   // [RecordReplay] Draws a frame now, for a replay that has left its recording
   // and is asked what the page looks like.
   void RecordReplayRepaint();
+  // Told before a repaint's commit, which can wait on a pending tree.
+  void RecordReplayRepaintPending();
   const DelayedUniqueNotifier& SmoothnessPriorityExpirationNotifierForTesting()
       const {
     return smoothness_priority_expiration_notifier_;
@@ -242,6 +244,10 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
   void OnPauseRenderingUntilVisibilityChangeTimeout();
 
   std::unique_ptr<Scheduler> scheduler_;
+
+  // [RecordReplay] The frame sink a repaint initialized while the compositor
+  // waited for one.
+  std::unique_ptr<LayerTreeFrameSink> record_replay_frame_sink_;
 
   struct DataForCommit {
     DataForCommit(

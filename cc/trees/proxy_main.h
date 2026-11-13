@@ -14,6 +14,7 @@
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/types/optional_ref.h"
+#include "components/viz/common/surfaces/local_surface_id.h"
 #include "cc/cc_export.h"
 #include "cc/input/browser_controls_offset_tag_modifications.h"
 #include "cc/input/browser_controls_state.h"
@@ -78,6 +79,9 @@ class CC_EXPORT ProxyMain : public Proxy {
   void RecordReplayBeginMainFrame(
       std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state);
   void RecordReplayRepaint();
+  void RecordReplayRepaintPending();
+  // The surface this proxy's compositor submits its frames to.
+  const viz::LocalSurfaceId& RecordReplayLocalSurfaceId() const;
   void DidChangeBeginFrameSourcePaused(bool paused);
   void DidCompleteCommit(int source_frame_number, CommitTimestamps);
   void DidPresentCompositorFrame(

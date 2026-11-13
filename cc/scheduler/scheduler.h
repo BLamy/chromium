@@ -172,6 +172,14 @@ class CC_EXPORT Scheduler : public viz::BeginFrameObserverBase {
 
   void SetNeedsRedraw();
 
+  // [RecordReplay] A repaint is coming: its commit may activate over a tree
+  // that was never drawn.
+  void RecordReplayRepaintPending();
+  // Whether the scheduler asked for a LayerTreeFrameSink that hasn't been
+  // initialized.
+  bool RecordReplayCreatingFrameSink() const;
+  void RecordReplayReuseLostLayerTreeFrameSink();
+
   void SetNeedsPrepareTiles();
 
   // Requests a pending tree should be created to invalidate content on the impl

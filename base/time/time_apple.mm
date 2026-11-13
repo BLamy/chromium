@@ -186,6 +186,12 @@ TimeTicks TimeTicksNowIgnoringOverride() {
 }
 
 TimeTicks TimeTicksLowResolutionNowIgnoringOverride() {
+  // A recorded process reads the one clock Replay's Chromium 108 reads. A
+  // replay that has left its recording (to repaint at a pause, say) can read
+  // that one, and can't read this function's approximate clock.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return TimeTicksNowIgnoringOverride();
+  }
   return TimeTicks() + Microseconds(MachTimeToMicroseconds(
                            clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW_APPROX)));
 }

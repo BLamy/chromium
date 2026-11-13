@@ -37,6 +37,9 @@
 #include "cc/trees/commit_state.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/layer_tree_frame_sink.h"
+#include "cc/trees/layer_tree_frame_sink_client.h"
+#include "components/viz/common/frame_sinks/begin_frame_source.h"
+#include "base/memory/weak_ptr.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/layer_tree_impl.h"
 #include "cc/trees/layer_tree_mutator.h"
@@ -216,6 +219,15 @@ void ProxyImpl::InitializeLayerTreeFrameSinkOnImpl(
   DCHECK(IsImplThread());
 
   proxy_main_frame_sink_bound_weak_ptr_ = proxy_main_frame_sink_bound_weak_ptr;
+
+  // [RecordReplay] A repaint's frame sink stays once installed, and the main
+  // thread is told this one initialized.
+  if (record_replay_frame_sink_) {
+    MainThreadTaskRunner()->PostTask(
+        FROM_HERE, base::BindOnce(&ProxyMain::DidInitializeLayerTreeFrameSink,
+                                  proxy_main_weak_ptr_, true));
+    return;
+  }
 
   ClientLayerTreeHostImpl* host_impl = host_impl_.get();
   bool success = host_impl->InitializeFrameSink(layer_tree_frame_sink);
@@ -442,6 +454,19 @@ void ProxyImpl::NotifyReadyToCommitOnImpl(
     bool commit_timeout) {
   if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
     recordreplay::OnReadyToCommit();
+
+    // A commit after diverging from the recording is a repaint's. The
+    // recording can end with the compositor's frame sink lost, e.g. when its
+    // tab closes, and the scheduler then drops the repaint's frame instead of
+    // drawing it. No new frame sink comes after diverging: making one needs
+    // the main thread, which waits for the repaint. A lost frame sink stays
+    // with the compositor until it's replaced or released and still submits
+    // frames to recordreplay::SubmitCompositorFrame, which is all a repaint
+    // needs, so the repaint commits to it and draws with it.
+    if (recordreplay::HasDivergedFromRecording() && host_impl_ &&
+        host_impl_->layer_tree_frame_sink()) {
+      scheduler_->RecordReplayReuseLostLayerTreeFrameSink();
+    }
   }
   TRACE_EVENT("cc,benchmark", "ProxyImpl::ReadyToCommit",
               [&](perfetto::EventContext ctx) {
@@ -1141,6 +1166,87 @@ void ProxyImpl::NotifyNewLocalSurfaceIdExpectedWhilePaused() {
 
 namespace cc {
 
+namespace {
+
+// [RecordReplay] A LayerTreeFrameSink for repaints that only draws in this
+// process. A tab that closes can lose its frame sink before the renderer
+// finishes recording, which then ends while the compositor waits for a new
+// frame sink. None comes once a replay has diverged, and the compositor can't
+// draw without one.
+class RecordReplayRepaintFrameSink : public LayerTreeFrameSink,
+                                     public viz::ExternalBeginFrameSourceClient {
+ public:
+  explicit RecordReplayRepaintFrameSink(
+      scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner)
+      : LayerTreeFrameSink(nullptr, nullptr, std::move(compositor_task_runner),
+                           nullptr) {}
+
+  bool BindToClient(LayerTreeFrameSinkClient* client) override {
+    if (!LayerTreeFrameSink::BindToClient(client)) {
+      return false;
+    }
+    begin_frame_source_ = std::make_unique<viz::ExternalBeginFrameSource>(this);
+    client->SetBeginFrameSource(begin_frame_source_.get());
+    return true;
+  }
+
+  void DetachFromClient() override {
+    weak_factory_.InvalidateWeakPtrs();
+    client_->SetBeginFrameSource(nullptr);
+    begin_frame_source_.reset();
+    LayerTreeFrameSink::DetachFromClient();
+  }
+
+  void SetLocalSurfaceId(const viz::LocalSurfaceId& local_surface_id) override {
+    local_surface_id_ = local_surface_id;
+  }
+
+  void SubmitCompositorFrame(viz::CompositorFrame frame,
+                             bool hit_test_data_changed) override {
+    recordreplay::SubmitCompositorFrame(local_surface_id_, frame);
+    compositor_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(&RecordReplayRepaintFrameSink::DidReceiveAck,
+                                  weak_factory_.GetWeakPtr()));
+  }
+
+  void DidNotProduceFrame(const viz::BeginFrameAck& ack,
+                          FrameSkippedReason reason) override {}
+  void NotifyNewLocalSurfaceIdExpectedWhilePaused() override {}
+
+  // viz::ExternalBeginFrameSourceClient
+  void OnNeedsBeginFrames(bool needs_begin_frames) override {}
+
+ private:
+  void DidReceiveAck() {
+    if (client_) {
+      client_->DidReceiveCompositorFrameAck();
+    }
+  }
+
+  viz::LocalSurfaceId local_surface_id_;
+  std::unique_ptr<viz::ExternalBeginFrameSource> begin_frame_source_;
+  base::WeakPtrFactory<RecordReplayRepaintFrameSink> weak_factory_{this};
+};
+
+}  // namespace
+
+void ProxyImpl::RecordReplayRepaintPending() {
+  // A frame sink the main thread gave before the repaint was initialized
+  // first, since its task was posted first. A frame sink lost while frames
+  // keep the scheduler from asking for another isn't replaced, and the repaint
+  // times out.
+  if (scheduler_->RecordReplayCreatingFrameSink() &&
+      !record_replay_frame_sink_) {
+    auto frame_sink = std::make_unique<RecordReplayRepaintFrameSink>(
+        task_runner_provider_->ImplThreadTaskRunner());
+    if (host_impl_->InitializeFrameSink(frame_sink.get())) {
+      record_replay_frame_sink_ = std::move(frame_sink);
+      scheduler_->DidCreateAndInitializeLayerTreeFrameSink();
+    }
+  }
+  scheduler_->RecordReplayRepaintPending();
+}
+
 void ProxyImpl::RecordReplayRepaint() {
   // The main thread has brought layout up to date and committed. The message
   // that would have the compositor draw the result won't come: a replay that
@@ -1148,10 +1254,19 @@ void ProxyImpl::RecordReplayRepaint() {
   // frame here, marked so that it's drawn whatever else is so, and the main
   // thread is told when that draw is over.
   base::TimeTicks now = base::TimeTicks::Now();
+  // Animations tick to the frame time, which stays that of the last frame the
+  // recording began, as the page's animation time does while paused.
+  const viz::BeginFrameArgs& last_args = host_impl_->CurrentBeginFrameArgs();
+  if (last_args.IsValid()) {
+    now = last_args.frame_time;
+  }
   viz::BeginFrameArgs args = viz::BeginFrameArgs::Create(
       BEGINFRAME_FROM_HERE, viz::BeginFrameArgs::kManualSourceId,
       SchedulerStateMachine::kRecordReplayRepaintSequenceNumber, now, now,
       viz::BeginFrameArgs::DefaultInterval(), viz::BeginFrameArgs::NORMAL);
+  // The page may not have changed since its last draw, and a frame without
+  // damage isn't drawn at all.
+  host_impl_->SetFullViewportDamage();
   scheduler_->OnBeginFrameDerivedImpl(args);
 }
 

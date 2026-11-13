@@ -2930,6 +2930,13 @@ bool LocalFrameView::RunResizeObserverSteps(
   if (target_state != DocumentLifecycle::kPaintClean)
     return false;
 
+  // [RecordReplay] Lifecycle updates after diverging, as in repaints, show the
+  // page as it is at the pause, without running its observers' script.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      recordreplay::HasDivergedFromRecording()) {
+    return false;
+  }
+
   for (auto& element : disconnected_elements_with_remembered_size_) {
     if (!element->isConnected()) {
       element->SetLastRememberedBlockSize(std::nullopt);

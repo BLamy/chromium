@@ -3,7 +3,9 @@
 // found in the LICENSE file.
 
 #include "base/threading/hang_watcher.h"
+#include "base/record_replay.h"
 
+#include <optional>
 #include <algorithm>
 #include <atomic>
 #include <utility>
@@ -780,7 +782,15 @@ void HangWatcher::RecordHang() {
 
 ScopedClosureRunner HangWatcher::RegisterThreadInternal(
     ThreadType thread_type) {
+  // Taken with record/replay events disallowed too (a pool worker's loop), where the
+  // lock can't be ordered and the driver warns if asked to: there it's taken
+  // passed through, as the unordered lock it is in Replay's Chromium 108.
+  std::optional<recordreplay::AutoPassThroughEvents> pass_through;
+  if (recordreplay::AreEventsDisallowed()) {
+    pass_through.emplace();
+  }
   AutoLock auto_lock(watch_state_lock_);
+  pass_through.reset();
   CHECK(base::FeatureList::GetInstance());
 
   // Do not install a WatchState if the results would never be observable.

@@ -25,6 +25,7 @@
 #include "third_party/blink/renderer/core/dom/scriptable_document_parser.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
+#include "third_party/blink/renderer/bindings/core/v8/capture_source_location.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_info.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource.h"
@@ -64,6 +65,8 @@ struct RequestState {
   uint64_t bookmark = 0;
   std::optional<base::DictValue> request;
   size_t response_data_received = 0;
+  // Made by one of the replay's own scripts: not the page's traffic.
+  bool replay_internal = false;
 };
 
 std::map<uint64_t, RequestState>& States() {
@@ -87,10 +90,23 @@ std::string RequestId(uint64_t identifier) {
   return id;
 }
 
-void GraphNode(const char* kind,
+// Whether the topmost named JS frame is one of the replay's own scripts. The
+// same when recording and replaying: it decides whether a bookmark is taken.
+bool IsInReplayScriptFrame() {
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  return isolate && CaptureCurrentScriptUrl(isolate).Utf8().starts_with("record-replay-");
+}
+
+bool IsReplayInternal(uint64_t identifier) {
+  auto it = States().find(identifier);
+  return it != States().end() && it->second.replay_internal;
+}
+
+void GraphNode(uint64_t identifier,
+               const char* kind,
                const std::string& request_id,
                const std::string& more = std::string()) {
-  if (!recordreplay::DependencyGraphEnabled()) {
+  if (!recordreplay::DependencyGraphEnabled() || IsReplayInternal(identifier)) {
     return;
   }
   std::string json =
@@ -359,8 +375,14 @@ void RecordReplayOnNetworkRequest(const Document* document,
   const uint64_t identifier = Identifier(request.InspectorId());
   const bool is_redirect = !redirect_response.IsNull();
 
+  // A redirected hop is its chain's, whoever made that.
+  if (!is_redirect && IsInReplayScriptFrame()) {
+    States()[identifier].replay_internal = true;
+  }
+  const bool replay_internal = IsReplayInternal(identifier);
+
   // Where the request was made, which is where the inspector takes its stack.
-  uint64_t bookmark = recordreplay::NewBookmark();
+  uint64_t bookmark = replay_internal ? 0 : recordreplay::NewBookmark();
 
   std::string redirect_source_id;
   if (is_redirect) {
@@ -375,7 +397,7 @@ void RecordReplayOnNetworkRequest(const Document* document,
   state.response_data_received = 0;
   std::string request_id = RequestId(identifier);
 
-  GraphNode("networkRequest", request_id);
+  GraphNode(identifier, "networkRequest", request_id);
 
   base::DictValue event;
   if (recordreplay::IsReplaying()) {
@@ -393,6 +415,9 @@ void RecordReplayOnNetworkRequest(const Document* document,
     }
     if (is_redirect) {
       event.Set("redirectSourceId", redirect_source_id);
+    }
+    if (replay_internal) {
+      event.Set("replayInternal", true);
     }
     state.request = event.Clone();
   }
@@ -441,7 +466,7 @@ void RecordReplayOnNetworkNavigationRedirect(
     event.Set("requestMethod", request.HttpMethod().Utf8());
     event.Set("requestHeaders", HeaderList(request.HttpHeaderFields()));
     if (state.request) {
-      for (const char* key : {"requestCause", "initiator"}) {
+      for (const char* key : {"requestCause", "initiator", "replayInternal"}) {
         if (const base::Value* value = state.request->Find(key)) {
           event.Set(key, value->Clone());
         }
@@ -487,7 +512,7 @@ void RecordReplayOnNetworkData(uint64_t inspector_id,
   std::string request_id = RequestId(identifier);
   const size_t length = chunk.size();
 
-  GraphNode("networkReceiveData", request_id,
+  GraphNode(identifier, "networkReceiveData", request_id,
             ",\"length\":" + std::to_string(length));
 
   std::string stream_id = "response-" + request_id;
@@ -520,7 +545,7 @@ void RecordReplayOnNetworkFinished(uint64_t inspector_id,
     return;
   }
   std::string request_id = RequestId(identifier);
-  GraphNode("networkFinishLoading", request_id);
+  GraphNode(identifier, "networkFinishLoading", request_id);
   base::DictValue event;
   event.Set("kind", "request-done");
   event.Set("encodedBodySize", static_cast<double>(encoded_body_length));
@@ -542,7 +567,7 @@ void RecordReplayOnNetworkFailed(uint64_t inspector_id,
     return;
   }
   std::string request_id = RequestId(identifier);
-  GraphNode("networkFail", request_id);
+  GraphNode(identifier, "networkFail", request_id);
   base::DictValue event;
   event.Set("kind", "request-failed");
   event.Set("requestFailedReason",

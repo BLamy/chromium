@@ -4,6 +4,10 @@
 
 #include "third_party/blink/renderer/platform/back_forward_cache_buffer_limit_tracker.h"
 
+#include <optional>
+
+#include "base/record_replay.h"
+
 #include "base/synchronization/lock.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/platform/back_forward_cache_utils.h"
@@ -40,7 +44,15 @@ void BackForwardCacheBufferLimitTracker::DidBufferBytes(size_t num_bytes) {
 
 void BackForwardCacheBufferLimitTracker::
     DidRemoveFrameOrWorkerFromBackForwardCache(size_t total_bytes) {
+  // Taken with record/replay events disallowed too (a window's prefinalizer, in a collection), where the
+  // lock can't be ordered and the driver warns if asked to: there it's taken
+  // passed through, as the unordered lock it is in Replay's Chromium 108.
+  std::optional<recordreplay::AutoPassThroughEvents> pass_through;
+  if (recordreplay::AreEventsDisallowed()) {
+    pass_through.emplace();
+  }
   base::AutoLock lock(lock_);
+  pass_through.reset();
   DCHECK(total_bytes_buffered_ >= total_bytes);
   total_bytes_buffered_ -= total_bytes;
   TRACE_EVENT2("loading",

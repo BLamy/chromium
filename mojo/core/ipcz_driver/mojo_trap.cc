@@ -421,7 +421,15 @@ void MojoTrap::Close() {
   // Effectively disable all triggers. A disabled trigger may have already
   // installed an ipcz trap which hasn't yet fired an event. This ensures that
   // if any such event does eventually fire, it will be ignored.
+  // Taken with record/replay events disallowed too (a watcher destroyed in a collection), where the
+  // lock can't be ordered and the driver warns if asked to: there it's taken
+  // passed through, as the unordered lock it is in Replay's Chromium 108.
+  std::optional<recordreplay::AutoPassThroughEvents> pass_through;
+  if (recordreplay::AreEventsDisallowed()) {
+    pass_through.emplace();
+  }
   base::AutoLock lock(lock_);
+  pass_through.reset();
   TriggerMap triggers;
   std::swap(triggers, triggers_);
   next_trigger_ = triggers_.begin();

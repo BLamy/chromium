@@ -390,8 +390,15 @@ class CC_EXPORT SchedulerStateMachine {
   bool ClearReplayForceDraw() {
     bool result = replay_force_draw_;
     replay_force_draw_ = false;
+    replay_repaint_pending_ = false;
     return result;
   }
+
+  void SetReplayRepaintPending() { replay_repaint_pending_ = true; }
+  bool RecordReplayCreatingFrameSink() const {
+    return layer_tree_frame_sink_state_ == LayerTreeFrameSinkState::CREATING;
+  }
+  void RecordReplayReuseLostLayerTreeFrameSink();
 
   void set_is_scrolling(bool is_scrolling) { is_scrolling_ = is_scrolling; }
   void set_waiting_for_scroll_event(bool waiting_for_scroll_event) {
@@ -515,6 +522,8 @@ class CC_EXPORT SchedulerStateMachine {
   bool skip_draw_ = false;
   bool has_pending_tree_ = false;
   bool replay_force_draw_ = false;
+  // [RecordReplay] A repaint has started and its commit is coming.
+  bool replay_repaint_pending_ = false;
   bool pending_tree_is_ready_for_activation_ = false;
   bool active_tree_needs_first_draw_ = false;
   bool did_create_and_initialize_first_layer_tree_frame_sink_ = false;
