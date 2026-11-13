@@ -150,10 +150,16 @@ void InitializeCommon(Platform* platform, mojo::BinderMap* binders) {
   // BlinkInitializer::Initialize() must be called before InitializeMainThread
   GetBlinkInitializer().Initialize();
 
-  blink::V8Initializer::InitializeIsolateHolder(
-      blink::V8ContextSnapshot::GetReferenceTable(),
+  std::string js_command_line_flag =
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          blink::switches::kJavaScriptFlags));
+          blink::switches::kJavaScriptFlags);
+  // Apply the driver's old space limit after any --js-flags so that it wins.
+  if (size_t max_old_space_mb = ::recordreplay::MaxOldSpaceMb()) {
+    js_command_line_flag +=
+        " --max-old-space-size=" + base::NumberToString(max_old_space_mb);
+  }
+  blink::V8Initializer::InitializeIsolateHolder(
+      blink::V8ContextSnapshot::GetReferenceTable(), js_command_line_flag);
 
   GetBlinkInitializer().RegisterInterfaces(*binders);
 

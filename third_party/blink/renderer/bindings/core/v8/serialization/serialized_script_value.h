@@ -35,6 +35,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/containers/heap_array.h"
 #include "base/containers/span.h"
 #include "base/dcheck_is_on.h"
@@ -464,6 +465,27 @@ class CORE_EXPORT SerializedScriptValue
 
   DataBufferPtr data_buffer_;
   size_t data_buffer_size_ = 0;
+
+ public:
+  // RUN-1618: Ensure this serialized script value has a consistent length when
+  // recording vs. replaying. When necessary we want to tolerate different
+  // serialized value lengths when replaying, to improve robustness and allow
+  // the replay to continue.
+  void RecordReplayDataSize() {
+    size_t recorded_size = recordreplay::RecordReplayValue("SerializedScriptValue::RecordReplayDataSize", data_buffer_size_);
+    if (recorded_size == data_buffer_size_) {
+      return;
+    }
+
+    recordreplay::Print("Warning: SerializedScriptValue::RecordReplayDataSize mismatched size, expected %zu got %zu",
+                        recorded_size, data_buffer_size_);
+
+    data_buffer_ = AllocateBuffer(recorded_size);
+    memset(data_buffer_.data(), 0, recorded_size);
+    data_buffer_size_ = recorded_size;
+  }
+
+ private:
 
   // These two have one-use transferred contents, and are stored in
   // UnpackedSerializedScriptValue thereafter.
