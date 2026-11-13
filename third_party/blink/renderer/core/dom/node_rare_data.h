@@ -210,6 +210,9 @@ class CORE_EXPORT NodeRareData final : public GarbageCollected<NodeRareData> {
 
   RareDataUpdate<CSSStyleDeclaration> EnsureInlineCSSStyleDeclaration(
       Element* owner_element);
+  // The declaration if there is one, without making it (108's
+  // ElementRareData::GetInlineCSSStyleDeclaration).
+  CSSStyleDeclaration* GetInlineCSSStyleDeclaration() const;
 
   ShadowRoot* GetShadowRoot() const;
   [[nodiscard]] RareDataUpdate<void> SetShadowRoot(ShadowRoot& shadow_root);

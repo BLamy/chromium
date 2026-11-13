@@ -894,6 +894,8 @@ DISABLE_CFI_PERF bool ElementRuleCollector::CollectMatchingRulesInternal(
   }
 
   // Collect rules from attribute selector buckets, if we have any.
+  recordreplay::Assert("[RUN-2424-3236] CollectMatchingRules has_any_attr_rules %d",
+                       match_request.HasAnyRuleSetsWithAttrRules());
   if (match_request.HasAnyRuleSetsWithAttrRules()) {
     // HTML documents have case-insensitive attribute matching
     // (so we need to lowercase), non-HTML documents have

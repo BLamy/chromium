@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/layout/layout_input_node.h"
 
 #include "third_party/blink/renderer/core/core_export.h"
@@ -256,6 +257,10 @@ void LayoutInputNode::GetOverrideIntrinsicSize(
   } else if (ShouldApplyBlockSizeContainment()) {
     *computed_block_size = LayoutUnit();
   }
+}
+
+void LayoutInputNode::InitRecordReplayId() {
+  record_replay_id_ = recordreplay::NewIdMainThread("NGLayoutInputNode");
 }
 
 }  // namespace blink

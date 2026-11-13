@@ -1824,6 +1824,16 @@ void Element::setAriaOwnsElements(
 
 NamedNodeMap* Element::attributesForBindings() const {
   auto* mutable_this = const_cast<Element*>(this);
+
+  if (recordreplay::IsInReplayCode() &&
+      !recordreplay::HasDivergedFromRecording()) {
+    if (!mutable_this->EnsureRareData().HasAttributeMap()) {
+      // [RUN-1764] Do not try to create blink API objects in our Replay-only
+      // scripts, unless explicitly diverged. Creating rare data is fine.
+      return nullptr;
+    }
+  }
+
   return &mutable_this->EnsureRareData()
               .EnsureAttributeMap(*mutable_this)
               .RefreshNodeAndUnwrap(*mutable_this);
@@ -5549,6 +5559,8 @@ void Element::RecalcStyle(const StyleRecalcChange change,
     if (HasCustomStyleCallbacks()) {
       DidRecalcStyle(child_change);
     }
+
+    recordreplay::Assert("[RUN-1436-1437] Element::RecalcStyle B");
     return;
   }
 
@@ -5575,6 +5587,7 @@ void Element::RecalcStyle(const StyleRecalcChange change,
       if (!change.IsSuppressed()) {
         if (SkipStyleRecalcForContainer(*style, child_change,
                                         style_recalc_context)) {
+          recordreplay::Assert("[RUN-1436-1437] Element::RecalcStyle C");
           return;
         }
       }
@@ -5682,6 +5695,7 @@ void Element::RecalcStyle(const StyleRecalcChange change,
       RecalcDescendantStyles(child_change, child_recalc_context, *this);
     }
   }
+  recordreplay::Assert("[RUN-1436-1437] Element::RecalcStyle E");
 
   if (child_change.TraversePseudoElements(*this)) {
     // Scroll markers have special rules for the document element.
@@ -9952,7 +9966,7 @@ bool Element::DispatchFocusEvent(Element* old_focused_element,
   Document& document = GetDocument();
   if (DispatchEvent(*FocusEvent::Create(
           event_type_names::kFocus, Event::Bubbles::kNo, document.domWindow(),
-          0, old_focused_element, source_capabilities)) !=
+          0, old_focused_element, source_capabilities), "Element::DispatchFocusEvent") !=
       DispatchEventResult::kNotCanceled) {
     return false;
   }
@@ -9964,7 +9978,7 @@ void Element::DispatchBlurEvent(Element* new_focused_element,
                                 InputDeviceCapabilities* source_capabilities) {
   DispatchEvent(*FocusEvent::Create(
       event_type_names::kBlur, Event::Bubbles::kNo, GetDocument().domWindow(),
-      0, new_focused_element, source_capabilities));
+      0, new_focused_element, source_capabilities), "Element::DispatchBlurEvent");
 }
 
 void Element::DispatchFocusInEvent(
@@ -12814,6 +12828,14 @@ CSSStyleDeclaration* Element::style() {
   if (!IsStyledElement()) {
     return nullptr;
   }
+
+  if (recordreplay::IsInReplayCode() &&
+      !recordreplay::HasDivergedFromRecording()) {
+    // [RUN-1764] Do not try to create blink API objects in our Replay-only
+    // scripts, unless explicitly diverged.
+    return EnsureRareData().GetInlineCSSStyleDeclaration();
+  }
+
   return &EnsureRareData()
               .EnsureInlineCSSStyleDeclaration(this)
               .RefreshNodeAndUnwrap(*this);

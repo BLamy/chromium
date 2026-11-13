@@ -35,6 +35,7 @@
 #include <ranges>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/rand_util.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
@@ -83,10 +84,19 @@ CachedMatchedProperties::CachedMatchedProperties(
                                       property.data_};
                          }),
       entries({Entry{style, parent_style, layout_parent_style,
-                     originating_element_style, element_type, clock}}) {}
+                     originating_element_style, element_type, clock}}) {
+  if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                           "CachedMatchedProperties")) {
+    for (const MatchedProperties& new_matched_properties : properties) {
+      replay_matched_properties_strong_.push_back(
+          new_matched_properties.properties);
+    }
+  }
+}
 
 void CachedMatchedProperties::Clear() {
   matched_properties.clear();
+  replay_matched_properties_strong_.clear();
   entries.clear();
 }
 

@@ -481,6 +481,8 @@ void StreamFromResponseCallback(
                       "v8.wasm.streamFromResponseCallback");
   std::shared_ptr<v8::WasmStreaming> streaming =
       v8::WasmStreaming::Unpack(args.GetIsolate(), args.DataV2());
+  REPLAY_ASSERT("StreamFromResponseCallback use_count %ld",
+                streaming.use_count());
 
   ScriptState* script_state = ScriptState::ForCurrentRealm(args);
   if (!script_state->ContextIsValid()) {

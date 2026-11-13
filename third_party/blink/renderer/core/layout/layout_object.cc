@@ -386,6 +386,7 @@ struct SameSizeAsLayoutObject : public GarbageCollected<SameSizeAsLayoutObject>,
   unsigned bitfields2_;
   unsigned bitfields3_;
   Member<void*> members[6];
+  int record_replay_id_;
 };
 
 ASSERT_SIZE(LayoutObject, SameSizeAsLayoutObject);
@@ -514,6 +515,7 @@ LayoutObject::LayoutObject(Node* node)
     : is_anonymous_(!node),
       node_(node),
       fragment_(MakeGarbageCollected<FragmentDataList>()) {
+  record_replay_id_ = recordreplay::NewIdMainThread("LayoutObject");
 #if DCHECK_IS_ON()
   fragment_->SetIsFirst();
 #endif
@@ -3222,6 +3224,10 @@ static bool InvisibleBeforeAndAfterStyleChange(const LayoutObject& object,
 DISABLE_CFI_PERF
 void LayoutObject::SetStyle(const ComputedStyle& new_style,
                             ApplyStyleChanges apply_changes) {
+  recordreplay::Assert("[RUN-2300] LayoutObject::SetStyle %d %d %d",
+                       RecordReplayId(), style_.Get() == &new_style,
+                       (int)apply_changes);
+
   NOT_DESTROYED();
 
   const ComputedStyle* old_style = style_.Get();
@@ -3385,6 +3391,11 @@ void LayoutObject::SetStyle(const ComputedStyle& new_style,
 #endif
   }
 
+  recordreplay::Assert("[RUN-2300] LayoutObject::SetStyle #9 %d %d %d",
+                       diff.NeedsNormalPaintInvalidation(),
+                       updated_diff.NeedsNormalPaintInvalidation(),
+                       IsSVGRoot());
+
   if (diff.NeedsNormalPaintInvalidation() ||
       updated_diff.NeedsNormalPaintInvalidation()) {
     if (IsSVGRoot()) {
@@ -3424,6 +3435,8 @@ void LayoutObject::SetStyle(const ComputedStyle& new_style,
        diff.compositing_reasons_changed)) {
     SetNeedsPaintPropertyUpdate();
   }
+
+  recordreplay::Assert("[RUN-2300] LayoutObject::SetStyle Done");
 }
 
 void LayoutObject::UpdateFirstLineImageObservers(

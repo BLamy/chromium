@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/layout/block_node.h"
 
 #include <memory>
@@ -407,6 +408,11 @@ void AttachScrollMarkers(LayoutObject& parent,
 const LayoutResult* BlockNode::Layout(
     const ConstraintSpace& constraint_space,
     const FragmentationLayoutInput& fragmentation) const {
+  recordreplay::Assert("[RUN-1855-1862] NGBlockNode::Layout %d space(%s)",
+    RecordReplayId(),
+    constraint_space.ToString().Ascii().c_str()
+  );
+
   const BlockBreakToken* break_token = fragmentation.break_token;
 
   // The exclusion space internally is a pointer to a shared vector, and

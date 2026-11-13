@@ -3274,10 +3274,16 @@ void ResourceFetcher::ScheduleStaleRevalidate(Resource* stale_resource) {
 void ResourceFetcher::RevalidateStaleResource(
     Resource* stale_resource,
     int record_replay_scheduled_node_id) {
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNodeFrom(
-          record_replay_scheduled_node_id, "scheduler",
-          "{\"kind\":\"revalidateStaleResource\"}"));
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode("{\"kind\":\"revalidateStaleResource\"}");
+    recordreplay::AddDependencyGraphEdge(
+      record_replay_scheduled_node_id, node_id,
+      "{\"kind\":\"scheduler\"}"
+    );
+    execute.emplace(node_id);
+  }
+
   // Creating FetchParams from Resource::GetResourceRequest doesn't create
   // the exact same request as the original one, while for revalidation
   // purpose this is probably fine.
@@ -3757,6 +3763,8 @@ ResourceFetcher::ResourcePrepareHelper::ResourcePrepareHelper(
 std::optional<ResourceRequestBlockedReason>
 ResourceFetcher::ResourcePrepareHelper::PrepareRequestForCacheAccess(
     WebScopedVirtualTimePauser& pauser) {
+  recordreplay::Assert("[RUN-749] ResourceFetcher::PrepareRequest Start");
+
 #if DCHECK_IS_ON()
   DCHECK(!determined_initial_blocked_reason_);
   determined_initial_blocked_reason_ = true;

@@ -213,6 +213,9 @@ ExecutionContext* AbortSignal::GetExecutionContext() const {
 }
 
 AbortSignal::AlgorithmHandle* AbortSignal::AddAlgorithm(Algorithm* algorithm) {
+  recordreplay::Assert("[RUN-1182] AbortSignal::AddAlgorithm v1 %d %d",
+                       recordreplay::PointerId(this), aborted());
+
   if (aborted() || composition_manager_->IsSettled()) {
     return nullptr;
   }
@@ -226,6 +229,9 @@ AbortSignal::AlgorithmHandle* AbortSignal::AddAlgorithm(Algorithm* algorithm) {
 
 AbortSignal::AlgorithmHandle* AbortSignal::AddAlgorithm(
     base::OnceClosure algorithm) {
+  recordreplay::Assert("[RUN-1182] AbortSignal::AddAlgorithm v2 %d %d",
+                       recordreplay::PointerId(this), aborted());
+
   if (aborted() || composition_manager_->IsSettled()) {
     return nullptr;
   }

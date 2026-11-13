@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <optional>
 
+#include "base/record_replay.h"
 #include "base/memory/values_equivalent.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
@@ -1106,6 +1107,8 @@ void OutOfFlowLayoutPart::AddInlineContainingBlockInfo(
 
 void OutOfFlowLayoutPart::LayoutCandidates(
     const HeapVector<LogicalOofPositionedNode>& candidates) {
+  recordreplay::Assert("[RUN-1239] NGOutOfFlowLayoutPart::LayoutCandidates %d",
+                       candidates.size());
   if (!should_add_outer_fragmentainer_children_ ||
       GetConstraintSpace().IsInitialColumnBalancingPass()) {
     ComputeInlineContainingBlocks(candidates);
@@ -2755,6 +2758,10 @@ const LayoutResult* OutOfFlowLayoutPart::GenerateFragment(
   const OffsetInfo& offset_info = oof_node_to_layout.offset_info;
   const BlockBreakToken* break_token = node_info.break_token;
   const BlockNode& node = node_info.node;
+  // https://linear.app/replay/issue/RUN-546
+  recordreplay::Assert("[RUN-546] NGOutOfFlowLayoutPart::GenerateFragment Start %d",
+                       node.GetLayoutBox()->RecordReplayId());
+
   const auto& style = node.Style();
   const bool is_replaced = node.IsReplaced();
   const LayoutUnit block_offset = offset_info.offset.block_offset;

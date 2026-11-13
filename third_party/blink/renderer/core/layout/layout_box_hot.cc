@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/layout/constraint_space.h"
 #include "third_party/blink/renderer/core/layout/disable_layout_side_effects_scope.h"
@@ -74,6 +75,10 @@ const LayoutResult* LayoutBox::CachedLayoutResult(
     const FragmentationLayoutInput& fragmentation,
     std::optional<FragmentGeometry>* initial_fragment_geometry,
     LayoutCacheStatus* out_cache_status) {
+  recordreplay::Assert("[RUN-1855-1862] LayoutBox::CachedLayoutResult %d new(%s)",
+    RecordReplayId(),
+    new_space.ToString().Ascii().c_str()
+  );
   NOT_DESTROYED();
   *out_cache_status = LayoutCacheStatus::kNeedsLayout;
 

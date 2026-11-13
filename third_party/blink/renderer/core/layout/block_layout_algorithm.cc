@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/layout/block_layout_algorithm.h"
 
 #include <algorithm>
@@ -2175,6 +2176,10 @@ const LayoutResult* BlockLayoutAlgorithm::LayoutNewFormattingContext(
         {child_available_inline_size, ChildAvailableSize().block_size},
         /* is_new_fc */ true, opportunity.rect.start_offset.block_offset);
 
+    recordreplay::Assert("[RUN-1855-1911] NGBlockLayoutAlgorithm::LayoutNewFormattingContext (%s)",
+      child_space.ToString().Ascii().c_str()
+    );
+
     // All formatting context roots (like this child) should start with an empty
     // exclusion space.
     DCHECK(child_space.GetExclusionSpace().IsEmpty());
@@ -2364,6 +2369,9 @@ LayoutResult::EStatus BlockLayoutAlgorithm::HandleInflow(
       child.IsInline() ? previous_inflow_position->block_end_annotation_space
                        : previous_inflow_position
                              ->previous_sibling_block_end_annotation_space);
+  recordreplay::Assert("[RUN-1855-1856] NGBlockLayoutAlgorithm::HandleInflow (%s)",
+    child_space.ToString().Ascii().c_str()
+  );
   const LayoutResult* layout_result = LayoutInflow(
       child_space, child, child_break_token, inline_child_layout_context);
 
@@ -2577,6 +2585,10 @@ LayoutResult::EStatus BlockLayoutAlgorithm::FinishInflow(
         /* is_new_fc */ false, child_bfc_block_offset,
         /* has_clearance_past_adjoining_floats */ false,
         previous_inflow_position->previous_sibling_block_end_annotation_space);
+    recordreplay::Assert(
+      "[RUN-1855-1862] NGBlockLayoutAlgorithm::FinishInflow space(%s)",
+      new_child_space.ToString().Ascii().c_str()
+    );
     layout_result = LayoutInflow(new_child_space, child, child_break_token,
                                  inline_child_layout_context);
 
@@ -3464,6 +3476,9 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
     const std::optional<LayoutUnit> child_bfc_block_offset,
     bool has_clearance_past_adjoining_floats,
     LayoutUnit block_start_annotation_space) {
+  recordreplay::Assert("[RUN-1855-1856] NGBlockLayoutAlgorithm::CreateConstraintSpaceForChild %d #0",
+    child.RecordReplayId()
+  );
   const ComputedStyle& child_style = child.Style();
   const auto child_writing_direction = child_style.GetWritingDirection();
   const auto& constraint_space = GetConstraintSpace();

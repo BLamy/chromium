@@ -24,6 +24,7 @@
 
 #include "third_party/blink/renderer/core/css/resolver/font_builder.h"
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
@@ -680,6 +681,8 @@ void FontBuilder::CreateFont(ComputedStyleBuilder& builder,
   FontSelector* font_selector = ComputeFontSelector(builder);
   UpdateAdjustedSize(description, font_selector);
 
+  recordreplay::Assert("[RUN-1436-2237] FontBuilder::CreateFont B %d",
+                       !!font_selector);
   builder.SetFont(MakeGarbageCollected<Font>(description, font_selector));
   flags_ = 0;
 }

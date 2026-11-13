@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_text.h"
 
 #include <limits>
@@ -214,7 +215,11 @@ SVGLayoutResult LayoutSVGText::UpdateSVGLayout(
                                  style.GetWritingDirection(),
                                  /* is_new_fc */ true);
   builder.SetAvailableSize(LogicalSize());
+  recordreplay::Assert("[RUN-1239-2230] LayoutNGSVGText::UpdateBlockLayout A %d",
+                       GetElement()->RecordReplayId());
   BlockNode(this).Layout(builder.ToConstraintSpace());
+  recordreplay::Assert("[RUN-1239-2230] LayoutNGSVGText::UpdateBlockLayout B %d",
+                       GetElement()->RecordReplayId());
 
   needs_update_bounding_box_ = true;
   InvalidateDescendantObjectBoundingBoxes();

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/layout/layout_utils.h"
 
 #include "third_party/blink/renderer/core/html/html_element.h"
@@ -424,6 +425,12 @@ LayoutCacheStatus CalculateSizeBasedLayoutCacheStatus(
 
   const ConstraintSpace& old_space =
       cached_layout_result.GetConstraintSpaceForCaching();
+
+  recordreplay::Assert("[RUN-1855-1856] CalculateSizeBasedLayoutCacheStatus node(%d) old(%s) new(%s)",
+    node.RecordReplayId(),
+    old_space.ToString().Ascii().c_str(),
+    new_space.ToString().Ascii().c_str()
+  );
 
   if (!new_space.MaySkipLayout(old_space))
     return LayoutCacheStatus::kNeedsLayout;

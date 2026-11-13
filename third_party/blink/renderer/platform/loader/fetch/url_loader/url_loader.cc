@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/byte_size.h"
 #include "base/check.h"
 #include "base/check_op.h"
@@ -423,11 +424,16 @@ URLLoader::URLLoader(
                                              std::move(url_loader_factory),
                                              std::move(keep_alive_handle),
                                              back_forward_cache_loader_helper,
-                                             std::move(throttles))) {}
+                                             std::move(throttles))) {
+  recordreplay::RegisterPointer("WebURLLoader", this);
+}
 
-URLLoader::URLLoader() = default;
+URLLoader::URLLoader() {
+  recordreplay::RegisterPointer("WebURLLoader", this);
+}
 
 URLLoader::~URLLoader() {
+  recordreplay::UnregisterPointer(this);
   Cancel();
 }
 

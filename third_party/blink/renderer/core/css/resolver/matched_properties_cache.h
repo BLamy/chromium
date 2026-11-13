@@ -110,7 +110,14 @@ class CORE_EXPORT CachedMatchedProperties final
 
   void Clear();
 
-  void Trace(Visitor* visitor) const { visitor->Trace(entries); }
+  // The same property sets, kept alive while recording or replaying so the
+  // cache's weak clearing doesn't depend on when collections happen.
+  HeapVector<Member<CSSPropertyValueSet>> replay_matched_properties_strong_;
+
+  void Trace(Visitor* visitor) const {
+    visitor->Trace(entries);
+    visitor->Trace(replay_matched_properties_strong_);
+  }
 
   bool CorrespondsTo(const MatchedPropertiesVector& lookup_properties) const;
   void RefreshKey(const MatchedPropertiesVector& lookup_properties);

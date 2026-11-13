@@ -188,6 +188,9 @@ void LocalWindowProxy::DisposeContext(Lifecycle next_status,
   // If the former, |global_proxy_| should become weak, and if the latter, the
   // necessary operations are already done so can return here.
   if (lifecycle_ == Lifecycle::kV8MemoryIsForciblyPurged) {
+    // https://linear.app/replay/issue/RUN-749
+    recordreplay::Assert("LocalWindowProxy::DisposeContext #1 %d", (int)next_status);
+
     DCHECK(next_status == Lifecycle::kGlobalObjectIsDetached ||
            next_status == Lifecycle::kFrameIsDetachedAndV8MemoryIsPurged);
     lifecycle_ = next_status;
@@ -241,11 +244,17 @@ void LocalWindowProxy::DisposeContext(Lifecycle next_status,
       script_state_->GetIsolate(), GetFrame()->IsMainFrame(),
       frame_reuse_status);
 
+  // https://linear.app/replay/issue/RUN-749
+  recordreplay::Assert("LocalWindowProxy::DisposeContext Done %d", (int)next_status);
+
   DCHECK_EQ(lifecycle_, Lifecycle::kContextIsInitialized);
   lifecycle_ = next_status;
 }
 
 void LocalWindowProxy::Initialize() {
+  // https://linear.app/replay/issue/RUN-749
+  recordreplay::Assert("LocalWindowProxy::Initialize Start");
+
   recordreplay::AutoMarkerDependencyExecution record_replay_execute(
       "ScriptExecution", "LocalWindowProxy::Initialize");
   TRACE_EVENT2("v8", "LocalWindowProxy::Initialize", "IsMainFrame",
@@ -382,6 +391,9 @@ void LocalWindowProxy::CreateContext() {
 
   script_state_ = MakeGarbageCollected<ScriptStateImpl>(
       context, world_, *GetFrame()->DomWindow());
+
+  // https://linear.app/replay/issue/RUN-749
+  recordreplay::Assert("LocalWindowProxy::CreateContext Done");
 
   DCHECK(lifecycle_ == Lifecycle::kContextIsUninitialized ||
          lifecycle_ == Lifecycle::kGlobalObjectIsDetached);
@@ -558,6 +570,9 @@ void LocalWindowProxy::SetSecurityToken(const SecurityOrigin* origin) {
 }
 
 void LocalWindowProxy::UpdateDocument() {
+  // https://linear.app/replay/issue/RUN-965
+  recordreplay::Assert("LocalWindowProxy::UpdateDocument %d", (int)lifecycle_);
+
   // For an uninitialized main window proxy, there's nothing we need
   // to update. The update is done when the window proxy gets initialized later.
   if (lifecycle_ == Lifecycle::kContextIsUninitialized)

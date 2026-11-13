@@ -380,6 +380,11 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   // End of DisplayItemClient methods.
 
+  int RecordReplayId() const {
+    NOT_DESTROYED();
+    return record_replay_id_;
+  }
+
   LayoutObject* Parent() const {
     NOT_DESTROYED();
     return parent_.Get();
@@ -4150,6 +4155,11 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   Member<LayoutObject> previous_;
   Member<LayoutObject> next_;
   Member<FragmentDataList> fragment_;
+
+  // A deterministic ID is needed for hashing in the following places:
+  // FragmentPaintPropertyTreeBuilder::UpdateTransform
+  // LayoutObjectWithDepth ordering
+  int record_replay_id_ = 0;
 };
 
 template <typename T>

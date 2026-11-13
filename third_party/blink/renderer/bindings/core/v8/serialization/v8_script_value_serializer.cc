@@ -326,6 +326,9 @@ scoped_refptr<SerializedScriptValue> V8ScriptValueSerializer::Serialize(
         .subspan<kTrailerOffsetPosition + sizeof(uint64_t), sizeof(uint32_t)>()
         .copy_from(base::U32ToBigEndian(trailer.size()));
   }
+  REPLAY_ASSERT("[TT-492] V8ScriptValueSerializer::Serialize %u %d",
+                static_cast<unsigned>(buffer.size()),
+                HashBytes(buffer.data(), buffer.size()));
   serialized_script_value_->SetData(std::move(buffer));
   return std::move(serialized_script_value_);
 }

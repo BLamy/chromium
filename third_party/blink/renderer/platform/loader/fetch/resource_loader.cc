@@ -1309,6 +1309,11 @@ void ResourceLoader::RequestSynchronously() {
       response_out = WrappedResourceResponse(response);
       data_out = std::move(data);
     }
+  } else if (recordreplay::AreEventsUnavailable()) {
+    DidFail(WebURLError(net::ERR_FAILED, resource_->Url()),
+            base::TimeTicks::Now(),
+            URLLoaderClient::kUnknownEncodedDataLength, 0, 0);
+    return;
   } else {
     CHECK(network_resource_request_);
     CHECK(loader_);
@@ -1361,6 +1366,14 @@ void ResourceLoader::RequestSynchronously() {
 }
 
 void ResourceLoader::RequestAsynchronously() {
+  // When events are unavailable we can't access system resources anymore.
+  if (recordreplay::AreEventsUnavailable()) {
+    DidFail(WebURLError(net::ERR_FAILED, resource_->Url()),
+            base::TimeTicks::Now(),
+            URLLoaderClient::kUnknownEncodedDataLength, 0, 0);
+    return;
+  }
+
   if (resource_->Url().ProtocolIsData()) {
     CHECK(!network_resource_request_);
     CHECK(!loader_);

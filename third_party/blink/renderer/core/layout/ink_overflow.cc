@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/layout/ink_overflow.h"
 
+#include "base/record_replay.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/types/optional_util.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -358,6 +359,9 @@ InkOverflow::Type InkOverflow::SetTextInkOverflow(
     const PhysicalRect& rect_in_container,
     const InlinePaintContext* inline_context,
     PhysicalRect* ink_overflow_out) {
+  // https://linear.app/replay/issue/RUN-826
+  recordreplay::Assert("[RUN-826] NGInkOverflow::SetTextInkOverflow");
+
   CheckType(type);
   DCHECK(type == Type::kNotSet || type == Type::kInvalidated);
   std::optional<PhysicalRect> ink_overflow = ComputeTextInkOverflow(

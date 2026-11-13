@@ -2023,6 +2023,9 @@ void StyleResolver::ApplyBaseStyleNoCache(
     }
   }
 
+  recordreplay::Assert(
+      "[RUN-2424-3229] StyleResolver::ApplyBaseStyleNoCache %d",
+      style_request.rules_to_include == StyleRequest::kUAOnly);
   if (style_request.rules_to_include == StyleRequest::kUAOnly) {
     MatchUARules(*element, collector);
   } else {

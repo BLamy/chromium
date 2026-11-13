@@ -2404,10 +2404,11 @@ void Document::DidChangeVisibilityState() {
     // tab and update the visibility state.
     return;
   }
-  DispatchEvent(*Event::CreateBubble(event_type_names::kVisibilitychange));
+  DispatchEvent(*Event::CreateBubble(event_type_names::kVisibilitychange), "Document::DidChangeVisibilityState #1");
   // Also send out the deprecated version until it can be removed.
   DispatchEvent(
-      *Event::CreateBubble(event_type_names::kWebkitvisibilitychange));
+      *Event::CreateBubble(event_type_names::kWebkitvisibilitychange),
+      "Document::DidChangeVisibilityState #2");
 
   if (IsPageVisible())
     GetDocumentAnimations().MarkAnimationsCompositorPending();
@@ -4841,9 +4842,10 @@ void Document::DispatchUnloadEvents(
   if (page_visible) {
     // Dispatch visibilitychange event, but don't bother doing
     // other notifications as we're about to be unloaded.
-    DispatchEvent(*Event::CreateBubble(event_type_names::kVisibilitychange));
+    DispatchEvent(*Event::CreateBubble(event_type_names::kVisibilitychange), "Document::DispatchUnloadEvents #1");
     DispatchEvent(
-        *Event::CreateBubble(event_type_names::kWebkitvisibilitychange));
+        *Event::CreateBubble(event_type_names::kWebkitvisibilitychange),
+        "Document::DispatchUnloadEvents #2");
   }
   if (!dom_window_)
     return;

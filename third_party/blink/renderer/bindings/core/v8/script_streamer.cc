@@ -649,7 +649,7 @@ class SourceStream : public v8::ScriptCompiler::ExternalSourceStream,
 
   // TODO(leszeks): Make this a DCHECK-only flag.
   base::AtomicFlag ready_to_run_;
-  base::AtomicFlag cancelled_;
+  recordreplay::OrderedAtomicFlag cancelled_;
 
   // Only used by background thread
   ResourceScriptStreamer::LoadingState load_state_ =
@@ -1284,8 +1284,11 @@ void ResourceScriptStreamer::Prefinalize() {
   // https://crbug.com/905975#c34 for more details.
   watcher_.reset();
 
-  // Cancel any on-going streaming.
-  Cancel();
+  // Cancel any on-going streaming. This isn't supported at non-deterministic
+  // points while replaying as it will affect the streaming thread's behavior.
+  if (!recordreplay::AreEventsDisallowed("ResourceScriptStreamer::Prefinalize")) {
+    Cancel();
+  }
 }
 
 void ResourceScriptStreamer::Trace(Visitor* visitor) const {
