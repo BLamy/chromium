@@ -814,6 +814,10 @@ void WorkerThread::PrepareForShutdownOnWorkerThread() {
   if (WorkerThreadDebugger* debugger = WorkerThreadDebugger::From(GetIsolate()))
     debugger->WorkerThreadDestroyed(this);
 
+  recordreplay::Assert(
+      "[RUN-1537-1689] WorkerThread::PrepareForShutdownOnWorkerThread %d",
+      recordreplay::PointerId(this));
+
   GetWorkerReportingProxy().WillDestroyWorkerGlobalScope();
 
   probe::AllAsyncTasksCanceled(GlobalScope());

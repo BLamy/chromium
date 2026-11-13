@@ -28,6 +28,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/memory/ptr_util.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -105,6 +106,9 @@ void LayoutBlock::StyleDidChange(
     const ComputedStyle* old_style,
     const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
+  recordreplay::Assert("[RUN-2300] LayoutBlock::StyleDidChange %d",
+                       RecordReplayId());
+
   NOT_DESTROYED();
 
   LayoutBox::StyleDidChange(diff, old_style, new_style, style_change_context);

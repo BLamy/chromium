@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/task/sequence_manager/task_queue.h"
 
 #include <optional>
@@ -68,9 +69,17 @@ void TaskQueue::TaskTiming::RecordTaskEnd(LazyNow* now) {
   state_ = State::Finished;
 
   if (has_wall_time()) {
+    // https://linear.app/replay/issue/RUN-618
+    // https://linear.app/replay/issue/RUN-821
+    // https://linear.app/replay/issue/RUN-852
+    recordreplay::Assert("TaskQueue::TaskTiming::RecordTaskEnd #1");
     end_time_ = now->Now();
   }
   if (has_thread_time()) {
+    // https://linear.app/replay/issue/RUN-618
+    // https://linear.app/replay/issue/RUN-821
+    // https://linear.app/replay/issue/RUN-852
+    recordreplay::Assert("TaskQueue::TaskTiming::RecordTaskEnd #2");
     end_thread_time_ = base::ThreadTicks::Now();
   }
 }

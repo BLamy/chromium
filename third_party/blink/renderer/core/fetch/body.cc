@@ -62,6 +62,8 @@ class BodyConsumerBase : public GarbageCollected<BodyConsumerBase>,
   }
 
   void Abort(ScriptValue reason) override {
+    recordreplay::Assert("[RUN-1182] BodyConsumerBase::Abort");
+
     if (RuntimeEnabledFeatures::ForwardReasonToFetchBodyAbortEnabled()) {
       // This is the standardized behavior, but is currently behind an
       // experiment as it's a potentially breaking change.

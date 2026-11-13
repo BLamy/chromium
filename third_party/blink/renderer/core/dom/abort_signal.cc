@@ -261,6 +261,7 @@ void AbortSignal::SignalAbort(ScriptState* script_state,
 
   recordreplay::Assert("[RUN-1182] AbortSignal::SignalAbort %d", recordreplay::PointerId(this));
   if (aborted()) {
+    recordreplay::Assert("[RUN-1182] AbortSignal::SignalAbort #1");
     return;
   }
 

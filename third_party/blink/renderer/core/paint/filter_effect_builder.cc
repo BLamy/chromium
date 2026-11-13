@@ -28,6 +28,7 @@
 
 #include <algorithm>
 
+#include "third_party/blink/renderer/core/svg/svg_filter_primitive_standard_attributes.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_resource_container.h"
 #include "third_party/blink/renderer/core/style/filter_operations.h"
 #include "third_party/blink/renderer/core/svg/graphics/filters/svg_filter_builder.h"

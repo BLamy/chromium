@@ -79,6 +79,10 @@ bool RecordingSource::Update(const gfx::Size& layer_size,
                              ContentLayerClient& client,
                              Region& invalidation,
                              int layer_id) {
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("RecordingSource::UpdateAndExpandInvalidation %d %d",
+                       layer_size.width(), layer_size.height());
+
   invalidation_.Swap(&invalidation);
   invalidation_.Clear();
 

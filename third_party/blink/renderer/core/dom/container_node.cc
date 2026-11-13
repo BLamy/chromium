@@ -1249,6 +1249,9 @@ Node* ContainerNode::AppendChild(Node* new_child,
     return new_child;
   }
 
+  recordreplay::Assert("[RUN-1436-2237] ContainerNode::AppendChild A %d",
+                       new_child->RecordReplayId());
+
   NodeVector targets;
   DOMTreeMutationDetector detector(*new_child, *this);
   if (!CollectChildrenAndRemoveFromOldParent(*new_child, targets,
@@ -1262,6 +1265,8 @@ Node* ContainerNode::AppendChild(Node* new_child,
                                               exception_state))
       return new_child;
   }
+
+  recordreplay::Assert("[RUN-1436-2237] ContainerNode::AppendChild C");
 
   NodeVector post_insertion_notification_targets;
   {

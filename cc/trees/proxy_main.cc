@@ -656,6 +656,10 @@ void ProxyMain::DidPresentCompositorFrame(
     std::vector<PresentationTimeCallbackBuffer::SuccessfulCallbackWithDetails>
         sucessful_presentation_callbacks,
     const viz::FrameTimingDetails& frame_timing_details) {
+
+  recordreplay::Assert(
+      "[RUN-2317-2366] ProxyMain::DidPresentCompositorFrame %u", frame_token);
+
   layer_tree_host_->DidPresentCompositorFrame(
       frame_token, std::move(presentation_callbacks),
       std::move(sucessful_presentation_callbacks), frame_timing_details);

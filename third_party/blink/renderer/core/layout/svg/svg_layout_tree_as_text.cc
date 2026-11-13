@@ -28,6 +28,7 @@
 
 #include "third_party/blink/renderer/core/layout/svg/svg_layout_tree_as_text.h"
 
+#include "third_party/blink/renderer/core/svg/svg_filter_primitive_standard_attributes.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/layout/layout_tree_as_text.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_image.h"

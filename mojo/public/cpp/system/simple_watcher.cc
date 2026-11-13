@@ -107,6 +107,8 @@ class SimpleWatcher::Context : public base::RefCountedThreadSafe<Context> {
       // the default task runner for the IO thread.
       weak_watcher_->OnHandleReady(watch_id_, result, state);
     } else {
+      recordreplay::Assert("[RUN-1126] SimpleWatcher::Context::Notify #2");
+
       {
         // Annotate the posted task with |handler_tag_| as the IPC interface.
         base::TaskAnnotator::ScopedSetIpcHash scoped_set_ipc_hash(handler_tag_);

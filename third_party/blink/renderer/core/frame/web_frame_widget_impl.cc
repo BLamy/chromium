@@ -35,6 +35,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/containers/to_vector.h"
 #include "base/debug/crash_logging.h"
@@ -1832,6 +1833,9 @@ void WebFrameWidgetImpl::MeasureConditional(const AtomicString& name,
 void WebFrameWidgetImpl::DidBeginMainFrame() {
   LocalFrame* local_root_frame = LocalRootImpl()->GetFrame();
   CHECK(local_root_frame);
+
+  recordreplay::Assert(
+    "[RUN-1675-1826] WebFrameWidgetImpl::DidBeginMainFrame %d", !!local_root_frame->View());
 
   if (LocalFrameView* frame_view = local_root_frame->View()) {
     frame_view->DidBeginMainFrame();
