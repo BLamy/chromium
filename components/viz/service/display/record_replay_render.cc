@@ -409,7 +409,12 @@ void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
     if (gRepaintEvent) {
       gRepaintResult = EncodeBitmapContents(gRepaintMimeType, gRepaintJPEGQuality);
     }
-  } else if (size_t bookmark = gLastCommitBookmark.load()) {
+  } else if (size_t bookmark = RecordReplayValueIfAllowed(
+                 "OnPaintFinished bookmark", gLastCommitBookmark.load())) {
+    // The main thread sets this for each commit, of any of the process's
+    // compositors, while this thread draws: with several widgets (a page and
+    // its popups) which commit this draw comes after isn't the same on a
+    // replay. So what was read is recorded.
     PaintFinished(bookmark);
   }
   gCurrentPixmap = nullptr;
