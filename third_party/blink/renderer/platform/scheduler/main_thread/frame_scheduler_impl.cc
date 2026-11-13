@@ -289,6 +289,9 @@ FrameSchedulerImpl::~FrameSchedulerImpl() {
       parent_page_scheduler_->OnThrottlingStatusUpdated();
   }
 
+  if (replay_scheduling_owner_release_)
+    std::move(replay_scheduling_owner_release_).Run();
+
   recordreplay::UnregisterPointer(this);
 }
 
@@ -850,6 +853,9 @@ base::WeakPtr<const FrameSchedulerImpl> FrameSchedulerImpl::GetWeakPtr() const {
 }
 
 void FrameSchedulerImpl::ReportActiveSchedulerTrackedFeatures() {
+  // https://linear.app/replay/issue/RUN-825
+  recordreplay::Assert("FrameSchedulerImpl::ReportActiveSchedulerTrackedFeatures");
+
   back_forward_cache_disabling_feature_tracker_.ReportFeaturesToDelegate();
 }
 
@@ -1411,6 +1417,11 @@ FrameSchedulerImpl::CreateWebSchedulingTaskQueue(
   return std::make_unique<MainThreadWebSchedulingTaskQueueImpl>(
       immediate_task_queue->AsWeakPtr(), delayed_task_queue->AsWeakPtr());
 }
+void FrameSchedulerImpl::SetReplaySchedulingOwnerRelease(
+    base::OnceClosure release) {
+  replay_scheduling_owner_release_ = std::move(release);
+}
+
 
 void FrameSchedulerImpl::OnWebSchedulingTaskQueuePriorityChanged(
     MainThreadTaskQueue* queue) {
@@ -1421,6 +1432,9 @@ void FrameSchedulerImpl::OnWebSchedulingTaskQueuePriorityChanged(
 
 void FrameSchedulerImpl::OnWebSchedulingTaskQueueDestroyed(
     MainThreadTaskQueue* queue) {
+  REPLAY_ASSERT("[TT-1465] FrameSchedulerImpl::OnWebSchedulingTaskQueueDestroyed %d",
+    recordreplay::PointerId(queue));
+
   if (queue->CanBeThrottled()) {
     RemoveThrottleableQueueFromBudgetPools(queue);
   }

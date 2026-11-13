@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/scheduler/main_thread/agent_group_scheduler_impl.h"
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
@@ -114,8 +115,14 @@ void AgentGroupSchedulerImpl::PerformMicrotaskCheckpoint() {
   }
   for (Agent* agent : agents) {
     DCHECK(agents_.Contains(agent));
+    recordreplay::Assert(
+        "[RUN-2056-2365] AgentGroupSchedulerImpl::PerformMicrotaskCheckpoint "
+        "%d %d %d",
+        RecordReplayId(), (int)agents_.size(), agent->RecordReplayId());
     agent->PerformMicrotaskCheckpoint();
   }
+
+  recordreplay::Assert("[RUN-2056-2211] AgentGroupSchedulerImpl::PerformMicrotaskCheckpoint Done");
 }
 
 void AgentGroupSchedulerImpl::Trace(Visitor* visitor) const {

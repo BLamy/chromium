@@ -388,6 +388,8 @@ class PLATFORM_EXPORT FrameSchedulerImpl : public FrameScheduler,
       waiting_for_contentful_paint_;
   TraceableState<bool, "renderer.scheduler.status">
       waiting_for_meaningful_paint_;
+
+  base::OnceClosure replay_scheduling_owner_release_;
   base::TimeTicks first_meaningful_paint_timestamp_;
 
   using TaskRunnerMap =
