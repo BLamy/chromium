@@ -166,14 +166,6 @@ RenderProcessImpl::RenderProcessImpl()
     SetV8FlagIfOverridden(features::kWebAssemblyDynamicTiering,
                           "--wasm-dynamic-tiering",
                           "--no-wasm-dynamic-tiering");
-  // The recorder doesn't install handlers for fatal signals and treats every
-  // SIGSEGV as a crash, so when recording/replaying V8 keeps emitting the
-  // WebAssembly bounds checks instead of relying on the trap handler.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    return;
-  }
-
-
     SetV8FlagIfOverridden(features::kWebAssemblyStackSwitching,
                           "--experimental-wasm-wasmfx",
                           "--no-experimental-wasm-wasmfx");
@@ -214,6 +206,13 @@ RenderProcessImpl::RenderProcessImpl()
     constexpr char kSABPerContextFlag[] =
         "--enable-sharedarraybuffer-per-context";
     v8::V8::SetFlagsFromString(kSABPerContextFlag, sizeof(kSABPerContextFlag));
+  }
+
+  // The recorder doesn't install handlers for fatal signals and treats every
+  // SIGSEGV as a crash, so when recording/replaying V8 keeps emitting the
+  // WebAssembly bounds checks instead of relying on the trap handler.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return;
   }
 
   if (base::FeatureList::IsEnabled(features::kWebAssemblyTrapHandler)) {
