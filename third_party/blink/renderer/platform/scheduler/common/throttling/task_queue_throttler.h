@@ -120,7 +120,7 @@ class PLATFORM_EXPORT TaskQueueThrottler final
 
   const raw_ptr<base::sequence_manager::TaskQueue> task_queue_;
   size_t throttling_ref_count_ = 0;
-  HashSet<BudgetPool*> budget_pools_;
+  HashSet<BudgetPool*, RecordReplayPointerIdHash<BudgetPool>> budget_pools_;
   raw_ptr<const base::TickClock, DanglingUntriaged> tick_clock_;
 };
 

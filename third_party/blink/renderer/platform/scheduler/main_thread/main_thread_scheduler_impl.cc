@@ -307,6 +307,7 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
       any_thread_lock_("MainThreadSchedulerImpl.any_thread_lock_"),
       any_thread_(this),
       policy_may_need_update_(&any_thread_lock_) {
+  recordreplay::RegisterPointer("MainThreadSchedulerImpl", this);
   MaybeUpdateThreadTypeLease();
   helper_.AttachToCurrentThread();
 

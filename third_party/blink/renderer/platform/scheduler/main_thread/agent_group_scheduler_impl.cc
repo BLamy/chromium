@@ -104,6 +104,9 @@ v8::Isolate* AgentGroupSchedulerImpl::Isolate() {
 void AgentGroupSchedulerImpl::AddAgent(Agent* agent) {
   DCHECK(!agents_.Contains(agent));
   agents_.insert(agent);
+
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "AgentGroupSchedulerImpl"))
+    replay_agents_strong_.insert(agent);
 }
 
 void AgentGroupSchedulerImpl::PerformMicrotaskCheckpoint() {
@@ -128,6 +131,7 @@ void AgentGroupSchedulerImpl::PerformMicrotaskCheckpoint() {
 void AgentGroupSchedulerImpl::Trace(Visitor* visitor) const {
   AgentGroupScheduler::Trace(visitor);
   visitor->Trace(agents_);
+  visitor->Trace(replay_agents_strong_);
 }
 
 void AgentGroupSchedulerImpl::AddPageSchedulerForTesting(
