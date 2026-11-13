@@ -564,7 +564,7 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
   // Returns the memory dump name used for tracing. See Resource::OnMemoryDump.
   String GetMemoryDumpName() const;
 
-  const HeapHashCountedSet<WeakMember<ResourceClient>>& Clients() const {
+  const HeapHashCountedSet<WeakMember<ResourceClient>, WeakMemberHashTraitsRecordReplayId<ResourceClient>>& Clients() const {
     return clients_;
   }
 
@@ -652,9 +652,9 @@ class PLATFORM_EXPORT Resource : public GarbageCollected<Resource>,
   // Ordered list of all redirects followed while fetching this resource.
   Vector<RedirectPair> redirect_chain_;
 
-  HeapHashCountedSet<WeakMember<ResourceClient>> clients_;
-  HeapHashCountedSet<WeakMember<ResourceClient>> clients_awaiting_callback_;
-  HeapHashCountedSet<WeakMember<ResourceClient>> finished_clients_;
+  HeapHashCountedSet<WeakMember<ResourceClient>, WeakMemberHashTraitsRecordReplayId<ResourceClient>> clients_;
+  HeapHashCountedSet<WeakMember<ResourceClient>, WeakMemberHashTraitsRecordReplayId<ResourceClient>> clients_awaiting_callback_;
+  HeapHashCountedSet<WeakMember<ResourceClient>, WeakMemberHashTraitsRecordReplayId<ResourceClient>> finished_clients_;
   HeapHashSet<WeakMember<ResourceFinishObserver>,
               WeakMemberHashTraitsRecordReplayId<ResourceFinishObserver>>
       finish_observers_;

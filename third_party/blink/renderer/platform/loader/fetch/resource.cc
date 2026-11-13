@@ -238,6 +238,8 @@ Resource::Resource(const ResourceRequestHead& request,
           kResourceTraits,
           this,
           MemoryConsumerRegistration::CheckUnregister::kDisabled) {
+  // Pointer registration is needed for sorting in ResourceFetcher.
+  recordreplay::RegisterPointer("Resource", this);
   InstanceCounters::IncrementCounter(InstanceCounters::kResourceCounter);
 }
 

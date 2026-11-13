@@ -1864,7 +1864,10 @@ void FrameLoader::DidDropNavigation() {
   // that breaks extensions abusing SetForceMainWorldInitialization setting
   // and relying on the number of created window proxies.
   Settings* settings = frame_->GetSettings();
-  if (settings && settings->GetForceMainWorldInitialization()) {
+  if ((settings && settings->GetForceMainWorldInitialization()) ||
+      // Always instantiate the WindowProxy when recording/replaying.
+      // See DispatchDidClearDocumentOfWindowObject.
+      recordreplay::IsRecordingOrReplaying("initialize-window-proxy")) {
     auto* window = frame_->DomWindow();
     // Forcibly instantiate WindowProxy.
     window->GetScriptController().WindowProxy(
@@ -1942,7 +1945,17 @@ void FrameLoader::DispatchDidClearDocumentOfWindowObject() {
 
   Settings* settings = frame_->GetSettings();
   LocalDOMWindow* window = frame_->DomWindow();
-  if (settings && settings->GetForceMainWorldInitialization()) {
+  recordreplay::Assert(
+      "[RUN-2351-2355] FrameLoader::DispatchDidClearDocumentOfWindowObject %d "
+      "%d %d",
+      !!settings, settings && !!settings->GetForceMainWorldInitialization(),
+      recordreplay::IsRecordingOrReplaying("initialize-window-proxy"));
+  if ((settings && settings->GetForceMainWorldInitialization()) ||
+      // When replaying the ForceMainWorldInitialization may be set even
+      // if it wasn't when recording, as additional CDP inspector features
+      // are enabled when replaying. Do the initialization when recording
+      // as well for consistency.
+      recordreplay::IsRecordingOrReplaying("initialize-window-proxy")) {
     // Forcibly instantiate WindowProxy, even if script is disabled.
     window->GetScriptController().WindowProxy(
         DOMWrapperWorld::MainWorld(window->GetIsolate()));
