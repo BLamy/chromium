@@ -1,0 +1,30 @@
+# Replay Chromium 158 on Buildkite (pipeline chromium-158). Temporary: probes
+# of the agents this could build on.
+steps:
+  - label: "probe runtime"
+    key: probe-runtime
+    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
+    agents: ["runtimeType=chromiumbuild", "os=linux", "queue=runtime"]
+    timeout_in_minutes: 5
+    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
+  - label: "probe 2xlarge"
+    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
+    agents: ["2xlarge=true", "build-runtime=true", "queue=default"]
+    timeout_in_minutes: 5
+    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
+  - label: "probe runner-5"
+    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
+    agents: ["build-runtime=true", "deploy=true", "size=large", "queue=default"]
+    timeout_in_minutes: 5
+    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
+  - label: "probe build-runtime"
+    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
+    agents: ["build-runtime=true", "queue=default"]
+    parallelism: 3
+    timeout_in_minutes: 5
+    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
+  - label: "probe k8s"
+    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
+    agents: ["k8s=true", "earthly=true", "queue=default"]
+    timeout_in_minutes: 5
+    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
