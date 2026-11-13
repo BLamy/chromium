@@ -1222,8 +1222,12 @@ void RecordReplayInstallIsolatedWorldGlobals(v8::Isolate* isolate,
   // The command API is the root main world's alone, so that the renderer's
   // command service has one owner. Here the object has nothing in it.
   v8::Local<v8::Object> api = v8::Object::New(isolate);
+  // The eternal state is the one object every world of every frame has, as in
+  // 108, which defines it on each context's global.
   if (!SetArgumentNatives(isolate, context, args) ||
       !SetHidden(isolate, context, context->Global(), kArgumentsName, args) ||
+      !SetHidden(isolate, context, context->Global(), kEternalStateName,
+                 EternalState(isolate)) ||
       !SetHidden(isolate, context, context->Global(), kApiName, api)) {
     return;
   }

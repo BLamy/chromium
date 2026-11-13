@@ -268,7 +268,6 @@ void PopulateResourceRequest(const ResourceRequestHead& src,
     if (src.IsRevalidating()) {
       if (!src.RevalidationEtag().IsNull()) {
         dest->revalidation_etag = src.RevalidationEtag().Latin1();
-    recordreplay::Assert("[RUN-1725-1903] PopulateResourceRequest %s", dest->devtools_request_id->c_str());
       }
       if (!src.RevalidationLastModified().IsNull()) {
         dest->revalidation_last_modified =
@@ -383,6 +382,7 @@ void PopulateResourceRequest(const ResourceRequestHead& src,
 
   if (!src.GetDevToolsId().IsNull()) {
     dest->devtools_request_id = src.GetDevToolsId().Ascii();
+    recordreplay::Assert("[RUN-1725-1903] PopulateResourceRequest %s", dest->devtools_request_id->c_str());
   }
 
   if (src.GetDevToolsStackId().has_value()) {

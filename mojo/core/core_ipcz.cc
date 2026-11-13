@@ -23,6 +23,7 @@
 #include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/record_replay.h"
 #include "base/strings/strcat.h"
 #include "base/synchronization/lock.h"
 #include "base/time/time.h"
@@ -115,6 +116,15 @@ MojoTimeTicks MojoGetTimeTicksNowIpcz() {
 MojoResult MojoCloseIpcz(MojoHandle handle) {
   if (handle == MOJO_HANDLE_INVALID) {
     return MOJO_RESULT_INVALID_ARGUMENT;
+  }
+  // Refuse to close handles at non-deterministic points, as this requires a lot
+  // of interaction with other mojo components. As in Core::Close: a finalizer
+  // the GC runs would take ipcz' locks out of their recorded order, and a
+  // thread that holds one while it waits its turn on another then never gets
+  // it. The handle leaks.
+  if (recordreplay::AreEventsDisallowed() &&
+      recordreplay::FeatureEnabled("leak-references", "MojoCloseIpcz")) {
+    return MOJO_RESULT_OK;
   }
   return GetIpczAPI().Close(handle, IPCZ_NO_FLAGS, nullptr);
 }

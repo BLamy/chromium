@@ -124,6 +124,11 @@ Fragment BufferPool::RecordReplayAllocatedBlock(const Fragment& fragment) {
   if (!recordreplay::IsRecordingOrReplaying()) {
     return fragment;
   }
+  // The allocation looked its buffer up under this pool's mutex outside the
+  // recording, so nothing says it came after the thread that added the
+  // buffer. Taking the mutex in the recording here does: a replay then gets
+  // here only once that thread has added it, and finds the block's memory.
+  { OrderedMutexLock lock(&mutex_); }
   const uint64_t buffer_id = recordreplay::Value(
       "ipcz BufferPool block buffer",
       fragment.is_null() ? kInvalidBufferId.value()
