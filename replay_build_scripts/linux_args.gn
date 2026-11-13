@@ -1,6 +1,23 @@
-use_remoteexec = true
-is_debug = false # we can't really use most debugging symbols right now
-dcheck_always_on = false # disable dchecks
-enable_nacl = false  # no native targets
-use_allocator = "none"
+# Replay Chromium 158, Linux x64.
+target_cpu = "x64"
+is_debug = false
+dcheck_always_on = false
+is_component_build = false
+
+# Replay records malloc as the system one: PartitionAlloc is not the allocator.
+# (108 said this with use_allocator = "none".)
+use_partition_alloc_as_malloc = false
+enable_backup_ref_ptr_support = false
 use_allocator_shim = false
+
+# Compiles run on the agent. 108 builds on EngFlow through reclient; 158 has no
+# remote execution set up yet.
+use_remoteexec = false
+use_siso = false
+
+treat_warnings_as_errors = false
+is_official_build = false
+chrome_pgo_phase = 0
+symbol_level = 1
+blink_symbol_level = 0
+v8_symbol_level = 1

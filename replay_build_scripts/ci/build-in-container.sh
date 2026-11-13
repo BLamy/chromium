@@ -4,14 +4,15 @@
 #   build-in-container.sh                      # build the key's checkout
 #   build-in-container.sh --root <dir> -- ...  # run something else in it
 #
-# It replaces //buildLinux.mjs, which ran `docker run` on the hand-built
-# chromium-build-new image with $HOME/chromium and $HOME/depot_tools mounted
-# into it: the container was where the tools came from, but the state the build
-# wrote, and the depot_tools it used, were the agent's and shared by everything
-# that built there. Here the only writable mount is one key's directory
-# (checkout.sh), depot_tools is the pin inside the image, and the EngFlow client
-# cert and key are mounted read-only from outside the checkout, so that a job
-# cannot leave them behind in it.
+# The only writable mount is one key's directory (checkout.sh), and depot_tools
+# is the pin inside the image.
+#
+# Chromium 158 differences from upstream's script (replayio/chromium): the
+# containers are named chromium158-build-*, so nothing that removes the 108
+# pipeline's containers by name matches them; there is no shared git cache and
+# no EngFlow cert, because 158 fetches without history and compiles on the
+# agent; and the container runs at a low CPU priority, because the agents it
+# runs on are shared.
 #
 # The mount point is /chromium for every key, so gn, ninja and reclient see the
 # same paths they always have and nothing rebuilds because a directory moved.
@@ -34,8 +35,6 @@ if [ ${#cmd[@]} -eq 0 ]; then
   cmd=(node build.js)
 fi
 mkdir -p "$root/home"
-cache=$("$dir/checkout.sh" git-cache)
-mkdir -p "$cache"
 
 image=$("$dir/build-image.sh" ref)
 "$dir/build-image.sh" ensure >&2
@@ -47,43 +46,29 @@ image=$("$dir/build-image.sh" ref)
 # (replayio/chromium#1540).
 key=${root%/}
 key=${key##*/}
-name="chromium-build-${key//[^A-Za-z0-9_.-]/-}-${BUILDKITE_JOB_ID:-$$}"
+name="chromium158-build-${key//[^A-Za-z0-9_.-]/-}-${BUILDKITE_JOB_ID:-$$}-$RANDOM"
 
 args=(
   run --name "$name" --rm --init
   -v "$root:/chromium"
   -w /chromium/src
-  # gclient's shared mirrors of the DEPS repositories, which a sync in here
-  # clones the dependencies from (GIT_CACHE_PATH=/chromium-git-cache). It holds
-  # nothing version-specific, so every key sees the same one.
-  -v "$cache:/chromium-git-cache"
-  -e GIT_CACHE_PATH=/chromium-git-cache
-  # The agent and the image's ubuntu are both uid 1000; passing it explicitly
-  # means the files a build writes belong to whoever ran it either way.
+  # A compile uses every core for hours, on an agent that also runs other
+  # things. A low share only matters under contention: everything else on the
+  # machine gets the CPU first, and an otherwise idle machine is still used
+  # fully.
+  --cpu-shares 128
+  # The image's user has this uid (build-image.sh); passing it explicitly means
+  # the files a build writes belong to whoever ran it either way.
   --user "$(id -u):$(id -g)"
   -e HOME=/chromium/home
 )
 for var in BUILDKITE BUILDKITE_BRANCH BUILDKITE_PIPELINE_DEFAULT_BRANCH \
            LOCAL_DEVELOPER_BUILD_EXTENSION DRIVER_REVISION \
-           RBE_service RBE_service_no_auth RBE_use_application_default_credentials; do
+           REPLAY_NINJA_JOBS REPLAY_NINJA_KEEP_GOING; do
   if [ -n "${!var:-}" ]; then
     args+=(-e "$var")
   fi
 done
-
-# The cert and key stay outside the checkout, read-only, for this run only.
-cert=${RBE_tls_client_auth_cert:-${ENGFLOW_CERT_FILE:-}}
-key=${RBE_tls_client_auth_key:-${ENGFLOW_KEY_FILE:-}}
-if [ -n "$cert" ] && [ -n "$key" ]; then
-  args+=(
-    -v "$(readlink -f "$cert"):/engflow/engflow.crt:ro"
-    -v "$(readlink -f "$key"):/engflow/engflow.key:ro"
-    -e RBE_tls_client_auth_cert=/engflow/engflow.crt
-    -e RBE_tls_client_auth_key=/engflow/engflow.key
-  )
-elif [ -n "${RBE_service:-}" ]; then
-  echo "$(basename "$0"): RBE_service is set but no EngFlow cert/key; compiles would fall back to this machine" >&2
-fi
 
 if [ -n "${REPLAY_LOCAL_DRIVER_DIR:-}" ]; then
   driver=$(readlink -f "$REPLAY_LOCAL_DRIVER_DIR")

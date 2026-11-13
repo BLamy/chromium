@@ -2,22 +2,18 @@
 # A build container still on this agent is left over from a job that was
 # cancelled or killed: the agent runs one job at a time. Remove it before
 # anything touches a checkout it would keep writing to (overlapping ninja runs
-# corrupted out/Release's ninja state once, replayio/chromium#1540). Per-version
-# checkouts do not help here: an orphan builds in the same one its job did.
+# corrupted out/Release's ninja state once, replayio/chromium#1540).
+#
+# Only this pipeline's containers: build-in-container.sh names them
+# chromium158-build-<key>-<job>. Upstream's script also removes every container
+# of the Chromium 108 pipeline (named chromium-build-*, or made from the
+# chromium-build-new image); this one must never do that, on any agent.
 
 set -o pipefail
 
-# With a key, only that version's containers (build-in-container.sh names them
-# chromium-build-<key>-<job>), so a second agent process building another
-# version is left alone. Without one, every build container, for cleaning up by
-# hand. The second filter is the image that was maintained by hand on the agent,
-# for containers left from before these names existed.
 key=${1:-}
 list_build_containers() {
-  {
-    docker ps --all --quiet --filter "name=^/?chromium-build-${key:+$key-}" &&
-      docker ps --all --quiet --filter ancestor=chromium-build-new
-  } | sort -u
+  docker ps --all --quiet --filter "name=^/?chromium158-build-${key:+$key-}" | sort -u
 }
 
 stale=$(list_build_containers) || {

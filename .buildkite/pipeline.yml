@@ -1,30 +1,85 @@
-# Replay Chromium 158 on Buildkite (pipeline chromium-158). Temporary: probes
-# of the agents this could build on.
+# Replay Chromium 158 on Buildkite: the pipeline `chromium-158`, which builds
+# BLamy/chromium. It is separate from `chromium-build`, the pipeline that builds
+# Chromium 108 from replayio/chromium, and shares nothing with it: not the
+# agent, not a checkout, not an image, not a container name.
+#
+# The pipeline's own configuration (in Buildkite) is one step that fetches this
+# file by URL at the commit being built and uploads it.
+#
+# Adapted from replayio/chromium's .buildkite/pipeline.yml at 4820c825b044
+# (#1637). What is not here, and why:
+#  - EngFlow remote execution (the aws-sm secrets, RBE_*): 158 compiles on the
+#    agent. This is why a cold build takes hours where 108's takes minutes.
+#  - buildevents / be_cmd: it needs Honeycomb secrets.
+#  - The S3 upload, and the E2E and recording test steps that download from it:
+#    the build is kept as a Buildkite artifact instead.
+env:
+  FORCE_COLOR: 1
+  GIT_TERMINAL_PROMPT: 0
+
 steps:
-  - label: "probe runtime"
-    key: probe-runtime
-    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
-    agents: ["runtimeType=chromiumbuild", "os=linux", "queue=runtime"]
-    timeout_in_minutes: 5
-    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
-  - label: "probe 2xlarge"
-    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
-    agents: ["2xlarge=true", "build-runtime=true", "queue=default"]
-    timeout_in_minutes: 5
-    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
-  - label: "probe runner-5"
-    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
-    agents: ["build-runtime=true", "deploy=true", "size=large", "queue=default"]
-    timeout_in_minutes: 5
-    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
-  - label: "probe build-runtime"
-    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
-    agents: ["build-runtime=true", "queue=default"]
-    parallelism: 3
-    timeout_in_minutes: 5
-    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
-  - label: "probe k8s"
-    plugins: [{ "thedyrt/skip-checkout#v0.1.1": ~ }]
-    agents: ["k8s=true", "earthly=true", "queue=default"]
-    timeout_in_minutes: 5
-    command: "curl -fsSL https://raw.githubusercontent.com/BLamy/chromium/$BUILDKITE_COMMIT/.buildkite/probe.sh | bash"
+  - label: "🔨 Chromium 158 (linux-x86_64)"
+    key: "build-chromium-linux-x86_64"
+    # A cold build compiles everything on 8 cores. Later builds reuse the key's
+    # out dir, and so does a build that follows one that timed out.
+    timeout_in_minutes: 1440
+    # No checkout: the job works in its own workspace. A clone of this
+    # repository is tens of GB. replay_build_scripts/ci/checkout.sh keeps one
+    # checkout per Chromium version on the agent, under ~/chromium-checkouts;
+    # see replay_build_scripts/ci/README.md.
+    plugins:
+      - thedyrt/skip-checkout#v0.1.1: ~
+    env:
+      # Nobody logs in to the agent to prepare a checkout, so the first job does.
+      CHROMIUM_CHECKOUT_PREPARE: "1"
+      # Build past failed steps, so one build reports every compile error.
+      REPLAY_NINJA_KEEP_GOING: "0"
+    # The one agent with 8 cores and the disk for a Chromium checkout that the
+    # Chromium 108 pipeline does not use (that one is runtimeType=chromiumbuild).
+    agents:
+      - "2xlarge=true"
+      - "build-runtime=true"
+      - "os=linux"
+      - "queue=default"
+    # One build at a time in the key's checkout, whatever agents there are.
+    concurrency: 1
+    concurrency_group: "chromium-158/linux-x86_64"
+    # Artifacts are uploaded by the command itself (logs/**, and
+    # build_id/linux/x86_64/** when the build succeeds), from a directory of
+    # this job's own.
+    command: |
+      set -euo pipefail
+      # The one thing this job takes by URL, at the commit being built: the
+      # script that fetches the rest of this commit's build scripts.
+      curl -fsS "https://raw.githubusercontent.com/BLamy/chromium/$$BUILDKITE_COMMIT/replay_build_scripts/ci/bootstrap.sh" -o ci-bootstrap.sh
+      bash ci-bootstrap.sh
+      SCRIPTS=.ci-boot/replay_build_scripts
+      KEY=$$("$$SCRIPTS/ci/checkout.sh" key)
+      echo "checkout key: $$KEY"
+      # This job's own artifacts, in a directory no earlier job wrote to.
+      OUT="artifacts-$$BUILDKITE_JOB_ID"
+      mkdir -p "$$OUT/logs"
+      # Before anything touches the checkout, not after: a container left by a
+      # cancelled job keeps building in it. Only this pipeline's containers.
+      "$$SCRIPTS/remove-stale-build-containers.sh" "$$KEY"
+      df -h "$$HOME"
+      "$$SCRIPTS/ci/checkout.sh" sync
+      echo "--- build"
+      # The whole log is kept as an artifact as well, with the failed steps
+      # pulled out of it: a Chromium build's output is long.
+      status=0
+      "$$SCRIPTS/ci/build-in-container.sh" 2>&1 | tee "$$OUT/logs/build.log" || status=$$?
+      awk '/^FAILED: /{p=1} /^\[[0-9]+\/[0-9]+\] /{p=0} p' "$$OUT/logs/build.log" > "$$OUT/logs/failed-steps.txt" || true
+      failed=$$(grep -c '^FAILED: ' "$$OUT/logs/build.log" || true)
+      gzip -f "$$OUT/logs/build.log"
+      if [ "$$status" != 0 ]; then
+        ( cd "$$OUT" && buildkite-agent artifact upload "logs/**" )
+        echo "^^^ +++"
+        echo "+++ build failed: $$failed failed steps (logs/failed-steps.txt)"
+        head -c 60000 "$$OUT/logs/failed-steps.txt"
+        exit "$$status"
+      fi
+      echo "--- package"
+      "$$SCRIPTS/ci/package-artifacts.sh" "$$OUT/build_id/linux/x86_64"
+      ( cd "$$OUT" && buildkite-agent artifact upload "logs/**;build_id/linux/x86_64/**" )
+      df -h "$$HOME"

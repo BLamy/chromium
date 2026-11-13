@@ -57,7 +57,7 @@ fi
 
 rm -rf "$dest"
 git init -q "$dest"
-git -C "$dest" remote add origin https://github.com/replayio/chromium.git
+git -C "$dest" remote add origin "${CHROMIUM_FORK_URL:-https://github.com/BLamy/chromium.git}"
 # A promisor remote: the fetch takes the commit's trees and no file contents,
 # and git asks for a blob when something reads it.
 git -C "$dest" config extensions.partialClone origin

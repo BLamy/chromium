@@ -16,16 +16,22 @@
 #     .gclient            its gclient solution, and .gclient_entries
 #     .cipd/              gclient's cipd cache
 #     .reproxy_cache/     reclient's deps cache
-#     backend/            the checkout RECORD_REPLAY_BACKEND_DIR points at
 #     home/              HOME for the build container
 #     .replay-checkout    this scheme's stamp: key, scheme, when, from what
 #
-# Next to the keys, and belonging to none of them, is .git-cache: gclient's
-# mirrors of the repositories DEPS pins, which every version's checkout clones
-# its dependencies from. It holds git objects, which are append-only and say
-# nothing about a version, so sharing it costs nothing in isolation and saves
-# most of what a checkout would otherwise take (see prepare). `wipe` cannot
-# touch it -- a key may not begin with a dot.
+# Chromium 158 differences from upstream's script (replayio/chromium, which
+# builds 108), all because a 158 job has to be able to start from an agent that
+# has never seen this tree and that nobody can log in to:
+#
+# - `sync` prepares the key's checkout itself when CHROMIUM_CHECKOUT_PREPARE is
+#   set, instead of failing and asking for someone to run `prepare` by hand.
+# - The fork is fetched shallow (one commit), from github over https: its
+#   history is tens of GB and a build reads none of it.
+# - `sync` runs `gclient sync` and the hooks on every job, in the build image.
+#   Upstream cannot ("this fork may be too old for gclient sync"), and syncs the
+#   four Replay forks by hand instead; 158's DEPS pins those forks itself.
+# - No backend checkout, and no shared .git-cache: dependencies are fetched
+#   without history, which is smaller than a mirror of each.
 #
 # <checkouts dir> is $CHROMIUM_CHECKOUTS_DIR, or ~/chromium-checkouts. The
 # container mounts <key>/ at /chromium whatever the key is, so every path a
@@ -34,10 +40,9 @@
 #
 #   checkout.sh key                 the key for the tree this script came from
 #   checkout.sh root [key]          where that key's state lives
-#   checkout.sh git-cache           where the shared DEPS mirrors live
 #   checkout.sh require [key]       fail unless that key is prepared
 #   checkout.sh sync                fetch and reset this key's tree to the build's
-#                                   commit, and its DEPS'd Replay forks with it
+#                                   commit, then gclient sync and the hooks
 #   checkout.sh list [--sizes]      the keys that are prepared here
 #   checkout.sh adopt <dir> [key]   make an existing checkout a key's (migration)
 #   checkout.sh prepare [--from <key>]
@@ -66,7 +71,7 @@ git_cache() {
 }
 
 fork_url() {
-  echo "${CHROMIUM_FORK_URL:-git@github.com:replayio/chromium.git}"
+  echo "${CHROMIUM_FORK_URL:-https://github.com/BLamy/chromium.git}"
 }
 
 # The checkout every build shared before this existed, and still shares with
@@ -189,12 +194,10 @@ require() {
     cat >&2 <<EOF
 checkout: no Chromium checkout for key '$k' at $r
 
-This machine has no tree for that Chromium version, and a build will not make
-one or borrow another version's: a Chromium checkout is the fork plus the 140
-repositories its DEPS pin, which is gclient's job and an hour of it, not a git
-clone. Make it once and every build of that version has it:
+This machine has no tree for that Chromium version, and a build will not
+borrow another version's. Make it once and every build of that version has it
+(`sync` does this itself when CHROMIUM_CHECKOUT_PREPARE=1):
 
-  CHROMIUM_REVISION=<commit> replay_build_scripts/ci/checkout.sh prepare --from <key>
   CHROMIUM_REVISION=<commit> replay_build_scripts/ci/checkout.sh prepare
   replay_build_scripts/ci/checkout.sh adopt <dir> $k   # a tree that already exists
 
@@ -214,12 +217,12 @@ EOF
   echo "$r"
 }
 
-# What a job does to this key's tree before building: the fetch and reset that
-# used to be pipeline steps against the one shared checkout, plus the Replay
-# forks DEPS pins, and the backend checkout the upload step reads. It runs from
-# the job's own copy of these scripts (see .buildkite/pipeline.yml), not from
-# whatever the tree happens to hold, which is how the cleanup in
-# replayio/chromium#1544 came to run a previous job's version of itself.
+# What a job does to this key's tree before building: the fork goes to the
+# commit being built, and gclient brings everything DEPS pins -- the Replay forks
+# of v8, skia, webrtc and boringssl included -- to that commit's revisions and
+# runs the hooks (clang, the sysroot, node, rust). It runs from the job's own
+# copy of these scripts (see .buildkite/pipeline.yml), not from whatever the tree
+# happens to hold.
 sync() {
   local k r
   k=$(key)
@@ -229,23 +232,33 @@ sync() {
     exit 1
   fi
   # "HEAD" would reset the checkout to whatever it already held and publish
-  # that as this build, silently. The step this replaced reset to
-  # origin/$BUILDKITE_BRANCH, so it could not happen there.
+  # that as this build, silently.
   if [ "$commit" = "HEAD" ]; then
     echo "checkout: refusing to build 'HEAD': name the commit or branch to build" >&2
     exit 1
   fi
+  r=$(root "$k")
+  if [ ! -d "$r/src/.git" ] && [ -n "${CHROMIUM_CHECKOUT_PREPARE:-}" ]; then
+    CHROMIUM_REVISION=$commit prepare
+  fi
   r=$(require "$k")
   echo "--- checkout '$k' at $r -> $commit"
-  # The fork goes to the commit being built, the Replay forks of v8, skia,
-  # webrtc and boringssl to their DEPS revisions, and the backend to
-  # REPLAY_BACKEND_REV; everything else in the tree is what `prepare` synced.
-  # (gclient sync is not run per job: this fork is too old for it, see
-  # common.mjs.)
-  CHROMIUM_SRC_DIR="$r/src" \
-    RECORD_REPLAY_BACKEND_DIR="$r/backend" \
-    CHROMIUM_REVISION="$commit" \
-    node "$dir/sync-repos.mjs"
+  git -C "$r/src" fetch --depth 1 origin "$commit"
+  git -C "$r/src" checkout -f --detach FETCH_HEAD
+  git -C "$r/src" log -1 --format='%H %s'
+  echo "--- gclient sync"
+  # -D: a dependency DEPS no longer names is removed. --no-history: none of the
+  # ~200 repositories' history is read by a build. Three tries: a sync is a few
+  # hundred fetches and one of them timing out should not cost the job.
+  "$dir/build-in-container.sh" --root "$r" -- bash -c '
+    cd /chromium
+    for try in 1 2 3; do
+      gclient sync --nohooks --no-history -D -j 8 && exit 0
+      echo "gclient sync: try $try failed"
+    done
+    exit 1'
+  echo "--- gclient runhooks"
+  "$dir/build-in-container.sh" --root "$r" -- bash -c 'cd /chromium && gclient runhooks'
 }
 
 list() {
@@ -340,8 +353,8 @@ prepare() {
     echo "what a checkout for another one should hold)" >&2
     exit 1
   fi
-  # A version costs 60-115 GB here, on the volume every other version and the
-  # backend's C++ test jobs share, so say so before taking it.
+  # A version costs around 100 GB here (the tree, its dependencies and the
+  # build outputs), on a volume other jobs share, so say so before taking it.
   local free
   free=$(df -BG --output=avail "$(dirname "$r")" 2>/dev/null | tail -1 | tr -dc 0-9)
   if [ -n "$free" ]; then
@@ -382,61 +395,35 @@ prepare() {
     rsync -a --link-dest="$src" --include '*/' --include '.git/***' --exclude '*' \
       "$src/" "$r/"
   else
-    # A local clone hardlinks the pack files, so taking the fork's history from
-    # a checkout that already has it costs about a second and a couple of
-    # megabytes instead of 58 GB and a fetch of the whole repository.
-    local near
-    near=$(nearest_src)
-    if [ -n "$near" ]; then
-      echo "--- cloning the fork from $near (hardlinked objects)"
-      git clone -q --no-checkout "$near" "$r/src"
-      git -C "$r/src" remote set-url origin "$(fork_url)"
-    else
-      echo "--- cloning the fork from $(fork_url)"
-      git clone -q --no-checkout "$(fork_url)" "$r/src"
-    fi
-    cat > "$r/.gclient" <<'EOF'
+    # One commit of the fork, not its history: the history is tens of GB and a
+    # build reads none of it. sync fetches each later commit the same way.
+    echo "--- fetching $commit from $(fork_url) (no history)"
+    git init -q "$r/src"
+    git -C "$r/src" remote add origin "$(fork_url)"
+    # The solution gclient syncs DEPS for. src is unmanaged: this script puts
+    # it at the commit being built, and gclient leaves it alone. No PGO
+    # profiles: the build does not use them (chrome_pgo_phase = 0).
+    cat > "$r/.gclient" <<EOF
 solutions = [
-{
-   "name": "src",
-   "url": "https://chromium.googlesource.com/chromium/src.git",
-   "managed": False,
-   "custom_deps": {},
-   "custom_vars": {},
-},
+  {
+    "name": "src",
+    "url": "$(fork_url)",
+    "managed": False,
+    "custom_deps": {},
+    "custom_vars": {"checkout_pgo_profiles": False},
+  },
 ]
+target_os = ["linux"]
 EOF
   fi
   echo "--- checking out $commit"
-  git -C "$r/src" fetch origin "$commit"
+  git -C "$r/src" fetch --depth 1 origin "$commit"
   git -C "$r/src" checkout -f --detach FETCH_HEAD
-  if [ ! -d "$r/backend" ]; then
-    echo "--- cloning replayio/backend into $r/backend"
-    git clone git@github.com:replayio/backend.git "$r/backend"
-  fi
   mkdir -p "$r/home"
   write_stamp "$k" "prepare${from:+ --from $from} $commit"
   trap - EXIT
-  cat <<EOF
-
-checkout: '$k' is at $r, with the fork checked out but its DEPS not synced.
-
-Sync its DEPS in the build image, so depot_tools is the pinned one and the
-generated reclient configs get the paths a build runs at. GIT_CACHE_PATH is
-gclient's mirror of every DEPS repository, shared by all versions: with it, the
-140 repositories come from disk rather than the network, and each checkout's
-copy of them is a clone of the mirror rather than another 14 GB of objects.
-
-  $r/src/replay_build_scripts/ci/build-in-container.sh --root $r -- \\
-    bash -c 'cd /chromium && GIT_CACHE_PATH=/chromium-git-cache gclient sync -D --with_branch_heads && gclient runhooks'
-
-(build-in-container.sh mounts $(git_cache) there.)
-
-This fork disabled per-build gclient sync ("may be too old for gclient sync to
-work properly", common.mjs), so for a milestone nobody has synced here before,
-expect this to need attention -- it is the one step of a new version's checkout
-that is not routine, and it is also the step a rebase does anyway.
-EOF
+  echo "checkout: '$k' is at $r, with the fork checked out but its DEPS not synced"
+  echo "(checkout.sh sync does that)."
 }
 
 wipe() {
@@ -463,7 +450,6 @@ wipe_out() {
 
 case ${1:-} in
   key) key ;;
-  git-cache) git_cache ;;
   root) shift; root "${1:-}" ;;
   require) shift; require "${1:-}" ;;
   sync) sync ;;

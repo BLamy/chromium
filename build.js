@@ -161,7 +161,24 @@ const autoninja =
   currentPlatform() == "windows" ? "autoninja.bat" : "autoninja";
 // make the windows build verbose so we can see what's going on
 const platformAutoNinjaArgs = currentPlatform() == "windows" ? ["-v"] : [];
-const autoninjaArgs = [...platformAutoNinjaArgs, "-C", outdir, "chrome"];
+// REPLAY_NINJA_JOBS: how many compiles at once, where the default (every core
+// and then some) is too many for the machine's memory.
+// REPLAY_NINJA_KEEP_GOING: how many failed steps to build past (0: all of them),
+// so that one multi-hour build reports every compile error instead of the first.
+const ninjaTuning = [];
+if (process.env.REPLAY_NINJA_JOBS) {
+  ninjaTuning.push("-j", process.env.REPLAY_NINJA_JOBS);
+}
+if (process.env.REPLAY_NINJA_KEEP_GOING) {
+  ninjaTuning.push("-k", process.env.REPLAY_NINJA_KEEP_GOING);
+}
+const autoninjaArgs = [
+  ...platformAutoNinjaArgs,
+  ...ninjaTuning,
+  "-C",
+  outdir,
+  "chrome",
+];
 if (process.env["BUILDKITE"]) {
   buildHealingNinjaState();
 } else {
