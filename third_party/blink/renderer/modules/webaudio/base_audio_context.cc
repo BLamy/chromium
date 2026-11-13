@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/modules/webaudio/base_audio_context.h"
 
 #include "base/metrics/histogram_functions.h"
+#include "base/record_replay.h"
 #include "build/build_config.h"
 #include "media/base/audio_bus.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
@@ -761,6 +762,14 @@ void BaseAudioContext::SetContextState(V8AudioContextState::Enum new_state) {
 
   if (new_state == V8AudioContextState::Enum::kClosed) {
     GetDeferredTaskHandler().StopAcceptingTailProcessing();
+    // Nothing renders a closed context, so its connected nodes no longer have
+    // to be kept while recording or replaying. Its disposed handlers are
+    // leaked instead (see RecordReplayKeepDisposedHandler).
+    if (recordreplay::IsRecordingOrReplaying()) {
+      replay_strong_connected_nodes_.clear();
+      DeferredTaskHandler::GraphAutoLocker locker(GetDeferredTaskHandler());
+      GetDeferredTaskHandler().RecordReplayLeakDisposedHandlers();
+    }
   }
 
   // Notify context that state changed
@@ -812,8 +821,12 @@ void BaseAudioContext::HandleStoppableSourceNodes() {
   DCHECK(IsAudioThread());
   AssertGraphOwner();
 
-  HashSet<scoped_refptr<AudioHandler>>* active_source_handlers =
-      GetDeferredTaskHandler().GetActiveSourceHandlers();
+  HashSet<scoped_refptr<AudioHandler>,
+          RecordReplayRefPtrPointerIdHash<AudioHandler>>*
+      active_source_handlers =
+          GetDeferredTaskHandler().GetActiveSourceHandlers();
+  REPLAY_ASSERT("BaseAudioContext::HandleStoppableSourceNodes size %u",
+                active_source_handlers->size());
 
   if (active_source_handlers->size()) {
     // Find source handlers to see if we can stop playing them.  Note: this
@@ -821,6 +834,9 @@ void BaseAudioContext::HandleStoppableSourceNodes() {
     // becomes to expensive.  It's ok to do this on a less frequency basis as
     // long as the active nodes eventually get stopped if they're done.
     for (const auto& handler : *active_source_handlers) {
+      REPLAY_ASSERT("BaseAudioContext::HandleStoppableSourceNodes %d %d",
+                    recordreplay::PointerId(handler.get()),
+                    (int)handler->GetNodeType());
       switch (handler->GetNodeType()) {
         case AudioHandler::NodeType::kNodeTypeAudioBufferSource:
         case AudioHandler::NodeType::kNodeTypeOscillator:
@@ -961,6 +977,7 @@ void BaseAudioContext::Trace(Visitor* visitor) const {
   visitor->Trace(periodic_wave_sawtooth_);
   visitor->Trace(periodic_wave_triangle_);
   visitor->Trace(audio_worklet_);
+  visitor->Trace(replay_strong_connected_nodes_);
   InspectorHelperMixin::Trace(visitor);
   EventTarget::Trace(visitor);
   ExecutionContextLifecycleStateObserver::Trace(visitor);

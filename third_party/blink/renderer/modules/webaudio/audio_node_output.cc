@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/modules/webaudio/audio_node_output.h"
 
+#include "base/record_replay.h"
 #include "media/base/audio_bus.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_node_input.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_node_wiring.h"
@@ -39,10 +40,16 @@ AudioNodeOutput::AudioNodeOutput(AudioHandler* handler,
       number_of_channels_(number_of_channels),
       desired_number_of_channels_(number_of_channels) {
   DCHECK_LE(number_of_channels, BaseAudioContext::MaxNumberOfChannels());
+  // See RUN-597; for deterministic iteration of AudioNodeOutput sets in audio_summing_junction.
+  recordreplay::RegisterPointer("AudioNodeOutput", this);
 
   internal_bus_ = AudioBus::Create(
       number_of_channels, GetDeferredTaskHandler().RenderQuantumFrames());
 }
+AudioNodeOutput::~AudioNodeOutput() {
+  recordreplay::UnregisterPointer(this);
+}
+
 
 void AudioNodeOutput::Dispose() {
   did_call_dispose_ = true;

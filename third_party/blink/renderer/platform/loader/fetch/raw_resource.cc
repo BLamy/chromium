@@ -250,13 +250,6 @@ void RawResource::ResponseReceived(const ResourceResponse& response) {
     execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
   }
 
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
-        recordreplay::DependencyGraphJson("resourceResponseReceived", {{"url", Url().GetString().Utf8()}})
-            .c_str()));
-  }
-
   Resource::ResponseReceived(response);
 
   ResourceClientWalker<RawResourceClient> w(Clients());

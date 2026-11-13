@@ -1719,6 +1719,12 @@ void AudioContext::HandleAudibility(AudioBus* destination_bus) {
         destination_bus->length() / static_cast<double>(sampleRate());
     accumulated_silence_time_.store(silence_time, std::memory_order_relaxed);
   }
+  REPLAY_ASSERT("AudioContext::HandleAudibility bus %d %u %u",
+                destination_bus && destination_bus->IsSilent(),
+                destination_bus ? destination_bus->NumberOfChannels() : 0u,
+                destination_bus ? destination_bus->length() : 0u);
+  REPLAY_ASSERT("AudioContext::HandleAudibility %d %d", was_audible_.load(),
+                is_audible);
 
   unsigned sequence_id =
       audibility_sequence_id_.load(std::memory_order_relaxed);

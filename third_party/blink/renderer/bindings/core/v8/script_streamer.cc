@@ -1137,15 +1137,6 @@ bool ResourceScriptStreamer::TryStartStreamingTask() {
     record_replay_scheduled_node_id_ = recordreplay::NewDependencyGraphNode(json.c_str());
   }
 
-
-  if (recordreplay::DependencyGraphEnabled()) {
-    record_replay_scheduled_node_id_ = recordreplay::NewDependencyGraphNode(
-        recordreplay::DependencyGraphJson(
-            "scheduleScriptStreamingTask",
-            {{"url", ScriptURLString().Utf8()}})
-            .c_str());
-  }
-
   // Script streaming tasks are high priority, as they can block the parser,
   // and they can (and probably will) block during their own execution as
   // they wait for more input.
@@ -1329,11 +1320,6 @@ void ResourceScriptStreamer::StreamingComplete(LoadingState loading_state) {
   // The background task is completed; do the necessary ramp-down in the main
   // thread.
   DCHECK(IsMainThread());
-
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNodeFrom(
-          record_replay_scheduled_node_id_, "scheduler",
-          "{\"kind\":\"scriptStreamingComplete\"}"));
 
   AdvanceLoadingState(loading_state);
 

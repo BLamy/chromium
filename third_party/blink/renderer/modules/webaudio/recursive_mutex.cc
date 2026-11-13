@@ -5,9 +5,13 @@
 #include "third_party/blink/renderer/modules/webaudio/recursive_mutex.h"
 
 #include "base/check.h"
+#include "base/record_replay.h"
 #include "base/threading/platform_thread.h"
 
 namespace blink {
+
+RecursiveMutex::RecursiveMutex(const char* replay_ordered_name)
+    : lock_(replay_ordered_name) {}
 
 void RecursiveMutex::Acquire() {
   auto thread_id = base::PlatformThread::CurrentId();

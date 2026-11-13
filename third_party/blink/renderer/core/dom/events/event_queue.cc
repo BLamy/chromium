@@ -74,11 +74,9 @@ bool EventQueue::EnqueueEvent(const base::Location& from_here, Event& event) {
 
   // Pass the event as a weak persistent so that GC can collect an event-related
   // object like IDBTransaction as soon as possible.
-  int record_replay_node_id = recordreplay::NewDependencyGraphNode(
-      "{\"kind\":\"eventQueueSchedule\"}");
   task_runner->PostTask(
       from_here, BindOnce(&EventQueue::DispatchEvent, WrapPersistent(this),
-                          WrapWeakPersistent(&event), record_replay_node_id));
+                          WrapWeakPersistent(&event), node_id));
 
   return true;
 }
@@ -105,11 +103,6 @@ void EventQueue::DispatchEvent(Event* event,
     return;
 
   DCHECK(GetExecutionContext());
-
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNodeFrom(
-          record_replay_scheduled_node_id, "scheduler",
-          "{\"kind\":\"eventQueueDispatch\"}"));
 
   std::optional<recordreplay::AutoDependencyExecution> execute;
   if (recordreplay::DependencyGraphEnabled()) {

@@ -117,11 +117,6 @@ void HTMLStyleElement::DispatchPendingEvent(
     DispatchEvent(*Event::Create(event_type_names::kError), "HTMLStyleElement::DispatchPendingEvent #2");
   }
 
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNodeFrom(
-          record_replay_load_task_scheduled_node_id_, "scheduler",
-          "{\"kind\":\"styleSheetLoaded\"}"));
-
 
   std::optional<recordreplay::AutoDependencyExecution> execute;
   if (recordreplay::DependencyGraphEnabled()) {
@@ -145,9 +140,6 @@ void HTMLStyleElement::NotifyLoadedSheetAndAllCriticalSubresources(
   record_replay_load_task_scheduled_node_id_ = recordreplay::NewDependencyGraphNode(
     "{\"kind\":\"scheduleStyleSheetLoadedTask\"}"
   );
-  record_replay_load_task_scheduled_node_id_ =
-      recordreplay::NewDependencyGraphNode(
-          "{\"kind\":\"scheduleStyleSheetLoadedTask\"}");
   // Per the spec this should post on the network task source.
   // https://html.spec.whatwg.org/multipage/semantics.html#the-style-element
   // This guarantees that the <style> will be applied before the next <script>

@@ -189,9 +189,6 @@ void NetworkInformation::ConnectionChange(
   );
 
 
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNode("{\"kind\":\"networkConnectionChange\"}"));
-
   const String host = Host();
   uint32_t new_http_rtt_msec =
       GetNetworkStateNotifier().RoundRtt(host, http_rtt);

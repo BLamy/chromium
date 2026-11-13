@@ -28,6 +28,7 @@
 
 #include <atomic>
 
+#include "base/record_replay.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/synchronization/lock.h"
@@ -127,6 +128,48 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
 
   // Return true if there is one or more nodes in the automatic pull node list.
   bool HasAutomaticPullNodes();
+  // While recording or replaying, timeline access is ordered once per render
+  // instead of on every access: a render holds this lock while it runs, the
+  // main thread takes it to change a timeline, and a render that couldn't take
+  // it treats every timeline as locked.
+  class RecordReplayRenderTimelinesLocker {
+    STACK_ALLOCATED();
+
+   public:
+    explicit RecordReplayRenderTimelinesLocker(DeferredTaskHandler& handler)
+        NO_THREAD_SAFETY_ANALYSIS : handler_(handler) {
+      if (recordreplay::IsRecordingOrReplaying()) {
+        acquired_ = handler.record_replay_timelines_lock_.Try();
+        handler.record_replay_render_holds_timelines_ = acquired_;
+      }
+    }
+    ~RecordReplayRenderTimelinesLocker() NO_THREAD_SAFETY_ANALYSIS {
+      if (acquired_) {
+        handler_->record_replay_timelines_lock_.Release();
+      }
+      handler_->record_replay_render_holds_timelines_ = true;
+    }
+
+   private:
+    const raw_ref<DeferredTaskHandler> handler_;
+    bool acquired_ = false;
+  };
+  class RecordReplayMainThreadTimelinesLocker {
+    STACK_ALLOCATED();
+
+   public:
+    explicit RecordReplayMainThreadTimelinesLocker(DeferredTaskHandler& handler)
+        : locker_(recordreplay::IsRecordingOrReplaying()
+                      ? &handler.record_replay_timelines_lock_
+                      : nullptr) {}
+
+   private:
+    base::AutoLockMaybe locker_;
+  };
+  bool RecordReplayRenderHoldsTimelines() const {
+    return record_replay_render_holds_timelines_;
+  }
+
 
   // Called right before handlePostRenderTasks() to handle nodes which need to
   // be pulled even when they are not connected to anything.
@@ -172,7 +215,6 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
       EXCLUSIVE_LOCKS_REQUIRED(*this);
   void RequestToDeleteHandlersOnMainThread() EXCLUSIVE_LOCKS_REQUIRED(*this);
   void ClearHandlersToBeDeleted();
-
   // Clear the context from the rendering and deletable orphan handlers.
   void ClearContextFromOrphanHandlers();
 
@@ -224,7 +266,7 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
   // In DCHECK builds, fails if this thread does not own the context's lock.
   void AssertGraphOwner() const ASSERT_EXCLUSIVE_LOCK();
 
-  HashSet<scoped_refptr<AudioHandler>>* GetActiveSourceHandlers() {
+  HashSet<scoped_refptr<AudioHandler>, RecordReplayRefPtrPointerIdHash<AudioHandler>>* GetActiveSourceHandlers() {
     return &active_source_handlers_;
   }
 
@@ -264,7 +306,9 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
   // `rendering_automatic_pull_handlers_`. This storage will be copied from
   // `automatic_pull_handlers` by `UpdateAutomaticPullNodes()` at the beginning
   // or end of the render quantum.
-  HashSet<scoped_refptr<AudioHandler>> automatic_pull_handlers_
+  HashSet<scoped_refptr<AudioHandler>,
+          RecordReplayRefPtrPointerIdHash<AudioHandler>>
+      automatic_pull_handlers_
       GUARDED_BY(*this);
   Vector<scoped_refptr<AudioHandler>> rendering_automatic_pull_handlers_
       GUARDED_BY(automatic_pull_handlers_lock_);
@@ -285,15 +329,20 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
   // Collection of nodes where the channel count mode has changed. We want the
   // channel count mode to change in the pre- or post-rendering phase so as
   // not to disturb the running audio thread.
-  HashSet<AudioHandler*> deferred_count_mode_change_ GUARDED_BY(*this);
+  HashSet<AudioHandler*, RecordReplayPointerIdHash<AudioHandler>>
+      deferred_count_mode_change_ GUARDED_BY(*this);
 
-  HashSet<AudioHandler*> deferred_channel_interpretation_change_
+  HashSet<AudioHandler*, RecordReplayPointerIdHash<AudioHandler>>
+      deferred_channel_interpretation_change_
       GUARDED_BY(*this);
 
   // These two HashSet must be accessed only when the graph lock is held.
   // These raw pointers are safe because their destructors unregister them.
-  HashSet<AudioSummingJunction*> dirty_summing_junctions_ GUARDED_BY(*this);
-  HashSet<AudioNodeOutput*> dirty_audio_node_outputs_ GUARDED_BY(*this);
+  HashSet<AudioSummingJunction*,
+          RecordReplayPointerIdHash<AudioSummingJunction>>
+      dirty_summing_junctions_ GUARDED_BY(*this);
+  HashSet<AudioNodeOutput*, RecordReplayPointerIdHash<AudioNodeOutput>>
+      dirty_audio_node_outputs_ GUARDED_BY(*this);
 
   Vector<scoped_refptr<AudioHandler>> rendering_orphan_handlers_
       GUARDED_BY(*this);
@@ -321,7 +370,9 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
   //
   // This can be accessed from either the main thread or the audio thread, so it
   // must be protected by the graph lock.
-  HashSet<scoped_refptr<AudioHandler>> active_source_handlers_
+  HashSet<scoped_refptr<AudioHandler>,
+          RecordReplayRefPtrPointerIdHash<AudioHandler>>
+      active_source_handlers_
       GUARDED_BY(*this);
 
   // When source nodes are finished, the handler is placed here to make a note
@@ -341,6 +392,10 @@ class MODULES_EXPORT LOCKABLE DeferredTaskHandler final
   // Protects `rendering_automatic_pull_handlers_` when updating, processing,
   // and clearing. (See crbug.com/1061018)
   mutable base::Lock automatic_pull_handlers_lock_;
+  base::Lock record_replay_timelines_lock_{"DeferredTaskHandler.timelines"};
+  // Only accessed on the audio thread.
+  bool record_replay_render_holds_timelines_ = true;
+
 
   std::atomic<base::PlatformThreadId> audio_thread_;
 

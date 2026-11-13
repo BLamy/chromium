@@ -1327,10 +1327,6 @@ void HTMLMediaElement::SelectMediaResource() {
     "LoadEventDelay", "HTMLMediaElement::SelectMediaResource"
   );
 
-
-  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
-      "LoadEventDelay", "HTMLMediaElement::SelectMediaResource");
-
   enum Mode { kObject, kAttribute, kChildren, kNothing };
   Mode mode = kNothing;
 

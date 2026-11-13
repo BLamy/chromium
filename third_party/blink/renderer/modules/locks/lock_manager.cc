@@ -210,11 +210,6 @@ class LockManager::LockRequestImpl final
     }
 
 
-    recordreplay::AutoDependencyExecution record_replay_execute(
-        recordreplay::NewDependencyGraphNodeFrom(
-            record_replay_dependency_graph_node_id_, "creator",
-            "{\"kind\":\"lockRequestGranted\"}"));
-
     // Note that either invoking `callback` or calling
     // ToResolvedPromise to convert the resulting value to a Promise
     // can or will execute javascript. This means that the ExecutionContext

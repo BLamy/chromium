@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/modules/webaudio/audio_param.h"
 
+#include "base/record_replay.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_automation_rate.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -76,6 +77,9 @@ AudioParam* AudioParam::Create(BaseAudioContext& context,
 }
 
 AudioParam::~AudioParam() {
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "~AudioParam")) {
+    return;
+  }
   // The graph lock is required to destroy the handler. And we can't use
   // `context_` to touch it, since that object may also be a dead heap object.
   {
@@ -166,6 +170,8 @@ AudioParam* AudioParam::setValueAtTime(float value,
                                        double time,
                                        ExceptionState& exception_state) {
   WarnIfOutsideRange("setValueAtTime value", value);
+  DeferredTaskHandler::RecordReplayMainThreadTimelinesLocker replay_locker(
+      Context()->GetDeferredTaskHandler());
   Handler().SetValueAtTime(value, time, exception_state);
   return this;
 }
@@ -175,6 +181,8 @@ AudioParam* AudioParam::linearRampToValueAtTime(
     double time,
     ExceptionState& exception_state) {
   WarnIfOutsideRange("linearRampToValueAtTime value", value);
+  DeferredTaskHandler::RecordReplayMainThreadTimelinesLocker replay_locker(
+      Context()->GetDeferredTaskHandler());
   Handler().LinearRampToValueAtTime(value, time, Handler().IntrinsicValue(),
                                     Context()->currentTime(), exception_state);
 
@@ -186,6 +194,8 @@ AudioParam* AudioParam::exponentialRampToValueAtTime(
     double time,
     ExceptionState& exception_state) {
   WarnIfOutsideRange("exponentialRampToValue value", value);
+  DeferredTaskHandler::RecordReplayMainThreadTimelinesLocker replay_locker(
+      Context()->GetDeferredTaskHandler());
   Handler().ExponentialRampToValueAtTime(
       value, time, Handler().IntrinsicValue(), Context()->currentTime(),
       exception_state);
@@ -198,6 +208,8 @@ AudioParam* AudioParam::setTargetAtTime(float target,
                                         double time_constant,
                                         ExceptionState& exception_state) {
   WarnIfOutsideRange("setTargetAtTime value", target);
+  DeferredTaskHandler::RecordReplayMainThreadTimelinesLocker replay_locker(
+      Context()->GetDeferredTaskHandler());
   Handler().SetTargetAtTime(target, time, time_constant, exception_state);
   return this;
 }
@@ -219,18 +231,24 @@ AudioParam* AudioParam::setValueCurveAtTime(const Vector<float>& curve,
     }
   }
 
+  DeferredTaskHandler::RecordReplayMainThreadTimelinesLocker replay_locker(
+      Context()->GetDeferredTaskHandler());
   Handler().SetValueCurveAtTime(curve, time, duration, exception_state);
   return this;
 }
 
 AudioParam* AudioParam::cancelScheduledValues(double start_time,
                                               ExceptionState& exception_state) {
+  DeferredTaskHandler::RecordReplayMainThreadTimelinesLocker replay_locker(
+      Context()->GetDeferredTaskHandler());
   Handler().CancelScheduledValues(start_time, exception_state);
   return this;
 }
 
 AudioParam* AudioParam::cancelAndHoldAtTime(double start_time,
                                             ExceptionState& exception_state) {
+  DeferredTaskHandler::RecordReplayMainThreadTimelinesLocker replay_locker(
+      Context()->GetDeferredTaskHandler());
   Handler().CancelAndHoldAtTime(start_time, exception_state);
   return this;
 }

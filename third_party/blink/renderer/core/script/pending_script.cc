@@ -194,23 +194,6 @@ void PendingScript::ExecuteScriptBlock() {
 
   Script* script = GetSource();
 
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    int node_id = recordreplay::NewDependencyGraphNode(
-        (script ? recordreplay::DependencyGraphJson(
-                      "executeScriptBlock",
-                      {{"url", script->SourceUrl().GetString().Utf8()}})
-                : recordreplay::DependencyGraphJson("executeScriptBlock"))
-            .c_str());
-    for (int other_node_id : record_replay_dependency_node_ids_) {
-      if (other_node_id > 0) {
-        recordreplay::AddDependencyGraphEdge(
-            other_node_id, node_id, "{\"kind\":\"pendingScript\"}");
-      }
-    }
-    record_replay_execute.emplace(node_id);
-  }
-
   const bool created_during_document_write = WasCreatedDuringDocumentWrite();
   std::optional<scheduler::TaskAttributionTracker::TaskScope>
       task_attribution_resource_timing_scope;

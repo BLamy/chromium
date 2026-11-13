@@ -427,15 +427,6 @@ void KeyboardEventManager::CapsLockStateMayHaveChanged() {
 void KeyboardEventManager::DefaultKeyboardEventHandler(
     KeyboardEvent* event,
     Node* possible_focused_node) {
-  // Keys are in the recording, as on Chromium 108.
-  if (recordreplay::IsRecordingOrReplaying() &&
-      (event->type() == event_type_names::kKeydown ||
-       event->type() == event_type_names::kKeyup ||
-       event->type() == event_type_names::kKeypress)) {
-    recordreplay::OnKeyEvent(event->type().Utf8().c_str(),
-                             event->key().Utf8().c_str(), false);
-  }
-
   // [replay] capture keyboard events
   if (event->type() == event_type_names::kKeydown ||
       event->type() == event_type_names::kKeyup ||

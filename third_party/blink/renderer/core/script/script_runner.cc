@@ -236,8 +236,7 @@ void ScriptRunner::RemoveDelayReasonFromScript(PendingScript* pending_script,
   base::OnceClosure task = blink::BindOnce(
       &ScriptRunner::ExecuteAsyncPendingScript, WrapWeakPersistent(this),
       WrapPersistent(pending_script), base::TimeTicks::Now(),
-      recordreplay::NewDependencyGraphNode(
-          "{\"kind\":\"scheduleExecuteAsyncScript\"}"));
+      record_replay_scheduled_node_id);
   if (pending_script->IsEligibleForLowPriorityAsyncScriptExecution()) {
     PostTaskWithLowPriorityUntilTimeout(
         FROM_HERE, std::move(task),
@@ -295,10 +294,6 @@ void ScriptRunner::ExecutePendingScript(PendingScript* pending_script) {
   int node_id = recordreplay::NewDependencyGraphNode("{\"kind\":\"executePendingScript\"}");
   recordreplay::AutoDependencyExecution execute(node_id);
 
-
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNode(
-          "{\"kind\":\"executePendingScript\"}"));
 
   pending_script->ExecuteScriptBlock();
 

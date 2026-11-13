@@ -2912,16 +2912,6 @@ void Document::UpdateStyle() {
     execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
   }
 
-
-  // Updating style can start network requests, which are then down to this.
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
-        recordreplay::DependencyGraphJson(
-            "documentUpdateStyle", {{"url", Url().GetString().Utf8()}})
-            .c_str()));
-  }
-
   StyleEngine& style_engine = GetStyleEngine();
   unsigned initial_element_count = style_engine.StyleForElementCount();
 
@@ -5406,17 +5396,6 @@ void Document::ExecuteScriptsWaitingForResources() {
       "{\"kind\":\"scheduler\"}"
     );
     execute.emplace(node_id);
-  }
-
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    record_replay_execute.emplace(recordreplay::NewDependencyGraphNodeFrom(
-        record_replay_execute_scripts_waiting_for_resources_node_id_,
-        "scheduler",
-        recordreplay::DependencyGraphJson(
-            "documentExecuteScriptsWaitingForResources",
-            {{"url", Url().GetString().Utf8()}})
-            .c_str()));
   }
 
   if (!IsScriptExecutionReady())

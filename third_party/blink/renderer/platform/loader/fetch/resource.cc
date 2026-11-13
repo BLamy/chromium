@@ -522,16 +522,6 @@ void Resource::Finish(base::TimeTicks load_response_end,
     execute.emplace(node_id);
   }
 
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    int node_id = recordreplay::NewDependencyGraphNode(
-        recordreplay::DependencyGraphJson("resourceFinished",
-                                          {{"url", Url().GetString().Utf8()}})
-            .c_str());
-    record_replay_dependency_node_ids_.push_back(node_id);
-    record_replay_execute.emplace(node_id);
-  }
-
   DCHECK(!IsCacheValidator());
   load_response_end_ = load_response_end;
   if (!ErrorOccurred())

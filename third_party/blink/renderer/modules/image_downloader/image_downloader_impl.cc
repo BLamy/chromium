@@ -190,12 +190,6 @@ void ImageDownloaderImpl::DownloadImage(const KURL& image_url,
                                         bool bypass_cache,
                                         DownloadImageCallback callback) {
   // The network requests this starts are down to the message being handled.
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
-        recordreplay::DependencyGraphJson("downloadImage", {{"url", image_url.GetString().Utf8()}})
-            .c_str()));
-  }
 
   // Keep track of network requests triggered by the download mojo message
   // we are handling.

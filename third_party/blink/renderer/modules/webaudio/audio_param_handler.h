@@ -607,6 +607,16 @@ class MODULES_EXPORT AudioParamHandler final
 
   mutable base::Lock events_lock_;
 
+  // Orders the timeline's accesses through the handler's render-wide lock
+  // while recording or replaying.
+  void RecordReplaySetHandler(DeferredTaskHandler* handler) {
+    record_replay_handler_ = handler;
+  }
+  raw_ptr<DeferredTaskHandler> record_replay_handler_ = nullptr;
+
+  // Whether the audio thread may read the timeline in this render.
+  bool RecordReplayMayRead() const;
+
   // The destination node used to get necessary information like the sample
   // rate and context time.
   scoped_refptr<AudioDestinationHandler> destination_handler_;

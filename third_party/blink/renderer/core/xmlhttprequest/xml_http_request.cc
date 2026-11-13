@@ -579,13 +579,6 @@ void XMLHttpRequest::DispatchReadyStateChangeEvent() {
   if (!GetExecutionContext())
     return;
 
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
-        recordreplay::DependencyGraphJson("xhrReadyStateChangeEvent", {{"url", Url().GetString().Utf8()}})
-            .c_str()));
-  }
-
   recordreplay::Assert(
       "[RUN-1126] XMLHttpRequest::DispatchReadyStateChangeEvent %d %d", state_, async_);
 

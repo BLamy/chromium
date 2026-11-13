@@ -117,14 +117,6 @@ DispatchEventResult EventDispatcher::DispatchEvent(Node& node, Event& event) {
   DCHECK(!EventDispatchForbiddenScope::IsEventDispatchForbidden());
 #endif
 
-  std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
-  if (recordreplay::DependencyGraphEnabled()) {
-    record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
-        recordreplay::DependencyGraphJson("dispatchEvent",
-                                          {{"type", event.type().Utf8()}})
-            .c_str()));
-  }
-
 
   std::optional<recordreplay::AutoDependencyExecution> execute;
   if (recordreplay::DependencyGraphEnabled()) {

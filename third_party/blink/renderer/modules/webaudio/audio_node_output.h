@@ -48,6 +48,8 @@ class MODULES_EXPORT AudioNodeOutput final {
   // It's OK to pass 0 for numberOfChannels in which case
   // setNumberOfChannels() must be called later on.
   AudioNodeOutput(AudioHandler*, unsigned number_of_channels);
+  ~AudioNodeOutput();
+
 
   void Dispose();
 
@@ -170,7 +172,7 @@ class MODULES_EXPORT AudioNodeOutput final {
   // AudioNode::makeConnection when we add an AudioNodeInput to this, and must
   // call AudioNode::breakConnection() when we remove an AudioNodeInput from
   // this.
-  HashSet<AudioNodeInput*> inputs_;
+  HashSet<AudioNodeInput*, RecordReplayPointerIdHash<AudioNodeInput>> inputs_;
   bool is_enabled_ = true;
 
   bool did_call_dispose_ = false;

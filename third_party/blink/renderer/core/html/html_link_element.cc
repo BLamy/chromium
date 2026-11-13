@@ -455,9 +455,6 @@ void HTMLLinkElement::DispatchPendingEvent(
       link_->HasLoaded() ? event_type_names::kLoad : event_type_names::kError,
       task_state);
 
-  recordreplay::AutoMarkerDependencyExecution record_replay_execute(
-      "LoadEventDelay", "HTMLLinkElement::DispatchPendingEvent");
-
   // Checks Document's load event synchronously here for performance.
   // This is safe because dispatchPendingEvent() is called asynchronously.
   recordreplay::AutoMarkerDependencyExecution execute(

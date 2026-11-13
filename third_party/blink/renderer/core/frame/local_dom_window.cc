@@ -1409,10 +1409,6 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
   }
 
 
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNodeFrom(
-          event->RecordReplayDependencyGraphNodeId(), "messageEventCreated",
-          "{\"kind\":\"dispatchMessageEvent\"}"));
   if (intended_target_origin) {
     bool valid_target =
         intended_target_origin->IsSameOriginWith(GetSecurityOrigin());

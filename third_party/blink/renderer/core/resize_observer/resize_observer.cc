@@ -163,11 +163,6 @@ void ResizeObserver::DeliverObservations() {
   if (active_observations_.empty())
     return;
 
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNodeFrom(
-          record_replay_created_node_id_, "creator",
-          "{\"kind\":\"observeResize\"}"));
-
   std::optional<recordreplay::AutoDependencyExecution> execute;
   if (recordreplay::DependencyGraphEnabled()) {
     int node_id = recordreplay::NewDependencyGraphNode(

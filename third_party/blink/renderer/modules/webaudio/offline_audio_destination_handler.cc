@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/trace_event/typed_macros.h"
 #include "media/base/audio_bus.h"
@@ -302,6 +303,8 @@ void OfflineAudioDestinationHandler::NotifySuspend(size_t frame) {
 
 void OfflineAudioDestinationHandler::NotifyComplete() {
   DCHECK(IsMainThread());
+  recordreplay::Assert("[RUN-2199] OfflineAudioDestinationHandler::NotifyComplete %d", !!render_thread_);
+
 
   shared_render_target_.reset();
   is_rendering_started_ = false;
@@ -349,6 +352,8 @@ bool OfflineAudioDestinationHandler::RenderIfNotSuspended(
   }
 
   Context()->GetDeferredTaskHandler().SetAudioThreadToCurrentThread();
+  DeferredTaskHandler::RecordReplayRenderTimelinesLocker replay_timelines(
+      Context()->GetDeferredTaskHandler());
 
   // If the destination node is not initialized, pass the silence to the final
   // audio destination (one step before the FIFO). This check is for the case

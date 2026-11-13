@@ -212,10 +212,6 @@ void ProxyMain::BeginMainFrameWithBlocking(
   if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
     recordreplay::SetCompositorProxy(this);
   }
-
-  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
-    recordreplay::SetCompositorProxy(this);
-  }
   DCHECK(IsMainThread());
   DCHECK_EQ(NO_PIPELINE_STAGE, current_pipeline_stage_);
   // Record the final status, subsampled. Use an RAII object as this function

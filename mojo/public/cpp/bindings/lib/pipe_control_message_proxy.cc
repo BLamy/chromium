@@ -42,12 +42,6 @@ PipeControlMessageProxy::PipeControlMessageProxy(MessageReceiver* receiver)
 void PipeControlMessageProxy::NotifyPeerEndpointClosed(
     InterfaceId id,
     const std::optional<DisconnectReason>& reason) {
-  // A message can't be sent at a point a replay doesn't share, so an
-  // endpoint that closes there, in a garbage collection, doesn't say so.
-  if (recordreplay::AreEventsDisallowed(
-          "PipeControlMessageProxy::NotifyPeerEndpointClosed")) {
-    return;
-  }
   // IPC messages can't be sent at non-deterministic points, so just drop the
   // close notification in that situation.
   if (recordreplay::AreEventsDisallowed("PipeControlMessageProxy::NotifyPeerEndpointClosed")) {
