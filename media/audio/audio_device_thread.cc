@@ -97,7 +97,9 @@ void AudioDeviceThread::ThreadMain() {
 
   uint32_t buffer_index = 0;
   while (true) {
-    if (in_shutdown_.load()) {
+    // Another thread sets the flag, so what this thread saw is recorded.
+    if (recordreplay::RecordReplayValue("AudioDeviceThread in_shutdown loop",
+                                        in_shutdown_.load())) {
       break;
     }
     uint32_t pending_data = 0;
@@ -149,7 +151,8 @@ void AudioDeviceThread::ThreadMain() {
     }
   }
 
-  if (!in_shutdown_.load()) {
+  if (!recordreplay::RecordReplayValue("AudioDeviceThread in_shutdown end",
+                                       in_shutdown_.load())) {
     callback_->OnSocketError();
   }
 }

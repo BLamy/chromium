@@ -617,6 +617,13 @@ void RenderThreadImpl::Init() {
   if (command_line.HasSwitch(switches::kDisableGpuCompositing))
     is_gpu_compositing_disabled_ = true;
 
+  // The browser only passes the switch above once its GPU data manager has
+  // settled, so the first renderers start without it and are told later, at a
+  // time a replay can't reproduce. A recorded renderer never composites on the
+  // GPU, so it doesn't wait to be told.
+  if (recordreplay::IsRecordingOrReplaying("no-gpu"))
+    is_gpu_compositing_disabled_ = true;
+
   // Note that under Linux, the media library will normally already have
   // been initialized by the Zygote before this instance became a Renderer.
   media::InitializeMediaLibrary();

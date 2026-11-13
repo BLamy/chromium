@@ -40,6 +40,7 @@
 #include "base/metrics/histogram_base.h"
 #include "base/path_service.h"
 #include "base/power_monitor/power_monitor.h"
+#include "base/record_replay.h"
 #include "base/power_monitor/power_monitor_source.h"
 #include "base/process/launch.h"
 #include "base/process/memory.h"
@@ -942,6 +943,13 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
     // interfers with shutdown when objects created before ContentMain is
     // called are destructed when it returns.
     exit_manager_ = std::make_unique<base::AtExitManager>();
+  }
+
+  // Each thread with a message pump asks for the power monitor as it starts,
+  // and the first to ask makes it, along with its ordered locks. Which thread
+  // that is varies from run to run, so a recorded process makes it here.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    base::PowerMonitor::GetInstance();
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
