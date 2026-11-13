@@ -1071,6 +1071,32 @@ void V8Initializer::InitializeInSandboxAllocator() {
 #endif
 }
 
+}  // namespace blink
+
+namespace recordreplay {
+BASE_EXPORT void SetFinishRecordingInterrupter(void (*interrupter)());
+BASE_EXPORT void MaybeFinishRecording();
+}  // namespace recordreplay
+
+namespace blink {
+
+namespace {
+
+// The main thread's isolate, for the interrupt that has it look for a finish
+// of the recording another thread asked for.
+v8::Isolate* g_record_replay_main_isolate = nullptr;
+
+void RecordReplayInterruptMainThreadToFinish() {
+  if (!g_record_replay_main_isolate) {
+    return;
+  }
+  g_record_replay_main_isolate->RequestInterrupt(
+      [](v8::Isolate*, void*) { recordreplay::MaybeFinishRecording(); },
+      nullptr);
+}
+
+}  // namespace
+
 v8::Isolate* V8Initializer::InitializeMainThread() {
   DCHECK(IsMainThread());
   ThreadScheduler* scheduler = ThreadScheduler::Current();
@@ -1115,6 +1141,11 @@ v8::Isolate* V8Initializer::InitializeMainThread() {
   }
 
   isolate->SetPromiseRejectCallback(PromiseRejectHandlerInMainThread);
+  if (recordreplay::IsRecordingOrReplaying()) {
+    g_record_replay_main_isolate = isolate;
+    recordreplay::SetFinishRecordingInterrupter(
+        &RecordReplayInterruptMainThreadToFinish);
+  }
   isolate->SetExceptionPropagationCallback(ExceptionPropagationCallback);
 
   V8PerIsolateData::From(isolate)->SetThreadDebugger(

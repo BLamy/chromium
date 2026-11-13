@@ -254,6 +254,16 @@ void SetMainThreadTaskRunner(
   gMainThreadTaskRunner = task_runner.release();
 }
 
+// How to get a main thread that's running script to look for a finish that
+// was asked for. Whoever owns the main thread's isolate sets it (Blink asks
+// V8 for an interrupt, which a recording runs at the next progress point, the
+// same one on a replay). Declared where it's used: this isn't in the header.
+static std::atomic<void (*)()> gFinishRecordingInterrupter{nullptr};
+
+BASE_EXPORT void SetFinishRecordingInterrupter(void (*interrupter)()) {
+  gFinishRecordingInterrupter.store(interrupter, std::memory_order_release);
+}
+
 void FinishRecording() {
   if (!Active() || !gRecordReplayFinishRecording) {
     return;
@@ -271,6 +281,15 @@ void FinishRecording() {
                                                std::memory_order_acq_rel)) {
     AutoPassThroughEvents pass_through;
     wake(gTerminateCallbackData.load(std::memory_order_acquire));
+  }
+  // The task below only runs once the main thread is back at its loop, and
+  // the wake above only helps one that's waiting. A page that never returns
+  // (a loop of calls that fail at once because the browser has gone) does
+  // neither, and its recording was never finished: the process ran on until
+  // it was killed. 108 looked each time such a call began.
+  if (auto* interrupter =
+          gFinishRecordingInterrupter.load(std::memory_order_acquire)) {
+    interrupter();
   }
   if (!gMainThreadTaskRunner ||
       !gMainThreadTaskRunner->PostTask(FROM_HERE,
