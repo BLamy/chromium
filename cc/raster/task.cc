@@ -89,7 +89,12 @@ void TaskState::DidCancel() {
   value_ = Value::kCanceled;
 }
 
-Task::Task() : trace_task_id_(base::trace_event::GetNextGlobalTraceId()) {}
+Task::Task() : trace_task_id_(base::trace_event::GetNextGlobalTraceId()) {
+  if (!recordreplay::AreEventsUnavailable() &&
+      !recordreplay::AreEventsPassedThrough()) {
+    record_replay_id_ = recordreplay::NewIdAnyThread("Task");
+  }
+}
 
 Task::~Task() = default;
 void Task::RecordReplayEnter() {

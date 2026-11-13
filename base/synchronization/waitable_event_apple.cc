@@ -46,6 +46,8 @@ WaitableEvent::WaitableEvent(ResetPolicy reset_policy,
        recordreplay::HasDivergedFromRecording())) {
     record_replay_ordered_lock_id_ =
         recordreplay::CreateOrderedLock("WaitableEvent");
+    // Pointer registration is needed for sorting in WaitMany.
+    recordreplay::RegisterPointer("WaitableEvent", this);
   }
 
   mach_port_options_t options{};

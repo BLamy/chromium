@@ -348,7 +348,19 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
     bool operator()(
         const raw_ptr<base::WaitableEvent, SetExperimental>& a,
         const raw_ptr<base::WaitableEvent, SetExperimental>& b) const {
-      return recordreplay::CompareByPointerId()(a.get(), b.get());
+      // An event made with events disallowed has no ID: such events go by
+      // address, after the ones that have one.
+      if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+        int ida = recordreplay::PointerId(a.get());
+        int idb = recordreplay::PointerId(b.get());
+        if (ida && idb) {
+          return ida < idb;
+        }
+        if (ida || idb) {
+          return ida != 0;
+        }
+      }
+      return a.get() < b.get();
     }
   };
   std::set<raw_ptr<base::WaitableEvent, SetExperimental>,

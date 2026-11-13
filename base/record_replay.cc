@@ -859,17 +859,15 @@ int NewIdMainThread(const char* name) {
   return gNextMainThreadId++;
 }
 
-static int gNextScriptWrappableId = 1;
-
-int NewScriptWrappableId() {
-  if (!IsMainThread() || (!IsReplaying() && !gDependencyGraphAsserts) ||
-      AreEventsDisallowed()) {
-    return 0;
-  }
-  return gNextScriptWrappableId++;
-}
-
 static std::atomic<int> gNextAnyThreadId{1};
+
+// As in Replay's Chromium 108, where ScriptWrappable's constructor asks for
+// NewIdAnyThread("ScriptWrappable"): an object gets its ID when recording too,
+// and the IDs are in the recording. Tables of such objects are ordered by
+// these IDs, so one without an ID can't be put in one.
+int NewScriptWrappableId() {
+  return NewIdAnyThread("ScriptWrappable");
+}
 
 int NewIdAnyThread(const char* name) {
   if (!CheckNewId(name)) {

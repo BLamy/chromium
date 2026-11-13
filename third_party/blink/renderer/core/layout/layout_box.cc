@@ -540,6 +540,7 @@ void LayoutBoxRareData::Trace(Visitor* visitor) const {
 }
 
 LayoutBox::LayoutBox(ContainerNode* node) : LayoutBoxModelObject(node) {
+  record_replay_id_ = recordreplay::NewIdMainThread("LayoutBox");
 }
 
 void LayoutBox::Trace(Visitor* visitor) const {

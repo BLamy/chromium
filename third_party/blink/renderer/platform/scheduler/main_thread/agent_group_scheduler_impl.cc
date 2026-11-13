@@ -53,6 +53,7 @@ AgentGroupSchedulerImpl::AgentGroupSchedulerImpl(
       compositor_task_runner_(compositor_task_queue_->CreateTaskRunner(
           TaskType::kMainThreadTaskQueueCompositor)),
       main_thread_scheduler_(main_thread_scheduler) {
+  record_replay_id_ = recordreplay::NewIdAnyThread("AgentGroupSchedulerImpl");
   DCHECK(!default_task_queue_->GetFrameScheduler());
   DCHECK_EQ(default_task_queue_->GetAgentGroupScheduler(), this);
 }

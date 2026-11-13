@@ -352,6 +352,13 @@ void MemoryDumpManager::ContinueAsyncProcessDump(
     scoped_refptr<ProcessMemoryDumpAsyncState> pmd_async_state) {
   HEAP_PROFILER_SCOPED_IGNORE;
 
+  // Don't generate process dumps when recording/replaying, to avoid mismatched
+  // behavior issues when accessing memory dump state.
+  if (recordreplay::IsRecordingOrReplaying("gc-changes", "MemoryDumpManager::ContinueAsyncProcessDump")) {
+    FinishAsyncProcessDump(std::move(pmd_async_state));
+    return;
+  }
+
   // In theory |pmd_async_state| should be a unique_ptr. The only reason why it
   // isn't is because of the corner case logic of |did_post_task| below, which
   // needs to take back the ownership of the |pmd_async_state| when the

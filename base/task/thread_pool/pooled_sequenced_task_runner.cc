@@ -20,7 +20,9 @@ PooledSequencedTaskRunner::PooledSequencedTaskRunner(
                                          this,
                                          TaskSourceExecutionMode::kSequenced,
                                          GetCurrentTaskImportance(),
-                                         inherit_task_importance_by_default)) {}
+                                         inherit_task_importance_by_default)) {
+  recordreplay::RegisterPointer("PooledSequencedTaskRunner", this);
+}
 
 PooledSequencedTaskRunner::~PooledSequencedTaskRunner() {
   recordreplay::UnregisterPointer(this);

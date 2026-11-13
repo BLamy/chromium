@@ -320,6 +320,9 @@ void IntersectionObserverController::RemoveTrackedObservation(
       tracked_implicit_root_observations_.erase(it);
     }
   }
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "IntersectionObserverController")) {
+    replay_strong_tracked_implicit_root_observations_.erase(&observation);
+  }
 }
 
 wtf_size_t

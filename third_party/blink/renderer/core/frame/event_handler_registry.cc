@@ -121,9 +121,17 @@ void EventHandlerRegistry::UpdateEventHandlerTargets(
       return;
     case kRemove:
       targets->erase(target);
+      if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                               "EventHandlerRegistry")) {
+        replay_strong_targets_.erase(target);
+      }
       return;
     case kRemoveAll:
       targets->RemoveAll(target);
+      if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                               "EventHandlerRegistry")) {
+        replay_strong_targets_.RemoveAll(target);
+      }
       return;
   }
   NOTREACHED();
