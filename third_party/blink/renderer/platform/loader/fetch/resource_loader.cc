@@ -267,7 +267,9 @@ ResourceLoader::ResourceLoader(ResourceFetcher* fetcher,
   resource_->SetLoader(this);
 }
 
-ResourceLoader::~ResourceLoader() = default;
+ResourceLoader::~ResourceLoader() {
+  recordreplay::UnregisterPointer(this);
+}
 
 void ResourceLoader::Trace(Visitor* visitor) const {
   visitor->Trace(fetcher_);

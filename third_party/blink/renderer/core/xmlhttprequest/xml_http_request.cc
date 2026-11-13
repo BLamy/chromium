@@ -288,7 +288,9 @@ XMLHttpRequest::XMLHttpRequest(ExecutionContext* context,
       isolated_world_security_origin_(world_ && world_->IsIsolatedWorld()
                                           ? world_->IsolatedWorldSecurityOrigin(
                                                 context->GetAgentClusterID())
-                                          : nullptr) {}
+                                          : nullptr) {
+  recordreplay::RegisterPointer("XMLHttpRequest", this);
+}
 
 XMLHttpRequest::~XMLHttpRequest() {
   recordreplay::UnregisterPointer(this);

@@ -36,6 +36,7 @@ AudioSummingJunction::AudioSummingJunction(DeferredTaskHandler& handler)
 }
 
 AudioSummingJunction::~AudioSummingJunction() {
+  recordreplay::UnregisterPointer(this);
   deferred_task_handler_->AssertGraphOwner();
   deferred_task_handler_->RemoveMarkedSummingJunction(this);
 }
