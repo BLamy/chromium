@@ -4,6 +4,10 @@
 
 #include "base/threading/thread_id_name_manager.h"
 
+#include <optional>
+
+#include "base/record_replay.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -68,7 +72,15 @@ void ThreadIdNameManager::SetName(const std::string& name) {
   PlatformThreadId id = PlatformThread::CurrentId();
   std::string* leaked_str = nullptr;
   {
+    // A thread pool worker names itself with events disallowed, where this
+    // lock, ordered for the threads that take it with events allowed, can't
+    // be: it's taken passed through there.
+    std::optional<recordreplay::AutoPassThroughEvents> pass_through;
+    if (recordreplay::AreEventsDisallowed()) {
+      pass_through.emplace();
+    }
     AutoLock locked(lock_);
+    pass_through.reset();
     auto iter = name_to_interned_name_.find(name);
     if (iter != name_to_interned_name_.end()) {
       leaked_str = iter->second;

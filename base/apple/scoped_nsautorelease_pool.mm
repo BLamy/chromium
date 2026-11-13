@@ -5,6 +5,7 @@
 #include "base/apple/scoped_nsautorelease_pool.h"
 
 #include "base/dcheck_is_on.h"
+#include "base/record_replay.h"
 
 #if DCHECK_IS_ON()
 #import <Foundation/Foundation.h>
@@ -91,6 +92,13 @@ void ScopedNSAutoreleasePool::PushImpl() {
   [GetLevelStackTraces() addObject:MakeBlockReturningStackTrace()];
   level_ = GetLevelStackTraces().count;
 #endif
+  // A thread pool worker's loop runs with events disallowed when recording or
+  // replaying, where a pool can't be one of the recording's calls.
+  if (recordreplay::AreEventsDisallowed()) {
+    recordreplay::AutoPassThroughEvents pass_through;
+    autorelease_pool_ = objc_autoreleasePoolPush();
+    return;
+  }
   autorelease_pool_ = objc_autoreleasePoolPush();
 }
 
@@ -134,6 +142,11 @@ void ScopedNSAutoreleasePool::PopImpl() {
   }
   [GetLevelStackTraces() removeLastObject];
 #endif
+  if (recordreplay::AreEventsDisallowed()) {
+    recordreplay::AutoPassThroughEvents pass_through;
+    objc_autoreleasePoolPop(autorelease_pool_);
+    return;
+  }
   objc_autoreleasePoolPop(autorelease_pool_);
 }
 

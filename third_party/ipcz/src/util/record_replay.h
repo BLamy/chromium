@@ -171,7 +171,15 @@ inline void InitializeAtomicsLock() {
 // counters ipcz keeps outside its mutexes. One lock serves all of them.
 class AutoOrderedAtomics {
  public:
-  AutoOrderedAtomics() : lock_(internal::gAtomicsLock) { OrderedLock(lock_); }
+  // With events disallowed (a destructor run by the garbage collector closing
+  // a handle), nothing can be ordered, and the driver warns if asked to.
+  AutoOrderedAtomics()
+      : lock_(internal::GetDriver().are_events_disallowed &&
+                      internal::GetDriver().are_events_disallowed()
+                  ? 0
+                  : internal::gAtomicsLock) {
+    OrderedLock(lock_);
+  }
   ~AutoOrderedAtomics() { OrderedUnlock(lock_); }
   AutoOrderedAtomics(const AutoOrderedAtomics&) = delete;
   AutoOrderedAtomics& operator=(const AutoOrderedAtomics&) = delete;
