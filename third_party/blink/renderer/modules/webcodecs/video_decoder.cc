@@ -306,7 +306,10 @@ ScriptPromise<VideoDecoderSupport> VideoDecoder::isConfigSupported(
 
   if ((hw_pref == HardwarePreference::kPreferSoftware &&
        !media::IsDecoderBuiltInVideoCodec(video_type->codec)) ||
-      !media::IsDecoderSupportedVideoType(*video_type)) {
+      !media::IsDecoderSupportedVideoType(*video_type) ||
+      // Video decoding is unsupported while recording/replaying, see
+      // VideoDecoderBroker.
+      recordreplay::IsRecordingOrReplaying("no-video")) {
     support->setSupported(false);
     return ToResolvedPromise<VideoDecoderSupport>(script_state, support);
   }

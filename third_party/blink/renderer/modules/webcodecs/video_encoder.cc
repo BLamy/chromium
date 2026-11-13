@@ -461,6 +461,12 @@ VideoEncoderTraits::ParsedConfig* ParseConfigStatic(
 
 bool VerifyCodecSupportStatic(VideoEncoderTraits::ParsedConfig* config,
                               String* js_error_message) {
+  // Video encoding is unsupported while recording/replaying.
+  if (recordreplay::IsRecordingOrReplaying("no-video")) {
+    *js_error_message = "Unsupported codec type.";
+    return false;
+  }
+
   if (config->not_supported_error_message) {
     *js_error_message = *config->not_supported_error_message;
     return false;

@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/record_replay.h"
 #include "base/bits.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"

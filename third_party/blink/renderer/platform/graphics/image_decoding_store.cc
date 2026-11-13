@@ -47,7 +47,9 @@ static std::atomic<bool> gHasInstance{false};
 
 ImageDecodingStore::ImageDecodingStore()
     : heap_limit_in_bytes_(kDefaultMaxTotalSizeOfHeapEntries),
-      heap_memory_usage_in_bytes_(0) {}
+      heap_memory_usage_in_bytes_(0) {
+  gHasInstance = true;
+}
 
 ImageDecodingStore::~ImageDecodingStore() {
 #if DCHECK_IS_ON()

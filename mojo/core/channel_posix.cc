@@ -14,6 +14,7 @@
 #include <memory>
 #include <tuple>
 
+#include "base/record_replay.h"
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
