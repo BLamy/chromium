@@ -8,6 +8,7 @@
 
 #include <algorithm>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
@@ -615,6 +616,11 @@ const base::FeatureParam<base::TimeDelta> kDomStorageAblationDelayOffset{
 void CachedStorageArea::EnsureLoaded() {
   if (map_)
     return;
+  if (recordreplay::AreEventsUnavailable()) {
+    map_ = std::make_unique<StorageAreaMap>(
+        mojom::blink::StorageArea::kPerStorageAreaQuota);
+    return;
+  }
   if (!remote_area_)
     BindStorageArea();
 

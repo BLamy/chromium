@@ -283,9 +283,20 @@ void MessagePort::close() {
   // A closed port should not be neutered, so rather than merely disconnecting
   // from the mojo message pipe, also entangle with a new dangling message pipe.
   if (!IsNeutered()) {
-    Disentangle().ReleaseHandle();
-    MessagePortDescriptorPair pipe;
-    Entangle(pipe.TakePort0(), nullptr);
+    if (recordreplay::IsRecordingOrReplaying("disallow-events", "MessagePort::close")) {
+      // Entangling a new pipe creates mojo resources, which close() can't do
+      // deterministically: the port's lifetime is managed by the GC. Keep the
+      // pipe and drop the receiver instead. Otherwise the connector keeps
+      // dispatching to this port until the GC finalizes it, at a point that
+      // differs between recording and replaying. The first message after this
+      // finds no receiver and resets the pipe, closing the peer as
+      // disentangling would.
+      connector_->set_incoming_receiver(nullptr);
+    } else {
+      Disentangle().ReleaseHandle();
+      MessagePortDescriptorPair pipe;
+      Entangle(pipe.TakePort0(), nullptr);
+    }
   }
   closed_ = true;
 }

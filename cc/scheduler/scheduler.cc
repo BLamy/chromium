@@ -927,7 +927,13 @@ void Scheduler::ScheduleBeginImplFrameDeadline() {
     }
     case DeadlineMode::REGULAR:
       // We are animating the active tree but we're also waiting for commit.
-      new_deadline = begin_impl_frame_tracker_.Current().deadline;
+
+      // This deadline is derived from time-since-reboot, which means if we're replaying on
+      // something vastly different from recording, we might see times deep into the future,
+      // which will block our ability to render divergent frames.
+      if (!recordreplay::HasDivergedFromRecording()) {
+        new_deadline = begin_impl_frame_tracker_.Current().deadline;
+      }
       break;
     case DeadlineMode::IMMEDIATE:
       // Avoid using Now() for immediate deadlines because it's expensive, and

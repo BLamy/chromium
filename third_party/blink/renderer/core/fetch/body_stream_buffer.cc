@@ -164,8 +164,14 @@ void BodyStreamBuffer::Init() {
     if (signal_->aborted()) {
       Abort();
     } else {
-      stream_buffer_abort_handle_ = signal_->AddAlgorithm(
-          BindOnce(&BodyStreamBuffer::Abort, WrapWeakPersistent(this)));
+      if (recordreplay::IsRecordingOrReplaying("leak-references", "BodyStreamBuffer")) {
+        // Abort() interacts with the recording so we need it to run consistently.
+        stream_buffer_abort_handle_ = signal_->AddAlgorithm(
+            BindOnce(&BodyStreamBuffer::Abort, WrapPersistent(this)));
+      } else {
+        stream_buffer_abort_handle_ = signal_->AddAlgorithm(
+            BindOnce(&BodyStreamBuffer::Abort, WrapWeakPersistent(this)));
+      }
     }
   }
   OnStateChange();
@@ -268,9 +274,16 @@ void BodyStreamBuffer::StartLoading(FetchDataLoader* loader,
       AbortLoader(client);
       return;
     }
-    loader_client_abort_handle_ = signal_->AddAlgorithm(
-        BindOnce(&BodyStreamBuffer::AbortLoader, WrapWeakPersistent(this),
-                 WrapWeakPersistent(client)));
+    if (recordreplay::IsRecordingOrReplaying("leak-references", "BodyStreamBuffer")) {
+      // Client aborts can interact with the recording, so we want them to run consistently.
+      loader_client_abort_handle_ = signal_->AddAlgorithm(
+          BindOnce(&BodyStreamBuffer::AbortLoader, WrapPersistent(this),
+                   WrapPersistent(client)));
+    } else {
+      loader_client_abort_handle_ = signal_->AddAlgorithm(
+          BindOnce(&BodyStreamBuffer::AbortLoader, WrapWeakPersistent(this),
+                   WrapWeakPersistent(client)));
+    }
   }
   loader_ = loader;
   auto* handle = ReleaseHandle(exception_state);
