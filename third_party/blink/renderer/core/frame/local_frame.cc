@@ -37,6 +37,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/check_deref.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
@@ -531,6 +532,11 @@ LocalFrame::~LocalFrame() {
   // the frame owner.
   DCHECK(!view_);
   DCHECK(!frame_color_overlay_);
+
+  if (record_replay_detached_local_root_id_) {
+    recordreplay::CommandDiagnostic("[RUN-2486-2577] ~LocalFrame %d",
+                                    *record_replay_detached_local_root_id_);
+  }
   if (IsAdFrame()) {
     InstanceCounters::DecrementCounter(InstanceCounters::kAdSubframeCounter);
   }
@@ -885,6 +891,16 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
   supplements_.clear();
   frame_scheduler_.reset();
   mojo_handler_->DidDetachFrame();
+
+  if (!IsA<LocalFrame>(Tree().Parent())) {
+    record_replay_detached_local_root_id_ =
+        WeakIdentifierMap<LocalFrame>::HasIdentifier(this)
+            ? WeakIdentifierMap<LocalFrame>::ExistingIdentifier(this)
+            : -1;
+    recordreplay::CommandDiagnosticTrace(
+        "[RUN-2486-2577] LocalFrame::DetachImpl %d",
+        *record_replay_detached_local_root_id_);
+  }
   WeakIdentifierMap<LocalFrame>::NotifyObjectDestroyed(this);
 
   LocalFramesByTokenMap& local_frames_map = GetLocalFramesMap();

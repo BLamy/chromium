@@ -426,10 +426,15 @@
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
+#include "base/json/json_writer.h"
+
 #include "third_party/blink/renderer/platform/wtf/text/utf16.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "base/record_replay.h"
+#include "base/values.h"
 #include <string>
+
+extern "C" int V8RecordReplayDependencyGraphExecutionNode();
 
 namespace blink {
 
@@ -1056,6 +1061,11 @@ Document::Document(const DocumentInit& initializer,
               ? MakeGarbageCollected<RenderBlockingResourceManager>(*this)
               : nullptr),
       data_(MakeGarbageCollected<DocumentData>(GetExecutionContext())) {
+  // Documents are registered so that we can test the validity of document
+  // pointers while replaying to avoid crashes.
+  // See V8Window::NamedPropertyGetterCustom
+  recordreplay::RegisterPointer("Document", this);
+
   TRACE_EVENT("blink", "Document::Document", perfetto::Flow::FromPointer(this));
   DCHECK(agent_);
   if (base::FeatureList::IsEnabled(features::kDelayAsyncScriptExecution) &&
@@ -1148,6 +1158,8 @@ Document::Document(const DocumentInit& initializer,
 }
 
 Document::~Document() {
+  recordreplay::UnregisterPointer(this);
+
   DCHECK(!GetLayoutView());
   DCHECK(!ParentTreeScope());
   // If a top document with a cache, verify that it was comprehensively
@@ -1372,6 +1384,8 @@ AtomicString Document::ConvertLocalName(const AtomicString& name) {
 // and SVGElementFactory because they don't support prefixes correctly.
 Element* Document::CreateRawElement(const QualifiedName& qname,
                                     CreateElementFlags flags) {
+  recordreplay::Assert("[RUN-1492-2299] Document::CreateRawElement %s",
+                       qname.ToString().Utf8().c_str());
   Element* element = nullptr;
   if (qname.NamespaceURI() == html_names::xhtmlNamespaceURI) {
     // https://html.spec.whatwg.org/C/#elements-in-the-dom:element-interface
@@ -2887,6 +2901,17 @@ void Document::UpdateStyle() {
   TRACE_EVENT_BEGIN("blink,blink_style", "Document::updateStyle");
   RUNTIME_CALL_TIMER_SCOPE(GetAgent().isolate(),
                            RuntimeCallStats::CounterId::kUpdateStyle);
+  // Updating style can trigger network requests, so keep track of execution.
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "documentUpdateStyle");
+    info.Set("url", Url().GetString().Utf8());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
+  }
+
 
   // Updating style can start network requests, which are then down to this.
   std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
@@ -3190,6 +3215,13 @@ void Document::UpdateStyleAndLayout(DocumentUpdateReason reason) {
   }
   TRACE_EVENT("blink", "Document::UpdateStyleAndLayout");
   LocalFrameView* frame_view = View();
+  // Refuse to update style and layout state if side effects or events
+  // are not allowed.
+  // We are doing something while replaying that didn't happen while recording and
+  // isn't supposed to interact with the recording, like getting object previews.
+  if (!recordreplay::AllowSideEffects() || recordreplay::AreEventsDisallowed())
+    return;
+
 
   bool is_potentially_clean =
       (Lifecycle().GetState() >= DocumentLifecycle::kLayoutClean) &&
@@ -3314,11 +3346,13 @@ void Document::SetIsXrOverlay(bool val, Element* overlay_element) {
 }
 
 void Document::ScheduleUseShadowTreeUpdate(SVGUseElement& element) {
+  recordreplay::Assert("[RUN-1436-2260] Document::ScheduleUseShadowTreeUpdate %d", element.RecordReplayId());
   use_elements_needing_update_.insert(&element);
   ScheduleLayoutTreeUpdateIfNeeded();
 }
 
 void Document::UnscheduleUseShadowTreeUpdate(SVGUseElement& element) {
+  recordreplay::Assert("[RUN-1436-2260] Document::UnscheduleUseShadowTreeUpdate %d", element.RecordReplayId());
   use_elements_needing_update_.erase(&element);
 }
 
@@ -3382,6 +3416,9 @@ void Document::Shutdown() {
         ConnectedSubframeCount() == 0);
   if (!IsActive())
     return;
+
+  // Replay: seal the last live root document state. Precedes the scopers
+  // below, since command handling at the checkpoint can run script.
 
   // An active Document must have an associated window.
   CHECK(dom_window_);
@@ -5355,6 +5392,21 @@ void Document::DidLoadAllScriptBlockingResources() {
 }
 
 void Document::ExecuteScriptsWaitingForResources() {
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "documentExecuteScriptsWaitingForResources");
+    info.Set("url", Url().GetString().Utf8());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    int node_id = recordreplay::NewDependencyGraphNode(json.c_str());
+    recordreplay::AddDependencyGraphEdge(
+      record_replay_execute_scripts_waiting_for_resources_node_id_, node_id,
+      "{\"kind\":\"scheduler\"}"
+    );
+    execute.emplace(node_id);
+  }
+
   std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
   if (recordreplay::DependencyGraphEnabled()) {
     record_replay_execute.emplace(recordreplay::NewDependencyGraphNodeFrom(
@@ -8617,6 +8669,10 @@ ukm::UkmRecorder* Document::UkmRecorder() {
   if (WebTestSupport::IsRunningWebTest()) {
     return ukm::DelegatingUkmRecorder::Get();
   } else {
+  recordreplay::Assert("Document::UkmRecorder mint doc=%d sourceId=%lld",
+                       recordreplay::PointerId(this),
+                       (long long)UkmSourceID());
+
     return ukm_recorder_.get();
   }
 }

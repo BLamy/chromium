@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/animation/animation_timeline.h"
 
+#include "base/record_replay.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_cssnumericvalue_double.h"
 #include "third_party/blink/renderer/core/animation/css/css_animation.h"
@@ -32,12 +33,18 @@ void AnimationTimeline::AnimationAttached(Animation* animation) {
   DCHECK(!animations_.Contains(animation));
   DCHECK(!in_trigger_attachments_update_);
   animations_.insert(animation);
+
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "AnimationTimeline"))
+    record_replay_animations_strong_.insert(animation);
   animation->ResolveTimelineOffsets(GetTimelineRange());
 }
 
 void AnimationTimeline::AnimationDetached(Animation* animation) {
   DCHECK(!in_trigger_attachments_update_);
   animations_.erase(animation);
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "AnimationTimeline"))
+    record_replay_animations_strong_.erase(animation);
+
   animations_needing_update_.erase(animation);
   if (animation->Outdated())
     outdated_animation_count_--;
@@ -228,6 +235,8 @@ Animation* AnimationTimeline::Play(AnimationEffect* child,
 }
 
 void AnimationTimeline::MarkAnimationsCompositorPending(bool source_changed) {
+  recordreplay::Assert("[RUN-1641] AnimationTimeline::MarkAnimationsCompositorPending %d", RecordReplayId());
+
   Animation::CompositorPendingReason reason =
       source_changed ? Animation::CompositorPendingReason::kPendingEffectChange
                      : Animation::CompositorPendingReason::kPendingUpdate;
@@ -258,6 +267,7 @@ void AnimationTimeline::Trace(Visitor* visitor) const {
   visitor->Trace(document_);
   visitor->Trace(animations_needing_update_);
   visitor->Trace(animations_);
+  visitor->Trace(record_replay_animations_strong_);
   visitor->Trace(triggers_);
   ScriptWrappable::Trace(visitor);
 }

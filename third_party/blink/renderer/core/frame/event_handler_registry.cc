@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_add_event_listener_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_event_listener_options.h"
 #include "third_party/blink/renderer/core/events/event_util.h"
@@ -113,6 +114,10 @@ void EventHandlerRegistry::UpdateEventHandlerTargets(
   switch (op) {
     case kAdd:
       targets->insert(target);
+      if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                               "EventHandlerRegistry")) {
+        replay_strong_targets_.insert(target);
+      }
       return;
     case kRemove:
       targets->erase(target);
@@ -133,6 +138,10 @@ bool EventHandlerRegistry::UpdateEventHandlerInternal(
   unsigned new_num_handlers = targets_[handler_class].size();
 
   bool handlers_changed = old_num_handlers != new_num_handlers;
+
+  recordreplay::AssertMaybeEventsDisallowed(
+        "[RUN-2300] EventHandlerRegistry::UpdateEventHandlerInternal %d %d %d",
+        target->RecordReplayId(), (int)op, handlers_changed);
   if (op != kRemoveAll && handlers_changed)
     NotifyHandlersChanged(target, handler_class, new_num_handlers > 0);
 
@@ -242,6 +251,14 @@ void EventHandlerRegistry::NotifyHandlersChanged(
   // fixed.
   if (!GetPage())
     return;
+  // Avoid updating state in other components at non-deterministic points.
+  if (recordreplay::AreEventsDisallowed("EventHandlerRegistry::NotifyHandlersChanged"))
+    return;
+
+  recordreplay::Assert(
+      "[RUN-2300] EventHandlerRegistry::UpdateEventHandlerInternal %d",
+      target->RecordReplayId(), (int)handler_class);
+
 
   switch (handler_class) {
     case kScrollEvent:
@@ -326,6 +343,7 @@ void EventHandlerRegistry::Trace(Visitor* visitor) const {
   visitor->Trace(frame_);
   visitor->template RegisterWeakCallbackMethod<
       EventHandlerRegistry, &EventHandlerRegistry::ProcessCustomWeakness>(this);
+  visitor->Trace(replay_strong_targets_);
 }
 
 void EventHandlerRegistry::ProcessCustomWeakness(const LivenessBroker& info) {

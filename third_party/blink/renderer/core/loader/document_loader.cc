@@ -3522,6 +3522,9 @@ void DocumentLoader::CommitNavigation() {
 }
 
 void DocumentLoader::CreateParserPostCommit() {
+  // https://linear.app/replay/issue/BAC-2424
+  recordreplay::Assert("DocumentLoader::CreateParserPostCommit");
+
   TRACE_EVENT("loading", "DocumentLoader::CreateParserPostCommit",
               perfetto::Flow::FromPointer(this));
   base::ElapsedTimer timer;

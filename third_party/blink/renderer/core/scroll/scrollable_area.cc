@@ -33,6 +33,7 @@
 
 #include <limits>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/functional/callback_helpers.h"
 #include "base/task/single_thread_task_runner.h"
@@ -238,6 +239,13 @@ ScrollConsumption ScrollableArea::UserScroll(ui::ScrollGranularity granularity,
                                              const ScrollOffset& delta,
                                              cc::ScrollSourceType source_type,
                                              ScrollCallback on_finish) {
+  // Layout C++ callers share this; JS APIs throw at their IDL entry points.
+  if (recordreplay::AreEventsUnavailable("divergent-side-effect")) {
+    if (on_finish)
+      std::move(on_finish).Run(ScrollCompletionMode::kZeroDelta);
+    return ScrollConsumption(false, false, 0, 0);
+  }
+
   TRACE_EVENT2("input", "ScrollableArea::UserScroll", "x", delta.x(), "y",
                delta.y());
 

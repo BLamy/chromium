@@ -173,8 +173,13 @@ void ExecutionContext::SetLifecycleState(mojom::FrameLifecycleState state) {
         DCHECK_EQ(state_observer->GetExecutionContext(), this);
         DCHECK(state_observer->UpdateStateIfNeededCalled());
 #endif
+        recordreplay::Assert(
+            "[RUN-1716] ExecutionContext::SetLifecycleState A %d",
+            recordreplay::PointerId(state_observer));
         state_observer->ContextLifecycleStateChanged(state);
       });
+
+  recordreplay::Assert("[RUN-1716] ExecutionContext::SetLifecycleState B");
 }
 
 void ExecutionContext::NotifyContextDestroyed() {
@@ -286,6 +291,7 @@ void ExecutionContext::AddConsoleMessageImpl(
 void ExecutionContext::DispatchErrorEvent(
     ErrorEvent* error_event,
     SanitizeScriptErrors sanitize_script_errors) {
+
   // An uncaught error is one of the recording's messages, as a console call
   // is. V8 tells the driver, which reads what it says while this is running.
   if (IsMainThread() && recordreplay::IsRecordingOrReplaying() &&

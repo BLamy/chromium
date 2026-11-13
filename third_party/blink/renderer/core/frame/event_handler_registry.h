@@ -8,6 +8,7 @@
 #include <array>
 
 #include "base/dcheck_is_on.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_counted_set.h"
 #include "third_party/blink/renderer/core/core_export.h"  // TODO(sashab): Remove this.
 #include "third_party/blink/renderer/platform/heap/forward.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -141,6 +142,7 @@ class CORE_EXPORT EventHandlerRegistry final
 
   Member<LocalFrame> frame_;
   std::array<EventTargetSet, kEventHandlerClassCount> targets_;
+  HeapHashCountedSet<Member<EventTarget>> replay_strong_targets_;
 };
 
 }  // namespace blink

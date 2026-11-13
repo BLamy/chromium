@@ -29,6 +29,7 @@
 
 #include <memory>
 
+#include "base/record_replay.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_traits.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_message_event_init.h"
@@ -184,6 +185,11 @@ MessageEvent::MessageEvent(
       channels_(std::move(channels)),
       user_activation_(user_activation),
       delegated_capability_(delegated_capability) {
+  recordreplay::Assert(
+    "[RUN-2037-2901] MessageEvent::MessageEvent B %d %d %s",
+    source ? source->RecordReplayId() : -1,
+    data ? (int)data->DataLengthInBytes() : -1,
+    last_event_id.Utf8().c_str());
   DCHECK(IsValidSource(source_.Get()));
   serialized_data_memory_accounter_.Increase(v8::Isolate::GetCurrent(),
                                              SizeOfExternalMemoryInBytes());
@@ -283,6 +289,14 @@ void MessageEvent::initMessageEvent(
     GCedMessagePortArray* ports,
     UserActivation* user_activation,
     mojom::blink::DelegatedCapability delegated_capability) {
+
+  recordreplay::Assert("[RUN-2037-2901] MessageEvent::initMessageEvent %d %d %d %s %s",
+    source ? source->RecordReplayId() : -1,
+    (int)eventPhase(),
+    data ? (int)data->DataLengthInBytes() : -1,
+    last_event_id.Utf8().c_str(),
+    type.Utf8().c_str());
+
   if (IsBeingDispatched())
     return;
 
@@ -371,6 +385,9 @@ ScriptValue MessageEvent::data(ScriptState* script_state) {
 
     case MessageEvent::kDataTypeSerializedScriptValue:
       if (data_as_serialized_script_value_) {
+        recordreplay::Assert("[RUN-2037-2976] MessageEvent::data %d %zu",
+          RecordReplayId(),
+          data_as_serialized_script_value_->Value()->DataLengthInBytes());
         static constexpr size_t kSlowDeserializationSizeThresholdBytes =
             16 * 1024;
         // The data is put on the V8 GC heap here, and therefore the V8 GC does

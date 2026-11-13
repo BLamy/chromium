@@ -6,6 +6,8 @@
 
 #include <cstdint>
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/platform/bindings/record_replay_throw.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
@@ -124,6 +126,10 @@ String CookieJar::Cookies() {
   KURL cookie_url = document_->CookieURL();
   if (cookie_url.IsEmpty())
     return String();
+  if (RecordReplayThrowIfEventsUnavailable("document.cookie")) {
+    return String();
+  }
+
 
   base::ElapsedTimer timer;
 
@@ -225,6 +231,11 @@ bool CookieJar::CookiesEnabled() {
   KURL cookie_url = document_->CookieURL();
   if (cookie_url.IsEmpty())
     return false;
+  // Cookie IPC never completes after diverge. No throw: callers are
+  // promise-returning.
+  if (recordreplay::AreEventsUnavailable("divergent-side-effect"))
+    return false;
+
 
   base::ElapsedTimer timer;
   RequestRestrictedCookieManagerIfNeeded();

@@ -63,6 +63,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
 #include "base/process/process_handle.h"
 #include <string>
 
@@ -120,6 +122,19 @@ MessagePort::MessagePort(ExecutionContext& execution_context)
 
 void MessagePort::Dispose() {
   DCHECK(!started_ || !IsEntangled());
+
+  // Mojo resources can't be destroyed or otherwise operating on at non-deterministic
+  // points, so leak them if necessary.
+  if (recordreplay::AreEventsDisallowed("~MessagePort")) {
+    if (connector_) {
+      connector_->set_incoming_receiver(nullptr);
+      connector_->set_connection_error_handler(base::OnceClosure());
+      connector_.release();
+    }
+    new MessagePortDescriptor(std::move(port_descriptor_));
+    return;
+  }
+
   if (!IsNeutered()) {
     // Disentangle before teardown. The MessagePortDescriptor will blow up if it
     // hasn't had its underlying handle returned to it before teardown.
@@ -182,6 +197,21 @@ void MessagePort::postMessage(ScriptState* script_state,
 
   msg.sender_agent_cluster_id = GetExecutionContext()->GetAgentClusterID();
   msg.locked_to_sender_agent_cluster = msg.message->IsLockedToAgentCluster();
+  if (recordreplay::IsRecordingOrReplaying() && IsMainThread()) {
+    msg.record_replay_message_id = recordreplay::NewIdMainThread("MessagePort::postMessage");
+    msg.record_replay_process_id = (int)base::GetCurrentProcId();
+
+    if (recordreplay::DependencyGraphEnabled()) {
+      base::DictValue info;
+      info.Set("kind", "postMessage");
+      info.Set("messageId", msg.record_replay_message_id);
+      info.Set("processId", msg.record_replay_process_id);
+      std::string json;
+      base::JSONWriter::Write(info, &json);
+      recordreplay::NewDependencyGraphNode(json.c_str());
+    }
+  }
+
   msg.task_state_id = std::nullopt;
 
   // The ID travels with the message, so it is given while recording too, and
@@ -399,12 +429,26 @@ void MessagePort::Trace(Visitor* visitor) const {
 
 bool MessagePort::Accept(mojo::Message* mojo_message) {
   TRACE_EVENT0("blink", "MessagePort::Accept");
+  recordreplay::Assert("[RUN-1126] MessagePort::Accept");
+
 
   BlinkTransferableMessage message;
   if (!mojom::blink::TransferableMessage::DeserializeFromMessage(
           std::move(*mojo_message), &message)) {
     return false;
   }
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "acceptMessage");
+    info.Set("messageId", message.record_replay_message_id);
+    info.Set("processId", message.record_replay_process_id);
+    info.Set("currentProcessId", (int)base::GetCurrentProcId());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
+  }
+
 
   std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
   if (recordreplay::DependencyGraphEnabled()) {
@@ -490,6 +534,8 @@ void MessagePort::DispatchMessageEvent(BlinkTransferableMessage message) {
 }
 
 Event* MessagePort::CreateMessageEvent(BlinkTransferableMessage& message) {
+  recordreplay::Assert("[RUN-1126] MessagePort::CreateMessageEvent");
+
   ExecutionContext* context = GetExecutionContext();
   // Dispatch a messageerror event when the target is a remote origin that is
   // not allowed to access the message's data.
@@ -532,6 +578,8 @@ Event* MessagePort::CreateMessageEvent(BlinkTransferableMessage& message) {
         message.user_activation->has_been_active,
         message.user_activation->was_active);
   }
+  recordreplay::Assert("[RUN-1126] MessagePort::CreateMessageEvent #5");
+
 
   return MessageEvent::Create(ports, std::move(message.message),
                               user_activation);
