@@ -1980,9 +1980,12 @@ bool RenderProcessHostImpl::Init() {
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  int flags = renderer_prefix.empty() ? (ChildProcessHost::CHILD_ALLOW_SELF |
-                                         ChildProcessHost::CHILD_RENDERER)
-                                      : ChildProcessHost::CHILD_RENDERER;
+  // Replay: a renderer that may be recorded isn't started from this process's
+  // own executable image, as in Replay's Chromium 108.
+  int flags = (renderer_prefix.empty() && !MaybeRecordingOrReplaying())
+                  ? (ChildProcessHost::CHILD_ALLOW_SELF |
+                     ChildProcessHost::CHILD_RENDERER)
+                  : ChildProcessHost::CHILD_RENDERER;
 #elif BUILDFLAG(IS_MAC)
   int flags = ChildProcessHost::CHILD_RENDERER;
 #else

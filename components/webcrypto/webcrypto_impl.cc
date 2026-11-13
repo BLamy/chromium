@@ -368,6 +368,17 @@ void WebCryptoImpl::Decrypt(
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "DoDecrypt");
     status = webcrypto::Decrypt(algorithm, key, data, &buffer);
   }
+
+  // Decryption might fail when replaying and not while recording.
+  // As with other record/replay issues in this file, record/replay the
+  // successful decryptions directly to workaround this.
+  if (recordreplay::IsRecordingOrReplaying("values", "DoDecrypt") &&
+      recordreplay::RecordReplayValue("DoDecrypt success", status.IsSuccess())) {
+    status = Status::Success();
+    size_t numBytes = recordreplay::RecordReplayValue("DoDecrypt size", buffer.size());
+    buffer.resize(numBytes);
+    recordreplay::RecordReplayBytes("DoDecrypt buffer", &buffer[0], buffer.size());
+  }
   {
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                  "DoDecryptReply");

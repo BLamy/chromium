@@ -2770,6 +2770,16 @@ void RenderFrameImpl::CommitNavigation(
   LogCommitHistograms(commit_params->commit_sent, is_main_frame_,
                       common_params->url, frame_token_);
 
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "renderFrameNavigate");
+    info.Set("url", common_params->url.spec());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
+  }
+
   // Clear the `redirects` array to ensure it is not accidentally used somewhere
   // downstream of this code.
   if (base::FeatureList::IsEnabled(

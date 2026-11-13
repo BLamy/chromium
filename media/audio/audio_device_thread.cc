@@ -122,6 +122,7 @@ void AudioDeviceThread::ThreadMain() {
       break;
     }
 
+    REPLAY_ASSERT("AudioDeviceThread::ThreadMain Process %u", pending_data);
     callback_->Process(pending_data);
 
     // If `send_socket_messages_` is false, the socket messages are replaced by
