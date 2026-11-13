@@ -86,6 +86,7 @@
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worklet_global_scope.h"
+#include "third_party/blink/renderer/platform/bindings/record_replay_throw.h"
 #include "third_party/blink/renderer/platform/bindings/active_script_wrappable_manager.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -415,6 +416,18 @@ void V8Initializer::ExceptionPropagationCallback(
   }
 
   v8::Local<v8::Object> exception = v8_message.GetException();
+
+  // [RecordReplay] See RecordReplayThrowIfEventsUnavailable.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      exception
+          ->HasPrivate(isolate->GetCurrentContext(),
+                       v8::Private::ForApi(
+                           isolate,
+                           v8::String::NewFromUtf8Literal(
+                               isolate, kRecordReplayPlainMessageMark)))
+          .FromMaybe(false)) {
+    return;
+  }
 
   v8::ExceptionContext context_type = v8_message.GetExceptionContext();
   String class_name = ToCoreString(isolate, v8_message.GetInterfaceName());

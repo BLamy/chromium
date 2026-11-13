@@ -583,7 +583,7 @@ void BodyStreamBuffer::GetError() {
     ReadableByteStreamController::Error(
         script_state_, byte_controller,
         V8ThrowException::CreateTypeError(script_state_->GetIsolate(),
-                                          "network error"));
+                                          message));
   }
   CancelConsumer();
 }

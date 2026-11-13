@@ -405,6 +405,14 @@ const DOMWrapperWorld* ExecutionContext::GetCurrentWorld() const {
   if (v8_context.IsEmpty())
     return nullptr;
 
+  // [RecordReplay] A replay's own commands run in a context that is no
+  // window's, with nothing of Blink's attached to it: a style lookup at a
+  // pause reaches here from one. That context has no world.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      !ScriptState::MaybeFrom(isolate, v8_context)) {
+    return nullptr;
+  }
+
   return &DOMWrapperWorld::Current(isolate);
 }
 
