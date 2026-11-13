@@ -33,6 +33,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
@@ -3392,6 +3393,8 @@ void LayoutObject::SetStyle(const ComputedStyle& new_style,
     } else if (!invisible_before_and_after_style_change) {
       // Skipped when the object paints nothing before and after the change; see
       // InvisibleBeforeAndAfterStyleChange().
+      recordreplay::Assert("[RUN-2300] LayoutObject::SetStyle #10");
+
       // We'll set needing geometry change later if the style change does cause
       // possible layout change or visual overflow change.
       SetShouldDoFullPaintInvalidationWithoutLayoutChange(
@@ -4443,19 +4446,31 @@ void LayoutObject::WillBeDestroyed(const ComputedStyle* style) {
 
   Remove();
 
+  recordreplay::AssertMaybeEventsDisallowed(
+      "[RUN-2300] LayoutObject::WillBeDestroyed A %d %d", RecordReplayId(),
+      GetNode() ? GetNode()->RecordReplayId() : -1);
+
   // Remove the handler if node had touch-action set. Handlers are not added
   // for text nodes so don't try removing for one too. Need to check if
   // m_style is null in cases of partial construction. Any handler we added
   // previously may have already been removed by the Document independently.
   if (GetNode() && style && style->GetTouchAction() != TouchAction::kAuto) {
+    recordreplay::AssertMaybeEventsDisallowed(
+        "[RUN-2300] LayoutObject::WillBeDestroyed B %d", RecordReplayId());
     EventHandlerRegistry& registry =
         GetDocument().GetFrame()->GetEventHandlerRegistry();
     if (registry.EventHandlerTargets(EventHandlerRegistry::kTouchAction)
             ->Contains(GetNode())) {
+      recordreplay::AssertMaybeEventsDisallowed(
+          "[RUN-2300] LayoutObject::WillBeDestroyed C %d %d", RecordReplayId(),
+          GetNode()->RecordReplayId());
       registry.DidRemoveEventHandler(*GetNode(),
                                      EventHandlerRegistry::kTouchAction);
     }
   }
+  recordreplay::AssertMaybeEventsDisallowed(
+      "[RUN-2300] LayoutObject::WillBeDestroyed D", RecordReplayId());
+
 
   // Remove this object as ImageResourceObserver.
   if (style) {
@@ -5438,6 +5453,9 @@ void LayoutObject::SetMayNeedPaintInvalidationAnimatedBackgroundImage() {
   NOT_DESTROYED();
   if (MayNeedPaintInvalidationAnimatedBackgroundImage())
     return;
+
+  recordreplay::Assert("[RUN-1641] LayoutObject::SetMayNeedPaintInvalidationAnimatedBackgroundImage #1");
+
   may_need_paint_invalidation_animated_background_image_ = true;
   SetShouldCheckForPaintInvalidationWithoutLayoutChange();
 }
@@ -5453,6 +5471,8 @@ void LayoutObject::SetShouldDelayFullPaintInvalidation() {
 
   should_delay_full_paint_invalidation_ = true;
   if (!ShouldCheckForPaintInvalidation()) {
+    recordreplay::Assert("[RUN-2300] LayoutObject::SetShouldDelayFullPaintInvalidation #1");
+
     // This will also schedule a visual update.
     SetShouldCheckForPaintInvalidationWithoutLayoutChange();
   } else {

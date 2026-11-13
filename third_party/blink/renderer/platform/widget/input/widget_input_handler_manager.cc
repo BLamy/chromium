@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -311,6 +312,10 @@ WidgetInputHandlerManager::WidgetInputHandlerManager(
           widget_scheduler_,
           /*allow_raf_aligned_input=*/!never_composited)),
       allow_scroll_resampling_(allow_scroll_resampling) {
+  if (recordreplay::IsRecordingOrReplaying()) {
+    record_replay_main_thread_default_task_runner_ =
+        base::SingleThreadTaskRunner::GetCurrentDefault();
+  }
 #if BUILDFLAG(IS_ANDROID)
   if (compositor_thread_default_task_runner_) {
     synchronous_compositor_registry_ =

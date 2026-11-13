@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "audio_device_stats_reporter.h"
 #include "base/atomicops.h"
 #include "base/containers/span_reader.h"
@@ -98,6 +99,7 @@ class AudioInputDevice::AudioThreadCallback
   size_t current_segment_id_;
   uint32_t last_buffer_id_;
   std::vector<std::unique_ptr<const media::AudioBus>> audio_buses_;
+  std::unique_ptr<media::AudioBus> capture_bus_;
   raw_ptr<CaptureCallback> capture_callback_;
 
   // Used for informing AudioInputDevice that we have gotten data, i.e. the
@@ -431,6 +433,9 @@ void AudioInputDevice::AudioThreadCallback::MapSharedMemory() {
   }
   CHECK_EQ(span_reader.remaining(), 0u);
 
+  if (recordreplay::IsRecordingOrReplaying())
+    capture_bus_ = media::AudioBus::Create(audio_parameters_);
+
   // Indicate that browser side capture initialization has succeeded and IPC
   // channel initialized. This effectively completes the
   // AudioCapturerSource::Start()' phase as far as the caller of that function
@@ -446,6 +451,22 @@ void AudioInputDevice::AudioThreadCallback::Process(uint32_t pending_data) {
   base::span<uint8_t> span = shared_memory_mapping_.GetMemoryAsSpan<uint8_t>();
   span = span.subspan(current_segment_id_ * segment_length_, segment_length_);
   AudioInputBuffer* buffer = reinterpret_cast<AudioInputBuffer*>(span.data());
+
+  // Use pre-allocated audio bus wrapping existing block of shared memory.
+  const media::AudioBus* audio_bus = audio_buses_[current_segment_id_].get();
+  AudioInputBufferParameters params = buffer->params;
+  if (recordreplay::IsRecordingOrReplaying()) {
+    if (recordreplay::IsRecording())
+      audio_bus->CopyTo(capture_bus_.get());
+    recordreplay::RecordReplayBytes("AudioInputDevice::Process params", &params,
+                                    sizeof(params));
+    for (int ch = 0; ch < capture_bus_->channels(); ++ch) {
+      recordreplay::RecordReplayBytes(
+          "AudioInputDevice::Process", capture_bus_->channel(ch).data(),
+          static_cast<size_t>(capture_bus_->frames()) * sizeof(float));
+    }
+    audio_bus = capture_bus_.get();
+  }
 
   // Usually this will be equal but in the case of low sample rate (e.g. 8kHz,
   // the buffer may be bigger (on mac at least)).
@@ -472,7 +493,6 @@ void AudioInputDevice::AudioThreadCallback::Process(uint32_t pending_data) {
   last_buffer_id_ = buffer->params.id;
 
   // Use pre-allocated audio bus wrapping existing block of shared memory.
-  const media::AudioBus* audio_bus = audio_buses_[current_segment_id_].get();
 
   // Regularly inform that we have gotten data.
   frames_since_last_got_data_callback_ += audio_bus->frames();

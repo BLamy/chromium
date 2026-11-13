@@ -27,6 +27,10 @@
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size_conversions.h"
+#include "base/record_replay.h"
+
+static int tile_id_ = 1;
+
 
 namespace cc {
 
@@ -45,6 +49,9 @@ PictureLayerTiling::PictureLayerTiling(
       min_preraster_distance_(min_preraster_distance),
       max_preraster_distance_(max_preraster_distance),
       can_use_lcd_text_(can_use_lcd_text) {
+  record_replay_id_ = recordreplay::NewIdAnyThread("PictureLayerTiling");
+  tile_id = tile_id_++;
+  
   DCHECK(!raster_source->IsSolidColor());
   DCHECK_GE(raster_transform.translation().x(), 0.f);
   DCHECK_LT(raster_transform.translation().x(), 1.f);
@@ -170,6 +177,10 @@ void PictureLayerTiling::TakeTilesAndPropertiesFrom(
 
 bool PictureLayerTiling::SetRasterSourceAndResize(
     scoped_refptr<RasterSource> raster_source) {
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("PictureLayerTiling::SetRasterSourceAndResize %d %d",
+                       raster_source->size().width(), raster_source->size().height());
+
   DCHECK(!raster_source->IsSolidColor());
   raster_source_ = std::move(raster_source);
   gfx::Rect tiling_rect = ComputeTilingRect();

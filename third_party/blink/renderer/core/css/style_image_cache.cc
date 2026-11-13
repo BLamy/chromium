@@ -38,12 +38,17 @@ ImageResourceContent* StyleImageCache::CacheImageContent(
           .stored_value->value;
   if (!image_content || !CanReuseImageContent(*image_content, params)) {
     image_content = ImageResourceContent::Fetch(params, fetcher);
+
+    if (recordreplay::EnterLeakMemory("StyleImageCache")) {
+      fetched_image_map_strong_.insert(image_content);
+    }
   }
   return image_content.Get();
 }
 
 void StyleImageCache::Trace(Visitor* visitor) const {
   visitor->Trace(fetched_image_map_);
+  visitor->Trace(fetched_image_map_strong_);
 }
 
 }  // namespace blink

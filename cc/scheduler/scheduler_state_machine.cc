@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/record_replay.h"
 #include "base/check_op.h"
 #include "base/format_macros.h"
 #include "base/metrics/histogram_macros.h"

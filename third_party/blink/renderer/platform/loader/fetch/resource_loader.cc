@@ -34,6 +34,7 @@
 #include <utility>
 #include <variant>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
@@ -200,6 +201,18 @@ std::unique_ptr<network::ResourceRequest> CreateNetworkRequest(
   scoped_refptr<EncodedFormData> form_body = request_body.FormBody();
   PopulateResourceRequest(request_head, std::move(request_body),
                           network_resource_request.get());
+
+  recordreplay::Assert(
+      "[RUN-1725-1852] ResourceLoader::RequestAsynchronously %zu %zu %zu %zu",
+      network_resource_request->method.size(),
+      network_resource_request->fetch_integrity.size(),
+      network_resource_request->devtools_request_id
+          ? network_resource_request->devtools_request_id->size()
+          : 0,
+      network_resource_request->devtools_stack_id
+          ? network_resource_request->devtools_stack_id->size()
+          : 0);
+
   if (form_body) {
     request_body = ResourceRequestBody(std::move(form_body));
   }
@@ -226,6 +239,8 @@ ResourceLoader::ResourceLoader(ResourceFetcher* fetcher,
       cancel_timer_(fetcher_->GetUnfreezableTaskRunner(),
                     this,
                     &ResourceLoader::CancelTimerFired) {
+  // Pointer registration is needed for sorting in ResourceFetcher.
+  recordreplay::RegisterPointer("ResourceLoader", this);
   DCHECK(resource_);
   DCHECK(fetcher_);
 
@@ -1082,6 +1097,9 @@ void ResourceLoader::DidReceiveDataImpl(
     CHECK(std::holds_alternative<base::span<const char>>(data));
     base::span<const char> span = std::get<base::span<const char>>(data);
     data_size = span.size();
+    recordreplay::Assert("[RUN-1436] ResourceLoader::DidReceiveData %d",
+                         (int)data_size);
+
     if (auto* observer = fetcher_->GetResourceLoadObserver()) {
       observer->DidReceiveData(resource_->InspectorId(),
                                base::SpanOrSize(span));

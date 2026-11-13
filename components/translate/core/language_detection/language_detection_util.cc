@@ -9,6 +9,7 @@
 #include <array>
 #include <string_view>
 
+#include "base/record_replay.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/i18n/language_tag.h"
 #include "base/i18n/tag_converters.h"
@@ -138,6 +139,12 @@ std::optional<LanguageTag> DetermineTextLanguage(
     const std::string& utf8_text,
     bool* is_model_reliable,
     float& model_reliability_score) {
+  // Don't bother with language detection when recording/replaying, as this has
+  // caused some crashes and isn't likely to be needed by anyone.
+  if (recordreplay::IsRecordingOrReplaying("no-language-detection")) {
+    return std::nullopt;
+  }
+
   // Make a prediction.
   chrome_lang_id::NNetLanguageIdentifier lang_id;
   const chrome_lang_id::NNetLanguageIdentifier::Result lang_id_result =

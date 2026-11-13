@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/numerics/angle_conversions.h"
 #include "third_party/blink/renderer/core/css/css_color.h"
 #include "third_party/blink/renderer/core/css/css_computed_style_declaration.h"
@@ -2556,6 +2557,11 @@ bool InspectorHighlight::GetBoxModel(
     border = svg_quads[0];
     margin = svg_quads[0];
   } else if (!BuildNodeQuads(node, &content, &padding, &border, &margin)) {
+    String name = node->DebugName();
+    name = name.DeprecatedSubstring(0, 200);
+    recordreplay::CommandDiagnostic(
+        "[RUN-2525-2538] InspectorHighlight::GetBoxModel C %d %s",
+        (int)node->getNodeType(), name.Utf8().c_str());
     return false;
   }
 

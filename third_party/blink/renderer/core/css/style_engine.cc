@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <ranges>
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/functional/function_ref.h"
 #include "base/hash/hash.h"

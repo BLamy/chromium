@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/containers/flat_map.h"
 #include "base/debug/crash_logging.h"
@@ -872,6 +873,9 @@ void PaintArtifactCompositor::Layerizer::LayerizeGroup(
     // C. The next chunk belongs to some subgroup of the current group.
     const auto& chunk_effect = chunk_cursor_->properties.Effect().Unalias();
     if (&chunk_effect == &current_group) {
+#if !BUILDFLAG(IS_WIN) // RUN-2115
+      recordreplay::Assert("[RUN-1470-1471] PaintArtifactCompositor::LayerizeGroup %d", chunk_cursor_->id);
+#endif
       compositor_.UpdatePaintedScrollTranslationsBeforeLayerization(
           artifact_, chunk_cursor_);
       pending_layers_.emplace_back(
@@ -1296,6 +1300,9 @@ void PaintArtifactCompositor::Update(
     layer.SetEffectTreeIndex(effect_id);
     bool backface_hidden = transform.IsBackfaceHidden();
     layer.SetShouldCheckBackfaceVisibility(backface_hidden);
+    recordreplay::Assert("[RUN-1470-1471] PaintArtifactCompositor::Update %d",
+                         layer.subtree_property_changed());
+
     if (effect.CanvasDrawableId()) {
       canvas_drawable_layer_map_.Set(effect.CanvasDrawableId(), i);
       layer.SetCanvasDrawableId(

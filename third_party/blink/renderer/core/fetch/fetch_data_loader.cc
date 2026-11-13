@@ -30,6 +30,10 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
+
+#include "base/record_replay.h"
 #include <string>
 
 namespace blink {
@@ -98,6 +102,12 @@ class FetchDataLoaderAsBlobHandle final : public FetchDataLoader,
     load_canceled_ = true;
     blob_handle_.reset();
     consumer_->Cancel();
+    // The data pipe loader otherwise keeps its watchers and its end of the
+    // pipe until a GC collects it, and its pre-finalizer closes them at a
+    // point that differs between recording and replaying.
+    if (data_pipe_loader_ && recordreplay::IsRecordingOrReplaying()) {
+      data_pipe_loader_->Cancel();
+    }
     NotifyDrainedPipeClient(nullptr);
   }
 

@@ -958,6 +958,7 @@ void ResourceFetcher::DidLoadResourceFromMemoryCache(
     resource_load_observer_->DidReceiveResponse(
         request.InspectorId(), request, resource->GetResponse(), resource,
         ResourceLoadObserver::ResponseSource::kFromMemoryCache);
+
     if (resource->EncodedSize() > 0) {
       resource_load_observer_->DidReceiveData(
           request.InspectorId(),
@@ -1388,6 +1389,10 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
   resource_request.SetInspectorId(identifier);
   resource_request.SetFromOriginDirtyStyleSheet(
       params.IsFromOriginDirtyStyleSheet());
+
+  recordreplay::Assert("[RUN-658-1381] ResourceFetcher::RequestResource %s",
+                       params.Url().ElidedString().Utf8().c_str());
+
 
   // TODO(crbug.com/563000235): Centralize `SetSkipServiceWorker()` call here
   // for Isolated World Resources.
@@ -1838,6 +1843,9 @@ Resource* ResourceFetcher::CreateResourceForLoading(
 
   RESOURCE_LOADING_DVLOG(1) << "Loading Resource for "
                             << params.GetResourceRequest().Url().ElidedString();
+  // https://linear.app/replay/issue/RUN-820
+  recordreplay::Assert("[RUN-820] ResourceFetcher::CreateResourceForLoading #1");
+
 
   Resource* resource = factory.Create(
       params.GetResourceRequest(), params.Options(), params.DecoderOptions());
@@ -2343,7 +2351,16 @@ bool ResourceFetcher::ShouldDeferImageLoad(const KURL& url) const {
 }
 
 void ResourceFetcher::ReloadImagesIfNotDeferred() {
+  HeapVector<Member<Resource>> entries;
   for (Resource* resource : not_loaded_image_resources_) {
+    entries.push_back(resource);
+  }
+  if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+    std::sort(entries.begin(), entries.end(),
+              recordreplay::CompareMemberByPointerId<Member<Resource>>());
+  }
+
+  for (Resource* resource : entries) {
     DCHECK_EQ(resource->GetType(), ResourceType::kImage);
     if (resource->StillNeedsLoad() && !ShouldDeferImageLoad(resource->Url())) {
       StartLoad(resource);
@@ -3215,6 +3232,9 @@ void ResourceFetcher::StopFetchingInternal(StopFetchingTarget target) {
     }
   }
 
+  std::sort(loaders_to_cancel.begin(), loaders_to_cancel.end(),
+            recordreplay::CompareMemberByPointerId<Member<ResourceLoader>>());
+
   for (const auto& loader : loaders_to_cancel) {
     if (loaders_.Contains(loader) || non_blocking_loaders_.Contains(loader)) {
       loader->Cancel();
@@ -3231,6 +3251,8 @@ void ResourceFetcher::ScheduleStaleRevalidate(Resource* stale_resource) {
     return;
   }
   stale_resource->SetStaleRevalidationStarted();
+
+  int node_id = recordreplay::NewDependencyGraphNode("{\"kind\":\"scheduleRevalidateStaleResource\"}");
   freezable_task_runner_->PostTask(
       FROM_HERE, blink::BindOnce(&ResourceFetcher::RevalidateStaleResource,
                                  WrapWeakPersistent(this),

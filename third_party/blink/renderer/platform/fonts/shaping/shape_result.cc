@@ -39,6 +39,7 @@
 #include <ranges>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/types/to_address.h"
@@ -2146,6 +2147,12 @@ const ShapeResult* ShapeResult::CreateForSpaces(const Font* font,
                                                 float width) {
   DCHECK_GT(length, 0u);
   const SimpleFontData* font_data = font->PrimaryFont();
+  if (!font_data) {
+    recordreplay::Diagnostic(
+        "CreateForSpacesInternal PrimaryFont null start=%u length=%u",
+        start_index, length);
+    return MakeGarbageCollected<ShapeResult>(start_index, length, direction);
+  }
   DCHECK(font_data);
   ShapeResult* result =
       MakeGarbageCollected<ShapeResult>(start_index, length, direction);

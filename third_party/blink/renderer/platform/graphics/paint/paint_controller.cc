@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "cc/paint/paint_op.h"
@@ -634,6 +635,10 @@ void PaintController::UpdateCurrentPaintChunkProperties(
 
 bool PaintController::ClientCacheIsValid(
     const DisplayItemClient& client) const {
+  recordreplay::AssertMaybeEventsDisallowed(
+      "[RUN-2104-2296] PaintController::ClientCacheIsValid %u %d %d",
+      (unsigned)num_cached_new_items_, IsSkippingCache(),
+      client.IsValid());
   if (IsSkippingCache()) {
     return false;
   }
@@ -835,6 +840,11 @@ const PaintArtifact& PaintController::CommitNewDisplayItems() {
     counter_for_testing_->num_cached_subsequences +=
         num_cached_new_subsequences_;
   }
+  recordreplay::Assert(
+      "[RUN-2104-2296] PaintController::CommitNewDisplayItems %u %u %u",
+      (unsigned)num_cached_new_items_, (unsigned)num_cached_new_subsequences_,
+      (unsigned)new_paint_artifact_->GetDisplayItemList().size());
+
 
   paint_chunker_.Finish();
 

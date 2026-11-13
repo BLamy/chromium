@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/check.h"
 #include "base/rand_util.h"
 #include "gin/public/gin_embedders.h"
@@ -1075,6 +1076,9 @@ void ThreadDebuggerCommonImpl::cancelTimer(void* data) {
 }
 
 int64_t ThreadDebuggerCommonImpl::generateUniqueId() {
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("ThreadDebuggerCommonImpl::generateUniqueId");
+
   int64_t result;
   base::RandBytes(base::byte_span_from_ref(result));
   return result;

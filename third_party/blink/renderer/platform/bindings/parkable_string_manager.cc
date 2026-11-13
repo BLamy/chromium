@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/platform/bindings/parkable_string_record_replay.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/post_delayed_memory_reduction_task.h"
@@ -413,6 +415,7 @@ void ParkableStringManager::AgeStringsAndPark(
 
   bool can_make_progress = false;
   for (ParkableStringImpl* str : unparked) {
+    AssertParkableStringAgeState(str);
     if (str->MaybeAgeOrParkString() ==
         ParkableStringImpl::AgeOrParkResult::kSuccessOrTransientFailure) {
       can_make_progress = true;
@@ -436,6 +439,8 @@ void ParkableStringManager::AgeStringsAndPark(
   // that this has to run when the idle tasks are not. As a consequence, it
   // is important to make sure that this will not reschedule tasks forever.
   bool reschedule = HasPendingWork() && can_make_progress;
+  recordreplay::Assert("ParkableStringManager::AgeStringsAndPark reschedule %d",
+                       reschedule);
   if (reschedule)
     ScheduleAgingTaskIfNeeded();
 }

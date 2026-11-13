@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/compiler_specific.h"
 #include "base/numerics/safe_conversions.h"
@@ -275,6 +276,21 @@ void BodyStreamBuffer::StartLoading(FetchDataLoader* loader,
   auto* handle = ReleaseHandle(exception_state);
   if (exception_state.HadException())
     return;
+  // A readable body whose first read fails after diverging from the recording
+  // (see BlobBytesConsumer::BeginRead) rejects with the consumer's reason
+  // instead of the loader's generic failure.
+  if (recordreplay::AreEventsUnavailable("divergent-side-effect") &&
+      handle->GetPublicState() ==
+          BytesConsumer::PublicState::kReadableOrWaiting) {
+    base::span<const char> buffer;
+    BytesConsumer::Result result = handle->BeginRead(buffer);
+    if (result == BytesConsumer::Result::kOk)
+      result = handle->EndRead(0);
+    if (result == BytesConsumer::Result::kError) {
+      exception_state.ThrowTypeError(handle->GetError().Message());
+      return;
+    }
+  }
   keep_alive_ = this;
 
   auto* execution_context = GetExecutionContext();
@@ -477,10 +493,15 @@ void BodyStreamBuffer::Trace(Visitor* visitor) const {
 }
 
 void BodyStreamBuffer::Abort() {
+  recordreplay::Assert("[RUN-1182] BodyStreamBuffer::Abort");
+
   if (!GetExecutionContext()) {
     DCHECK(!consumer_);
     return;
   }
+
+  recordreplay::Assert("[RUN-1182] BodyStreamBuffer::Abort #1");
+
   auto* byte_controller =
       To<ReadableByteStreamController>(stream_->GetController());
 
@@ -537,6 +558,13 @@ void BodyStreamBuffer::Close(ExceptionState& exception_state) {
 void BodyStreamBuffer::GetError() {
   {
     ScriptState::Scope scope(script_state_);
+    String message = "network error";
+    // Report why a read failed after diverging from the recording, e.g. a
+    // blob that can't be read (see BlobBytesConsumer::BeginRead).
+    if (consumer_ &&
+        recordreplay::AreEventsUnavailable("divergent-side-effect")) {
+      message = consumer_->GetError().Message();
+    }
     auto* byte_controller =
         To<ReadableByteStreamController>(stream_->GetController());
     ReadableByteStreamController::Error(

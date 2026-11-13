@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/record_replay.h"
 #include "base/check_op.h"
 #include "base/notreached.h"
 #include "ui/gfx/geometry/rect.h"
@@ -218,6 +219,12 @@ gfx::Rect TilingData::TileBounds(int i, int j) const {
 }
 
 gfx::Rect TilingData::TileBoundsWithBorder(int i, int j) const {
+  // https://linear.app/replay/issue/RUN-465
+  recordreplay::Assert("TilingData::TileBoundsWithBorder %d %d %d %d %d %d %d",
+                       i, j,
+                       max_texture_size_.width(), max_texture_size_.height(), border_texels_,
+                       tiling_rect_.width(), tiling_rect_.height());
+
   AssertTile(i, j);
   int max_texture_size_x = max_texture_size_.width() - 2 * border_texels_;
   int max_texture_size_y = max_texture_size_.height() - 2 * border_texels_;

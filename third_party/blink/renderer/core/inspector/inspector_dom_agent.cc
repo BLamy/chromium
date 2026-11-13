@@ -32,6 +32,7 @@
 
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/notreached.h"
 #include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "third_party/blink/public/common/features.h"
@@ -568,6 +569,10 @@ InspectorDOMAgent::IncludeWhitespaceEnum InspectorDOMAgent::IncludeWhitespace()
 void InspectorDOMAgent::ReleaseDanglingNodes() {
   dangling_node_to_id_maps_.clear();
 }
+int InspectorDOMAgent::BindDocumentNode(Node* node) {
+  return Bind(node, document_node_to_id_map_);
+}
+
 
 int InspectorDOMAgent::RecordReplayBindNode(Node* node) {
   return Bind(node, document_node_to_id_map_.Get());
@@ -1076,6 +1081,14 @@ int InspectorDOMAgent::PushNodePathToFrontend(Node* node_to_push,
   if (!BoundNodeId(document_))
     return 0;
 
+  if (!enabled_.Get() && recordreplay::IsInReplayCode()) {
+    // [replay] hackfix: track node if `DevToolsSession` is not active
+    //    TODO: This might not handle dangling nodes properly - https://linear.app/replay/issue/RUN-1005/
+    return BindDocumentNode(node_to_push);
+  }
+
+  if (!document_node_to_id_map_->Contains(document_))
+    return 0;
   // Return id in case the node is known.
   if (auto it = node_map->find(node_to_push); it != node_map->end())
     return it->value;
@@ -3454,6 +3467,11 @@ protocol::Response InspectorDOMAgent::scrollIntoViewIfNeeded(
   LayoutObject* layout_object = node->GetLayoutObject();
   if (!layout_object) {
     node = LayoutTreeBuilderTraversal::FirstLayoutChild(*node);
+
+    // Sometimes node is null when recording/replaying for an unknown reason.
+    if (!node)
+      return protocol::Response::ServerError("Node does not have a layout child");
+
     if (node)
       layout_object = node->GetLayoutObject();
   }

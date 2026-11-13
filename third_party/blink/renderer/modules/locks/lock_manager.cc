@@ -38,6 +38,8 @@
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
 #include <optional>
 
 namespace blink {
@@ -194,6 +196,19 @@ class LockManager::LockRequestImpl final
         script_state, name_, mode_, std::move(handle_remote),
         std::move(lock_lifetime_), manager_);
     manager_->held_locks_.insert(lock);
+    std::optional<recordreplay::AutoDependencyExecution> execute;
+    if (recordreplay::DependencyGraphEnabled()) {
+      base::DictValue info;
+      info.Set("kind", "lockRequestGranted");
+      std::string json;
+      base::JSONWriter::Write(info, &json);
+      int node_id = recordreplay::NewDependencyGraphNode(json.c_str());
+      recordreplay::AddDependencyGraphEdge(
+          record_replay_dependency_graph_node_id_, node_id,
+          "{\"kind\":\"creator\"}");
+      execute.emplace(node_id);
+    }
+
 
     recordreplay::AutoDependencyExecution record_replay_execute(
         recordreplay::NewDependencyGraphNodeFrom(

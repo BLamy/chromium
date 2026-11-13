@@ -30,6 +30,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/debug/crash_logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -114,6 +115,9 @@
 #if defined(V8_USE_EXTERNAL_STARTUP_DATA)
 #include "gin/public/v8_snapshot_file_type.h"
 #endif
+extern "C" void V8RecordReplaySetInstrumentedScriptBeforeFirstCheckpointCallback(
+    void (*callback)(v8::Isolate*, v8::Local<v8::Context>));
+
 
 extern "C" int V8GetMessageRecordReplayBookmark(v8::Local<v8::Message> message);
 
@@ -283,6 +287,11 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
       ToCoreStringWithNullCheck(isolate, message->Get()), location,
       ScriptValue(isolate, data), &script_state->World());
   event->set_record_replay_bookmark(V8GetMessageRecordReplayBookmark(message));
+
+  int bookmark = V8GetMessageRecordReplayBookmark(message);
+  if (bookmark) {
+    event->set_record_replay_bookmark(bookmark);
+  }
 
   String message_for_console = ExtractMessageForConsole(isolate, data);
   if (!message_for_console.empty())
@@ -1097,6 +1106,7 @@ v8::Isolate* V8Initializer::InitializeMainThread() {
 
   V8PerIsolateData::From(isolate)->SetThreadDebugger(
       std::make_unique<MainThreadDebugger>(isolate));
+
 
   isolate->SetHostCreateShadowRealmContextCallback(
       OnCreateShadowRealmV8Context);

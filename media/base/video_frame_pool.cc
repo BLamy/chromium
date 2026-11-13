@@ -4,6 +4,7 @@
 
 #include "media/base/video_frame_pool.h"
 
+#include "base/record_replay.h"
 #include "base/containers/circular_deque.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -58,6 +59,12 @@ class VideoFramePool::PoolImpl
   // time. It relies on |frames_| being in LRU order with the front being the
   // least recently used entry.
   void FrameReleased(scoped_refptr<VideoFrame> frame);
+  // A frame's last reference can go away on any thread, and which one isn't
+  // recorded, so while recording/replaying FrameReleased doesn't read the
+  // clock: released frames are stamped and expired here instead, on the
+  // CreateFrame caller's sequence.
+  void RecordReplayExpireStaleFrames() EXCLUSIVE_LOCKS_REQUIRED(lock_);
+
 
   base::Lock lock_;
   bool is_shutdown_ GUARDED_BY(lock_) = false;
@@ -88,6 +95,9 @@ scoped_refptr<VideoFrame> VideoFramePool::PoolImpl::CreateFrame(
     base::TimeDelta timestamp) {
   base::AutoLock auto_lock(lock_);
   DCHECK(!is_shutdown_);
+  if (recordreplay::IsRecordingOrReplaying())
+    RecordReplayExpireStaleFrames();
+
 
   scoped_refptr<VideoFrame> frame;
   while (!frames_.empty()) {
@@ -130,6 +140,11 @@ void VideoFramePool::PoolImpl::FrameReleased(scoped_refptr<VideoFrame> frame) {
   base::AutoLock auto_lock(lock_);
   if (is_shutdown_)
     return;
+  if (recordreplay::IsRecordingOrReplaying()) {
+    frames_.push_back({base::TimeTicks(), std::move(frame)});
+    return;
+  }
+
 
   const base::TimeTicks now = tick_clock_->NowTicks();
   frames_.push_back({now, std::move(frame)});
@@ -146,6 +161,18 @@ void VideoFramePool::PoolImpl::FrameReleased(scoped_refptr<VideoFrame> frame) {
   if (stale_index)
     frames_.erase(frames_.begin(), frames_.begin() + stale_index);
 }
+void VideoFramePool::PoolImpl::RecordReplayExpireStaleFrames() {
+  const base::TimeTicks now = tick_clock_->NowTicks();
+  for (FrameEntry& entry : frames_) {
+    if (entry.last_use_time.is_null())
+      entry.last_use_time = now;
+  }
+  static constexpr base::TimeDelta kStaleFrameLimit = base::Seconds(10);
+  base::EraseIf(frames_, [now](const FrameEntry& entry) {
+    return now - entry.last_use_time > kStaleFrameLimit;
+  });
+}
+
 
 VideoFramePool::VideoFramePool() : pool_(base::MakeRefCounted<PoolImpl>()) {}
 

@@ -346,6 +346,20 @@ class PLATFORM_EXPORT WidgetInputHandlerManager final
 
   // Any thread can access these variables.
   scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner_;
+
+  // Replay: the main thread's default task runner, which a handler released
+  // on the compositor thread posts its references to. As in Replay's
+  // Chromium 108.
+  scoped_refptr<base::SingleThreadTaskRunner>
+      record_replay_main_thread_default_task_runner_;
+
+ public:
+  scoped_refptr<base::SingleThreadTaskRunner>
+  RecordReplayMainThreadDefaultTaskRunner() const {
+    return record_replay_main_thread_default_task_runner_;
+  }
+
+ private:
   scoped_refptr<base::SingleThreadTaskRunner>
       compositor_thread_default_task_runner_;
   scoped_refptr<base::SingleThreadTaskRunner>

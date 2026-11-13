@@ -20,6 +20,7 @@
 
 #include "third_party/blink/renderer/core/css/css_image_value.h"
 
+#include "base/record_replay.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/referrer_utils.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
@@ -194,6 +195,11 @@ StyleImage* CSSImageValue::CacheImage(Document& document,
 
 void CSSImageValue::RestoreCachedResourceIfNeeded(
     const Document& document) const {
+  recordreplay::Assert(
+      "[RUN-1436-2226] CSSImageValue::RestoreCachedResourceIfNeeded %d %d %d "
+      "%d",
+      !!cached_image_, !!document.Fetcher(), !!UrlData().ResolvedUrl().IsNull(),
+      cached_image_ && cached_image_->CachedImage());
   ResourceFetcher* fetcher = document.Fetcher();
   if (!fetcher || UrlData().ResolvedUrl().IsNull()) {
     return;

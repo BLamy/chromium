@@ -28,6 +28,8 @@
 
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -302,6 +304,10 @@ void LayoutImage::PaintReplaced(const PaintInfo& paint_info,
   NOT_DESTROYED();
   if (ChildPaintBlockedByDisplayLock())
     return;
+
+  recordreplay::Assert(
+      "[RUN-1975-2008] LayoutImage::PaintReplaced %s",
+      paint_offset.ToString().Utf8().c_str());
   ImagePainter(*this).PaintReplaced(paint_info, paint_offset);
 }
 

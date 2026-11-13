@@ -33,6 +33,7 @@
 #include <optional>
 #include <ranges>
 
+#include "base/record_replay.h"
 #include "base/memory/stack_allocated.h"
 #include "base/types/optional_util.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
@@ -931,6 +932,10 @@ void MatchHostPartRules(const Element& element,
 void MatchStyleAttribute(const Element& element,
                          ElementRuleCollector& collector,
                          StyleRuleUsageTracker* tracker) {
+  recordreplay::Assert(
+      "[RUN-2424-3231] MatchElementScopeRules inline style %d",
+      element.IsStyledElement() && element.InlineStyle() &&
+          collector.GetPseudoId() == kPseudoIdNone);
   if (element.IsStyledElement() && element.InlineStyle() &&
       collector.GetPseudoId() == kPseudoIdNone) {
     collector.AddElementStyleProperties(
@@ -948,6 +953,8 @@ void MatchElementScopeRules(const Element& element,
   UAShadowPseudoResult spr = UAShadowPseudoCascading(element);
 
   collector.BeginAddingAuthorRulesForTreeScope(element.GetTreeScope());
+  recordreplay::Assert("[RUN-2424-3230] MatchElementScopeRules %d",
+                        !!element_scope_resolver);
   if (element_scope_resolver) {
     ElementRuleCollector::ScopedRuleTreeScope scope(
         collector, element_scope_resolver->GetTreeScope());
@@ -1426,6 +1433,10 @@ const ComputedStyle* StyleResolver::ResolveStyle(
     Element* element,
     const StyleRecalcContext& style_recalc_context,
     const StyleRequest& style_request) {
+  recordreplay::Assert("[RUN-2424-3005] StyleResolver::ResolveStyle %d %d", 
+    ((ScriptWrappable*)&GetDocument())->RecordReplayId(),
+    element ? element->RecordReplayId() : -1
+  );
   if (!element) {
     DCHECK(style_request.IsPseudoStyleRequest());
     return nullptr;
@@ -2164,6 +2175,8 @@ void StyleResolver::ApplyBaseStyle(
     StyleResolverState& state,
     StyleCascade& cascade) {
   DCHECK(style_request.pseudo_id != kPseudoIdFirstLineInherited);
+  recordreplay::Assert("[RUN-2424-3005] StyleResolver::ApplyBaseStyle %d",
+                        state.CanTriggerAnimations() && CanReuseBaseComputedStyle(state));
 
   if (state.CanTriggerAnimations() && CanReuseBaseComputedStyle(state)) {
     const ComputedStyle* animation_base_computed_style =

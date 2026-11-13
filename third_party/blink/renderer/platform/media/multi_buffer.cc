@@ -55,6 +55,15 @@ static MultiBuffer::BlockId ClosestNextEntry(
   return i->first;
 }
 
+MultiBuffer::Reader::Reader() {
+  // Registration is needed for sorting in NotifyAvailableRange.
+  recordreplay::RegisterPointer("MultiBuffer::Reader", this);
+}
+
+MultiBuffer::Reader::~Reader() {
+  recordreplay::UnregisterPointer(this);
+}
+
 //
 // MultiBuffer::GlobalLRU
 //
