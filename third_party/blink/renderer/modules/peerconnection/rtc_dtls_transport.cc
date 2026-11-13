@@ -181,7 +181,7 @@ void RTCDtlsTransport::OnStateChange(webrtc::DtlsTransportInformation info) {
     remote_certificates_.clear();
   }
   if (!closed_from_owner_) {
-    DispatchEvent(*Event::Create(event_type_names::kStatechange));
+    DispatchEvent(*Event::Create(event_type_names::kStatechange), "RTCDtlsTransport::OnStateChange");
   }
 }
 

@@ -220,6 +220,17 @@ MouseEventManager::DispatchMouseEvent(
          mouse_event_type == event_type_names::kContextmenu ||
          mouse_event_type == event_type_names::kClick ||
          mouse_event_type == event_type_names::kAuxclick);
+  if (recordreplay::IsRecordingOrReplaying() && (
+    mouse_event_type == event_type_names::kMouseup ||
+    mouse_event_type == event_type_names::kMousedown ||
+    mouse_event_type == event_type_names::kMousemove)) {
+
+    auto pos = mouse_event.PositionInRootFrame();
+    auto x = (size_t)pos.x();
+    auto y = (size_t)pos.y();
+    recordreplay::OnMouseEvent(mouse_event_type.Utf8().c_str(), x, y, false);
+  }
+  
 
   // Where the pointer went down, came up and moved is in the recording, as
   // on Chromium 108.
@@ -1180,7 +1191,7 @@ WebInputEventResult MouseEventManager::DispatchDragEvent(
                                         : MouseEvent::kRealOrIndistinguishable);
 
   const auto event_result = event_handling_util::ToWebInputEventResult(
-      drag_target->DispatchEvent(*me));
+      drag_target->DispatchEvent(*me, "MouseEventManager::DispatchDragEvent"));
   // If the drop effect was overridden to none for a dragLeave, reset it to
   // an uninitialized state. In cases where a drag leaves a target, having
   // dropEffect explicitly set to none would be incorrect and may

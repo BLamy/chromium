@@ -375,6 +375,17 @@ void IDBTransaction::commit(ExceptionState& exception_state) {
 
   if (!GetExecutionContext())
     return;
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"enqueueIDBTransactionEvent\"}"
+    );
+    recordreplay::AddDependencyGraphEdge(
+      record_replay_created_node_id_, node_id, "{\"kind\":\"creator\"}"
+    );
+    execute.emplace(node_id);
+  }
+
 
   state_ = kCommitting;
   remote_->Commit(num_errors_handled_);

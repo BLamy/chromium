@@ -184,6 +184,10 @@ void NetworkInformation::ConnectionChange(
     const std::optional<double>& downlink_mbps,
     bool save_data) {
   DCHECK(GetExecutionContext()->IsContextThread());
+  recordreplay::AutoDependencyExecution execute(
+    recordreplay::NewDependencyGraphNode("{\"kind\":\"networkConnectionChange\"}")
+  );
+
 
   recordreplay::AutoDependencyExecution record_replay_execute(
       recordreplay::NewDependencyGraphNode("{\"kind\":\"networkConnectionChange\"}"));
@@ -232,8 +236,8 @@ void NetworkInformation::ConnectionChange(
   save_data_ = save_data;
 
   if (type_changed)
-    DispatchEvent(*Event::Create(event_type_names::kTypechange));
-  DispatchEvent(*Event::Create(event_type_names::kChange));
+    DispatchEvent(*Event::Create(event_type_names::kTypechange), "NetworkInformation::ConnectionChange #1");
+  DispatchEvent(*Event::Create(event_type_names::kChange), "NetworkInformation::ConnectionChange #2");
 }
 
 const AtomicString& NetworkInformation::InterfaceName() const {

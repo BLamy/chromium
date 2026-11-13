@@ -94,6 +94,8 @@ void WebCacheManager::ClearRendererCache(
     if (content::RenderProcessHost::FromID(service.first)->IsReady()) {
       service.second->ClearCache(occasion == ON_NAVIGATION);
     }
+  recordreplay::Assert(
+      "[RUN-1975-2287] WebCacheManager::ClearRendererCache C");
   }
 }
 

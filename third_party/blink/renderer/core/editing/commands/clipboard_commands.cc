@@ -281,7 +281,7 @@ bool ClipboardCommands::DispatchClipboardEvent(LocalFrame& frame,
             *target->GetExecutionContext())
             .SetState(event_type, source, sequence_number);
     Event* const evt = ClipboardEvent::Create(event_type, data_transfer);
-    target->DispatchEvent(*evt);
+  target->DispatchEvent(*evt, "ClipboardCommands::DispatchClipboardEvent");
     no_default_processing = evt->defaultPrevented();
   }
   if (no_default_processing && policy == DataTransferAccessPolicy::kWritable) {

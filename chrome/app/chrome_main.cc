@@ -105,6 +105,31 @@ NO_STACK_PROTECTOR __attribute__((visibility("default"))) int ChromeMain(
 #include "./record_replay_main.cc"
 #endif
 
+extern "C" void V8SetRecordingOrReplaying(void* handle);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+#include "./record_replay_main.cc"
+#endif
+
+#if BUILDFLAG(IS_WIN)
+namespace recordreplay { extern void InitBindings(); }
+#endif
+
+#include "base/power_monitor/power_monitor.h"
+#include "base/record_replay.h"
+
+// Read the old space size limit the driver wants V8 to use. This is applied
+// via --js-flags in renderers, see blink_initializer.cc.
+static void LoadRecordReplayMaxOldSpaceMb(void* handle) {
+#if BUILDFLAG(IS_WIN)
+  void* sym = (void*)GetProcAddress((HMODULE)handle, "RecordReplayMaxOldSpaceMb");
+#else
+  void* sym = dlsym(handle, "RecordReplayMaxOldSpaceMb");
+#endif
+  CHECK(sym);
+  recordreplay::SetMaxOldSpaceMb(reinterpret_cast<size_t (*)()>(sym)());
+}
+
 #if BUILDFLAG(IS_WIN)
 DLLEXPORT int __cdecl ChromeMain(HINSTANCE instance,
                                  sandbox::SandboxInterfaceInfo* sandbox_info,
@@ -119,6 +144,56 @@ int ChromeMain(int argc, const char** argv) {
   // chrome_exe_main_mac.cc, and has done it by now.
   RecordReplayAttach(&argc, &argv);
 #endif
+#if BUILDFLAG(IS_LINUX)
+  // On linux ChromeMain is the process entry point, and we need to start
+  // recording/replaying.
+  void* handle = RecordReplayAttach(&argc, &argv);
+  if (handle) {
+    V8SetRecordingOrReplaying(handle);
+    LoadRecordReplayMaxOldSpaceMb(handle);
+  }
+#elif BUILDFLAG(IS_MAC)
+  // On macOS the main function is in a different binary in chrome_exe_main_mac.cc.
+  // When we get to ChromeMain we've already started recording/replaying, but still
+  // need to initialize V8's record/replay bindings.
+  //
+  // Note: On macOS the library handle doesn't need to be specified when using dlsym.
+  void* sym = dlsym(nullptr, "RecordReplayAttach");
+  if (sym) {
+    V8SetRecordingOrReplaying(nullptr);
+    LoadRecordReplayMaxOldSpaceMb(nullptr);
+  }
+#elif BUILDFLAG(IS_WIN)
+  // On windows the main function is in a different binary in chrome_exe_main_win.cc.
+  // As for macOS we have already started recording/replaying but initialize V8's
+  // record/replay bindings here. Also make sure we update the command line used in
+  // chrome.dll.
+  if (RecordReplayShouldRecord(nullptr, nullptr)) {
+    HMODULE module = GetModuleHandleA("windows-recordreplay.dll");
+    CHECK(module);
+    V8SetRecordingOrReplaying((void*)module);
+    LoadRecordReplayMaxOldSpaceMb((void*)module);
+    recordreplay::InitBindings();
+  }
+  // Fix warning.
+  (void)RecordReplayAttach;
+#else // !BUILDFLAG(IS_WIN)
+#error Unknown platform
+#endif // !BUILDFLAG(IS_WIN)
+
+  if (recordreplay::IsRecordingOrReplaying("eager-initialization", "ChromeMain")) {
+    // Force initialization that can otherwise happen at non-deterministic points.
+    base::PowerMonitor::GetInstance();
+  }
+
+  if (recordreplay::IsRecordingOrReplaying("eager-initialization",
+                                           "AbslMutex")) {
+    // absl::Mutex contention isn't recorded, so the thread that first contends
+    // and runs the slow path's one-time initializations (some of which open
+    // files) differs between recording and replaying.
+    absl::RecordReplayInitializeMutexSlowPath();
+  }
+
 
   // Looks for Replay's driver, which has been attached by now if this process
   // is to be recorded.

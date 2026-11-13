@@ -589,18 +589,18 @@ void SpeechRecognition::ErrorOccurred(
   if (error->code ==
       media::mojom::blink::SpeechRecognitionErrorCode::kNoMatch) {
     TraceWebSpeechEvent("nomatch");
-    DispatchEvent(*SpeechRecognitionEvent::CreateNoMatch(nullptr));
+    DispatchEvent(*SpeechRecognitionEvent::CreateNoMatch(nullptr), "SpeechRecognition::ErrorOccurred #1");
   } else {
     TRACE_EVENT_INSTANT("speech", "SpeechRecognition::ErrorOccurred", "event",
                         "error", "error_code", error->code);
     // TODO(primiano): message?
-    DispatchEvent(*SpeechRecognitionErrorEvent::Create(error->code, String()));
+    DispatchEvent(*SpeechRecognitionErrorEvent::Create(error->code, String()), "SpeechRecognition::ErrorOccurred #2");
   }
 }
 
 void SpeechRecognition::Started() {
   TraceWebSpeechEvent("start");
-  DispatchEvent(*Event::Create(event_type_names::kStart));
+  DispatchEvent(*Event::Create(event_type_names::kStart), "SpeechRecognition::Started");
 }
 
 void SpeechRecognition::AudioStarted() {
@@ -608,7 +608,7 @@ void SpeechRecognition::AudioStarted() {
   // record that instant as the time origin for incoming result offsets.
   audio_start_ticks_ = base::TimeTicks::Now();
   TraceWebSpeechEvent("audiostart");
-  DispatchEvent(*Event::Create(event_type_names::kAudiostart));
+  DispatchEvent(*Event::Create(event_type_names::kAudiostart), "SpeechRecognition::AudioStarted");
 }
 
 void SpeechRecognition::SoundStarted() {
@@ -627,7 +627,7 @@ void SpeechRecognition::SoundEnded() {
 
 void SpeechRecognition::AudioEnded() {
   TraceWebSpeechEvent("audioend");
-  DispatchEvent(*Event::Create(event_type_names::kAudioend));
+  DispatchEvent(*Event::Create(event_type_names::kAudioend), "SpeechRecognition::AudioEnded");
 }
 
 void SpeechRecognition::ResetAudioSink() {
@@ -653,7 +653,7 @@ void SpeechRecognition::Ended() {
   receiver_.reset();
   ResetAudioSink();
   TraceWebSpeechEvent("end");
-  DispatchEvent(*Event::Create(event_type_names::kEnd));
+  DispatchEvent(*Event::Create(event_type_names::kEnd), "SpeechRecognition::Ended");
 }
 
 const AtomicString& SpeechRecognition::InterfaceName() const {

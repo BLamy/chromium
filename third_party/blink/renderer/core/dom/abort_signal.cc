@@ -46,7 +46,11 @@ class OnceCallbackAlgorithm final : public AbortSignal::Algorithm {
       : callback_(std::move(callback)) {}
   ~OnceCallbackAlgorithm() override = default;
 
-  void Run() override { std::move(callback_).Run(); }
+  void Run() override {
+    recordreplay::Assert("[RUN-1182] FollowAlgorithm::Run");
+    recordreplay::Assert("[RUN-1182] OnceCallbackAlgorithm::Run");
+    std::move(callback_).Run();
+  }
 
  private:
   base::OnceClosure callback_;
@@ -280,12 +284,14 @@ void AbortSignal::SetAbortReason(ScriptState* script_state,
                                  ScriptValue reason) {
   CHECK(!aborted());
   if (reason.IsUndefined()) {
+    recordreplay::Assert("[RUN-1182] AbortSignal::SignalAbort #2");
     abort_reason_ = ScriptValue(
         script_state->GetIsolate(),
         V8ThrowDOMException::CreateOrEmpty(
             script_state->GetIsolate(), DOMExceptionCode::kAbortError,
             "signal is aborted with undefined reason"));
   } else {
+    recordreplay::Assert("[RUN-1182] AbortSignal::SignalAbort #3");
     abort_reason_ = reason;
   }
 }
@@ -311,7 +317,10 @@ void AbortSignal::RunAbortSteps() {
     handle->GetAlgorithm()->Run();
   }
 
-  DispatchEvent(*Event::Create(event_type_names::kAbort));
+
+  recordreplay::Assert("[RUN-1182] AbortSignal::SignalAbort Done");
+
+  DispatchEvent(*Event::Create(event_type_names::kAbort), "AbortSignal::SignalAbort");
 }
 
 void AbortSignal::Trace(Visitor* visitor) const {
