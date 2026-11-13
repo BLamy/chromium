@@ -33,6 +33,7 @@
 #include "partition_alloc/buildflags.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/wtf/hash_functions.h"
 #include "third_party/blink/renderer/platform/wtf/hash_table_deleted_value_type.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
@@ -609,6 +610,36 @@ template <typename T>
 uint32_t GetHash(const T& key) {
   return HashTraits<T>::GetHash(key);
 }
+
+// Replay: hashes for tables of pointers that give a table the same order in a
+// recording and its replays, by the ID a pointer was registered with instead
+// of its address. These are RecordReplayPointerIdHash and
+// RecordReplayRefPtrPointerIdHash of Replay's Chromium 108
+// (platform/wtf/hash_functions.h), as the traits a table takes here.
+template <typename T>
+struct RecordReplayPointerIdHash : HashTraits<T*> {
+  static uint32_t GetHash(T* key) {
+    if (recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+      int id = recordreplay::PointerId(key);
+      if (id) {
+        return blink::GetHash(static_cast<uint32_t>(id));
+      }
+    }
+    return HashPointer(key);
+  }
+  static constexpr bool kIsRecordReplayDeterministicHash = true;
+};
+
+template <typename T>
+struct RecordReplayRefPtrPointerIdHash : HashTraits<scoped_refptr<T>> {
+  static uint32_t GetHash(T* key) {
+    return RecordReplayPointerIdHash<T>::GetHash(key);
+  }
+  static uint32_t GetHash(const scoped_refptr<T>& key) {
+    return GetHash(key.get());
+  }
+  static constexpr bool kIsRecordReplayDeterministicHash = true;
+};
 
 }  // namespace blink
 

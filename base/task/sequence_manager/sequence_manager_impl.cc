@@ -166,6 +166,7 @@ SequenceManagerImpl::SequenceManagerImpl(
       empty_queues_to_reload_(associated_thread_),
       main_thread_only_(this, associated_thread_, settings_, settings_.clock),
       clock_(settings_.clock) {
+  recordreplay::RegisterPointer("SequenceManagerImpl", this);
   TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("sequence_manager"),
                       "SequenceManager:created",
                       perfetto::Flow::FromPointer(this, "SequenceManager"));
@@ -182,6 +183,9 @@ SequenceManagerImpl::SequenceManagerImpl(
 }
 
 SequenceManagerImpl::~SequenceManagerImpl() {
+  recordreplay::Assert("[RUN-2217-2269] ~SequenceManagerImpl %d", recordreplay::PointerId(this));
+
+  recordreplay::UnregisterPointer(this);
   DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
   TRACE_EVENT_INSTANT(
       TRACE_DISABLED_BY_DEFAULT("sequence_manager"), "SequenceManager:deleted",
@@ -441,6 +445,11 @@ void SequenceManagerImpl::ScheduleWork() {
 void SequenceManagerImpl::SetNextWakeUp(LazyNow* lazy_now,
                                         std::optional<WakeUp> wake_up) {
   auto next_wake_up = AdjustWakeUp(wake_up, lazy_now);
+
+  recordreplay::Assert(
+    "[RUN-2801-2978] SequenceManagerImpl::SetNextWakeUp %d",
+    next_wake_up && next_wake_up->is_immediate());
+
   if (next_wake_up && next_wake_up->is_immediate()) {
     ScheduleWork();
   } else {
@@ -527,11 +536,19 @@ SequenceManagerImpl::SelectNextTaskImpl(LazyNow& lazy_now,
       return std::nullopt;
     }
 
+    REPLAY_ASSERT(
+        "[RUN-1124-1803] SequenceManagerImpl::SelectNextTaskImpl A %zu %s %d",
+        work_queue->Size(), work_queue->name(),
+        work_queue->GetFrontTask()->RecordReplayId());
+
     // If the head task was canceled, remove it and run the selector again.
     if (work_queue->RemoveCancelledTasks(
             WorkQueue::RemoveCancelledTasksPolicy::kFront)) [[unlikely]] {
       continue;
     }
+
+    recordreplay::Assert(
+        "[RUN-1124-1803] SequenceManagerImpl::SelectNextTaskImpl B");
 
     if (work_queue->GetFrontTask()->nestable == Nestable::kNonNestable &&
         main_thread_only().nesting_depth > 0) [[unlikely]] {
@@ -547,6 +564,9 @@ SequenceManagerImpl::SelectNextTaskImpl(LazyNow& lazy_now,
       continue;
     }
 
+    recordreplay::Assert(
+        "[RUN-1124-1803] SequenceManagerImpl::SelectNextTaskImpl C");
+
     main_thread_only().task_execution_stack.emplace_back(
         work_queue->TakeTaskFromWorkQueue(), work_queue->task_queue(),
         InitializeTaskTiming(work_queue->task_queue()));
@@ -560,6 +580,11 @@ SequenceManagerImpl::SelectNextTaskImpl(LazyNow& lazy_now,
     if (!executing_task.pending_task.WillRunTask()) {
       executing_task.pending_task.task = DoNothing();
     }
+
+    REPLAY_ASSERT(
+        "[RUN-1124-1803] SequenceManagerImpl::SelectNextTaskImpl D %zu %s %d",
+        work_queue->Size(), work_queue->name(),
+        executing_task.pending_task.RecordReplayId());
 
     return SelectedTask(
         executing_task.pending_task,
@@ -578,6 +603,9 @@ void SequenceManagerImpl::DidRunTask(LazyNow& lazy_now) {
       *main_thread_only().task_execution_stack.rbegin();
 
   NotifyDidProcessTask(&executing_task, &lazy_now);
+  REPLAY_ASSERT("SequenceManagerImpl::DidRunTask nesting_depth %d %d",
+                       main_thread_only().nesting_depth,
+                       executing_task.pending_task.RecordReplayId());
   main_thread_only().task_execution_stack.pop_back();
 
   if (main_thread_only().nesting_depth == 0) {
@@ -914,11 +942,18 @@ bool SequenceManagerImpl::GetAndClearSystemIsQuiescentBit() {
 
 EnqueueOrder SequenceManagerImpl::GetNextSequenceNumber() {
   EnqueueOrder rv = enqueue_order_generator_.GenerateNext();
-  if (!recordreplay::IsRecordingOrReplaying() ||
-      recordreplay::AreEventsDisallowed("unordered-tasks") ||
-      recordreplay::AreEventsPassedThrough("unordered-tasks")) {
+
+  if (!recordreplay::IsRecordingOrReplaying()) {
     return rv;
   }
+
+  // Use a zero enqueue order for all unordered tasks when recording/replaying.
+  if (recordreplay::AreEventsDisallowed("unordered-tasks") ||
+      recordreplay::AreEventsPassedThrough("unordered-tasks")) {
+    memset(static_cast<void*>(&rv), 0, sizeof(rv));
+    return rv;
+  }
+
   // EnqueueOrders need to be the same when replaying as when recording,
   // because they affect the order in which tasks will run. We could use
   // an ordered lock here, but it's more efficient to just record/replay
@@ -1010,7 +1045,14 @@ void SequenceManagerImpl::ReclaimMemory() {
 }
 
 void SequenceManagerImpl::CleanUpQueues() {
+  // Replay's Chromium 108 asserts here on each queue it shuts down gracefully,
+  // which this Chromium doesn't have.
+  recordreplay::Assert("[RUN-2217] SequenceManagerImpl::CleanUpQueues %zu",
+                       main_thread_only().queues_to_delete.size());
+
   main_thread_only().queues_to_delete.clear();
+
+  recordreplay::Assert("[RUN-2217] SequenceManagerImpl::CleanUpQueues Done");
 }
 
 WeakPtr<SequenceManagerImpl> SequenceManagerImpl::GetWeakPtr() {
@@ -1031,7 +1073,7 @@ void SequenceManagerImpl::SetDefaultTaskRunner(
 }
 
 const TickClock* SequenceManagerImpl::GetTickClock() const {
-  return any_thread_clock();
+  return any_thread_clock_maybe_events_disallowed();
 }
 
 TimeTicks SequenceManagerImpl::NowTicks() const {

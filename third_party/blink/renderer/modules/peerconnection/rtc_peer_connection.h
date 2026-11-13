@@ -601,7 +601,8 @@ class MODULES_EXPORT RTCPeerConnection final
   // (MediaStreamTrackMetrics sends RemoveTrack over mojo, and the native peer
   // connection is released on the signaling thread), all with events
   // disallowed.
-  SelfKeepAlive<RTCPeerConnection> replay_strong_self_;
+  SelfKeepAlive<RTCPeerConnection> replay_strong_self_{
+      SelfKeepAliveCreationKey()};
 
   // Set in the constructor if RTC connections are disallowed by policy
   // globally. See https://w3c.github.io/webappsec-csp/#directive-webrtc

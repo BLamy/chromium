@@ -433,6 +433,8 @@ std::optional<WakeUp> ThreadControllerWithMessagePumpImpl::DoWorkImpl(
        (batch_duration.is_zero() &&
         num_tasks_executed < main_thread_only().work_batch_size);
        ++num_tasks_executed) {
+    recordreplay::Assert("[RUN-1124] ThreadControllerWithMessagePumpImpl::DoWorkImpl #5");
+
     LazyNow lazy_now_select_task(recent_time, time_source_);
     // Include SelectNextTask() in the scope of the work item. This ensures
     // it's covered in tracing and hang reports. This is particularly
@@ -455,6 +457,12 @@ std::optional<WakeUp> ThreadControllerWithMessagePumpImpl::DoWorkImpl(
             ? selected_task->task.queue_time
             : TimeTicks(),
         lazy_now_task_selected);
+
+    recordreplay::Assert("[RUN-1124] ThreadControllerWithMessagePumpImpl::DoWorkImpl #6 %d %d %d",
+                         selected_task ? selected_task->task.RecordReplayId() : 0,
+                         selected_task ? selected_task->task.IsCanceled() : -1,
+                         selected_task ? (int)selected_task->task_queue_name : -1);
+
     if (!selected_task) {
       OnEndWorkItemImpl(lazy_now_task_selected, run_depth);
       break;
@@ -522,12 +530,18 @@ std::optional<WakeUp> ThreadControllerWithMessagePumpImpl::DoWorkImpl(
       recent_time.reset();
     }
 
+    recordreplay::Assert("[RUN-1124] ThreadControllerWithMessagePumpImpl::DoWorkImpl #7 %d",
+                         main_thread_only().quit_pending);
+
     // When Quit() is called we must stop running the batch because the
     // caller expects per-task granularity.
     if (main_thread_only().quit_pending) {
       break;
     }
   }
+
+  recordreplay::Assert("[RUN-1124] ThreadControllerWithMessagePumpImpl::DoWorkImpl #8 %d",
+                       main_thread_only().quit_pending);
 
   if (main_thread_only().quit_pending) {
     return std::nullopt;

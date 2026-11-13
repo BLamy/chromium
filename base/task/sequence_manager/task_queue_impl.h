@@ -80,7 +80,8 @@ class WakeUpQueue;
 class BASE_EXPORT TaskQueueImpl : public TaskQueue {
  public:
   // Replay: runs the tasks posted to this queue from outside the recording,
-  // with events disallowed. See record_replay_unordered_incoming_queue_.
+  // with events disallowed, without waiting for the queue's ordered tasks to
+  // be taken. See record_replay_unordered_immediate_incoming_queue.
   void RecordReplayRunUnorderedTasks();
 
   // Initializes the state of all the task queue features. Must be invoked
@@ -565,20 +566,12 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
 
   // This lock protects access to the handler callbacks, and is used in both ordered and unordered
   // contexts.  In particular, this lock must only be used around the handler
-  mutable base::internal::CheckedLock unordered_lock_;
+  // An empty name: this build orders a lock that has no name, and this one
+  // is taken by threads whose events are disallowed.
+  mutable base::internal::CheckedLock unordered_lock_{""};
 
   TaskDeque record_replay_unordered_immediate_incoming_queue GUARDED_BY(unordered_lock_);
   base::flat_map<raw_ptr<OnTaskPostedCallbackHandleImpl>, OnTaskPostedHandler> on_task_posted_handlers GUARDED_BY(unordered_lock_);
-
-  // Replay: immediate tasks posted while the poster's events are disallowed or
-  // passed through, which is work a recording doesn't have in it, such as a
-  // garbage collector's. When one is posted isn't the same on a replay, so
-  // these have no place in the order of the queue's other tasks. They wait
-  // here, under a lock that's never ordered, and the queue's thread runs them
-  // with its events disallowed whenever it takes its incoming tasks.
-  base::Lock record_replay_unordered_lock_{""};
-  TaskDeque record_replay_unordered_incoming_queue_
-      GUARDED_BY(record_replay_unordered_lock_);
 
   struct AnyThread {
     // Mirrored from MainThreadOnly. These are only used for tracing.
@@ -599,9 +592,6 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
     bool post_immediate_task_should_schedule_work = true;
     bool unregistered = false;
     bool is_enabled = true;
-
-    base::flat_map<raw_ptr<OnTaskPostedCallbackHandleImpl>, OnTaskPostedHandler>
-        on_task_posted_handlers;
 
 #if DCHECK_IS_ON()
     // A cache of |immediate_work_queue->work_queue_set_index()| which is used

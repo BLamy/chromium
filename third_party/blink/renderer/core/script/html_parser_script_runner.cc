@@ -277,23 +277,17 @@ void HTMLParserScriptRunner::PendingScriptFinished(
     return;
   }
 
+  int record_replay_scheduled_node_id = recordreplay::NewDependencyGraphNode(
+    "{\"kind\":\"scheduleNotifyScriptLoaded\"}"
+  );
+
   // Posting the script execution part to a new task so that we can allow
   // yielding for cooperative scheduling. Cooperative scheduling requires that
   // the Blink C++ stack be thin when it executes JavaScript.
   document_->GetTaskRunner(TaskType::kInternalContinueScriptLoading)
-      ->PostTask(
-          FROM_HERE,
-          blink::BindOnce(
-              [](HTMLParserScriptRunnerHost* host, int scheduled_node_id) {
-                recordreplay::AutoDependencyExecution execute(
-                    recordreplay::NewDependencyGraphNodeFrom(
-                        scheduled_node_id, "scheduler",
-                        "{\"kind\":\"documentNotifyScriptLoaded\"}"));
-                host->NotifyScriptLoaded();
-              },
-              WrapPersistent(host_.Get()),
-              recordreplay::NewDependencyGraphNode(
-                  "{\"kind\":\"scheduleNotifyScriptLoaded\"}")));
+      ->PostTask(FROM_HERE,
+                 blink::BindOnce(&HTMLParserScriptRunnerHost::NotifyScriptLoaded,
+                                 WrapPersistent(host_.Get()), record_replay_scheduled_node_id));
 }
 
 // <specdef href="https://html.spec.whatwg.org/C/#scriptEndTag">
@@ -482,7 +476,8 @@ void HTMLParserScriptRunner::ScheduleDeferredScriptExecution() {
                        if (runner->ExecuteScriptsWaitingForParsing()) {
                          // If all scripts are done, need to notify parser
                          // The parser will be resumed when it tries again
-                         runner->host_->NotifyScriptLoaded();
+                         runner->host_->NotifyScriptLoaded(
+                             /* record_replay_scheduled_node_id */ 0);
                        }
                      },
                      WrapPersistent(this)));

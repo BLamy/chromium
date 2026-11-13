@@ -93,7 +93,12 @@ void RunTaskSynchronously(AssociatedThreadId* associated_thread,
 }  // namespace
 
 TaskQueueImpl::GuardedTaskPoster::GuardedTaskPoster(TaskQueueImpl* outer)
-    : outer_(outer) {}
+    : outer_(outer) {
+  if (recordreplay::IsRecordingOrReplaying()) {
+    recordreplay::AutoDisallowEvents disallow("TaskQueueImpl::GuardedTaskPoster::GuardedTaskPoster");
+    record_replay_unordered_operations_controller_.emplace();
+  }
+}
 
 TaskQueueImpl::GuardedTaskPoster::~GuardedTaskPoster() = default;
 
@@ -164,6 +169,9 @@ TaskQueueImpl::TaskRunner::~TaskRunner() = default;
 bool TaskQueueImpl::TaskRunner::PostDelayedTask(const Location& location,
                                                 OnceClosure callback,
                                                 TimeDelta delay) {
+  if (!recordreplay::AreEventsDisallowed() && !recordreplay::AreEventsPassedThrough())
+    recordreplay::Assert("TaskQueueImpl::TaskRunner::PostDelayedTask %d", recordreplay::PointerId(this));
+
   return task_poster_->PostTask(PostedTask(this, std::move(callback), location,
                                            delay, Nestable::kNestable,
                                            task_type_));
@@ -267,6 +275,8 @@ TaskQueueImpl::TaskQueueImpl(SequenceManagerImpl* sequence_manager,
       delayed_fence_allowed_(spec.delayed_fence_allowed),
       scoped_execution_fence_allowed_(spec.scoped_execution_fence_allowed),
       default_task_runner_(CreateTaskRunner(kTaskTypeNone)) {
+  // Pointer registration is needed for sorting in SequenceManagerImpl queues.
+  recordreplay::RegisterPointer("TaskQueueImpl", this);
   UpdateCrossThreadQueueStateLocked();
   // SequenceManager can't be set later, so we need to prevent task runners
   // from posting any tasks.
@@ -276,6 +286,7 @@ TaskQueueImpl::TaskQueueImpl(SequenceManagerImpl* sequence_manager,
 }
 
 TaskQueueImpl::~TaskQueueImpl() {
+  recordreplay::UnregisterPointer(this);
 #if DCHECK_IS_ON()
   base::internal::CheckedAutoLock lock(any_thread_lock_);
   // NOTE this check shouldn't fire because |SequenceManagerImpl::queues_|
@@ -328,18 +339,25 @@ void TaskQueueImpl::UnregisterTaskQueue() {
   }
 
   TaskDeque immediate_incoming_queue;
+  TaskDeque record_replay_unordered_immediate_incoming_queue_old;
+
   base::flat_map<raw_ptr<OnTaskPostedCallbackHandleImpl>, OnTaskPostedHandler>
-      on_task_posted_handlers;
+      on_task_posted_handlers_old;
 
   {
-    base::internal::CheckedAutoLock lock(any_thread_lock_);
+    // Make sure we take the ordered lock first--if it's not our turn to do so, we won't deadlock
+    // any unordered threads from taking the unordered locks.
+    base::internal::CheckedAutoLock o_lock(any_thread_lock_);
+    base::internal::CheckedAutoLock u_lock1(unordered_lock_);
+
     any_thread_.unregistered = true;
     immediate_incoming_queue.swap(any_thread_.immediate_incoming_queue);
+    record_replay_unordered_immediate_incoming_queue_old.swap(record_replay_unordered_immediate_incoming_queue);
 
-    for (auto& handler : any_thread_.on_task_posted_handlers) {
+    for (auto& handler : on_task_posted_handlers) {
       handler.first->UnregisterTaskQueue();
     }
-    any_thread_.on_task_posted_handlers.swap(on_task_posted_handlers);
+    on_task_posted_handlers.swap(on_task_posted_handlers_old);
   }
 
   main_thread_only().unregistered = true;
@@ -427,28 +445,13 @@ void TaskQueueImpl::RemoveCancelableTask(HeapHandle heap_handle) {
   }
 }
 
-void TaskQueueImpl::PostImmediateTaskImpl(PostedTask task,
+void TaskQueueImpl::PostImmediateTaskImplOrdered(PostedTask task,
                                           CurrentThread current_thread) {
   // Use CHECK instead of DCHECK to crash earlier. See http://crbug.com/711167
   // for details.
   CHECK(task.callback);
-
-  if (recordreplay::IsRecordingOrReplaying() &&
-      (recordreplay::AreEventsDisallowed() ||
-       recordreplay::AreEventsPassedThrough())) {
-    // See record_replay_unordered_incoming_queue_.
-    {
-      base::AutoLock lock(record_replay_unordered_lock_);
-      record_replay_unordered_incoming_queue_.push_back(
-          Task(std::move(task), EnqueueOrder(), EnqueueOrder(), TimeTicks()));
-      sequence_manager_->record_replay_unordered_pending_.fetch_add(
-          1, std::memory_order_relaxed);
-    }
-    // Wakes the queue's thread if it's waiting. From here that goes straight
-    // to the pump: see ThreadControllerWithMessagePumpImpl::ScheduleWork().
-    sequence_manager_->ScheduleWork();
-    return;
-  }
+  CHECK(!recordreplay::AreEventsDisallowed("unordered-tasks") &&
+        !recordreplay::AreEventsPassedThrough("unordered-tasks"));
 
   bool should_schedule_work = false;
   {
@@ -462,7 +465,7 @@ void TaskQueueImpl::PostImmediateTaskImpl(PostedTask task,
         TRACE_EVENT_CATEGORY_ENABLED("config.scheduler.record_task_post_time");
     if (config_category_enabled || add_queue_time_to_tasks ||
         delayed_fence_allowed_) {
-      queue_time = sequence_manager_->any_thread_clock()->NowTicks();
+      queue_time = sequence_manager_->any_thread_clock_maybe_events_disallowed()->NowTicks();
     }
 
     // The sequence number must be incremented atomically with pushing onto the
@@ -475,14 +478,25 @@ void TaskQueueImpl::PostImmediateTaskImpl(PostedTask task,
     any_thread_.immediate_incoming_queue.push_back(
         Task(std::move(task), sequence_number, sequence_number, queue_time));
 
+    REPLAY_ASSERT(
+        "[RUN-1126] TaskQueueImpl::PostImmediateTaskImpl 1 %d %d",
+        add_queue_time_to_tasks || delayed_fence_allowed_,
+        any_thread_.immediate_incoming_queue.back().RecordReplayId());
+
     sequence_manager_->WillQueueTask(
         &any_thread_.immediate_incoming_queue.back());
     MaybeReportIpcTaskQueuedFromAnyThreadLocked(
         any_thread_.immediate_incoming_queue.back());
 
-    for (auto& handler : any_thread_.on_task_posted_handlers) {
-      DCHECK(!handler.second.is_null());
-      handler.second.Run(any_thread_.immediate_incoming_queue.back());
+    {
+      // This lock must NOT ever enclose an access to an ordered lock (belonging to this queue);
+      // doing so will cause deadlocks against other threads that are running without order that
+      // try to do a PostImmediateTask.
+      base::internal::CheckedAutoLock hander_lock(unordered_lock_);
+      for (auto& handler : on_task_posted_handlers) {
+        DCHECK(!handler.second.is_null());
+        handler.second.Run(any_thread_.immediate_incoming_queue.back());
+      }
     }
 
     // If this queue was completely empty, then the SequenceManager needs to be
@@ -512,7 +526,54 @@ void TaskQueueImpl::PostImmediateTaskImpl(PostedTask task,
   if (should_schedule_work) {
     sequence_manager_->ScheduleWork();
   }
+}
 
+void TaskQueueImpl::PostImmediateTaskImplUnordered(PostedTask task,
+                                          CurrentThread current_thread) {
+  CHECK(task.callback);
+  CHECK(recordreplay::AreEventsDisallowed("unordered-tasks") ||
+        recordreplay::AreEventsPassedThrough("unordered-tasks"));
+
+  {
+    base::internal::CheckedAutoLock lock(unordered_lock_);
+
+    bool add_queue_time_to_tasks = sequence_manager_->GetAddQueueTimeToTasks();
+    TimeTicks queue_time;
+
+    if (add_queue_time_to_tasks || delayed_fence_allowed_)
+      queue_time = sequence_manager_->any_thread_clock_maybe_events_disallowed()->NowTicks();
+
+    record_replay_unordered_immediate_incoming_queue.push_back(
+        Task(std::move(task), EnqueueOrder(), EnqueueOrder(), queue_time));
+
+    sequence_manager_->WillQueueTask(&record_replay_unordered_immediate_incoming_queue.back());
+
+    for (auto& handler : on_task_posted_handlers) {
+      DCHECK(!handler.second.is_null());
+      handler.second.Run(record_replay_unordered_immediate_incoming_queue.back());
+    }
+
+    // Not in Replay's Chromium 108: the count the queue's thread reads before
+    // it selects a task, so that these run when no ordered task comes to take
+    // them with (SequenceManagerImpl::SelectNextTaskImpl()).
+    sequence_manager_->record_replay_unordered_pending_.fetch_add(
+        1, std::memory_order_relaxed);
+  }
+  // Also not in 108: wakes the queue's thread if it's waiting. From here that
+  // goes straight to the pump: see
+  // ThreadControllerWithMessagePumpImpl::ScheduleWork().
+  sequence_manager_->ScheduleWork();
+}
+
+void TaskQueueImpl::PostImmediateTaskImpl(PostedTask task,
+                                          CurrentThread current_thread) {
+  if (recordreplay::AreEventsDisallowed("unordered-tasks") ||
+      recordreplay::AreEventsPassedThrough("unordered-tasks"))
+  {
+    PostImmediateTaskImplUnordered(std::move(task), current_thread);
+  } else {
+    PostImmediateTaskImplOrdered(std::move(task), current_thread);
+  }
   TraceQueueSize();
 }
 
@@ -604,38 +665,26 @@ void TaskQueueImpl::RecordReplayRunUnorderedTasks() {
   }
   TaskDeque tasks;
   {
-    base::AutoLock lock(record_replay_unordered_lock_);
-    tasks.swap(record_replay_unordered_incoming_queue_);
+    base::internal::CheckedAutoLock lock(unordered_lock_);
+    tasks.swap(record_replay_unordered_immediate_incoming_queue);
     sequence_manager_->record_replay_unordered_pending_.fetch_sub(
         static_cast<int>(tasks.size()), std::memory_order_relaxed);
   }
-  if (tasks.empty()) {
-    return;
-  }
-  recordreplay::AutoDisallowEvents disallow(
-      "TaskQueueImpl::RecordReplayRunUnorderedTasks");
-  while (!tasks.empty()) {
-    Task pending_task = std::move(tasks.front());
-    tasks.pop_front();
-    // REPLAY_LOG_UNORDERED_TASKS says where each one was posted from.
-    static const bool log = !!getenv("REPLAY_LOG_UNORDERED_TASKS");
-    if (log) {
-      fprintf(stderr, "[replay] unordered task from %s\n",
-              pending_task.posted_from.ToString().c_str());
-    }
-    std::move(pending_task.task).Run();
-  }
+  WorkQueue::RecordReplayRunUnorderedTasks(&tasks);
 }
 
-void TaskQueueImpl::TakeImmediateIncomingQueueTasks(TaskDeque* queue) {
+void TaskQueueImpl::TakeImmediateIncomingQueueTasks(TaskDeque* queue, TaskDeque* record_replay_unordered_queue) {
+  recordreplay::Assert("[RUN-1916] TaskQueueImpl::TakeImmediateIncomingQueueTasks %zu",
+                       queue->size());
+
   DCHECK(queue->empty());
-  // Declared before the lock, so that it runs once the lock is released.
-  struct RunUnorderedTasks {
-    ~RunUnorderedTasks() { queue->RecordReplayRunUnorderedTasks(); }
-    RAW_PTR_EXCLUSION TaskQueueImpl* const queue;
-  } run_unordered_tasks{this};
-  base::internal::CheckedAutoLock lock(any_thread_lock_);
+  base::internal::CheckedAutoLock o_lock(any_thread_lock_);
+  base::internal::CheckedAutoLock u_lock(unordered_lock_);
   queue->swap(any_thread_.immediate_incoming_queue);
+  record_replay_unordered_queue->swap(record_replay_unordered_immediate_incoming_queue);
+  sequence_manager_->record_replay_unordered_pending_.fetch_sub(
+      static_cast<int>(record_replay_unordered_queue->size()),
+      std::memory_order_relaxed);
 
   // Activate delayed fence if necessary. This is ideologically similar to
   // ActivateDelayedFenceIfNeeded, but due to immediate tasks being posted
@@ -665,6 +714,10 @@ void TaskQueueImpl::TakeImmediateIncomingQueueTasks(TaskDeque* queue) {
 }
 
 bool TaskQueueImpl::IsEmpty() const {
+  recordreplay::Assert("[RUN-2217-2269] TaskQueueImpl::IsEmpty %d %d %d",
+                       main_thread_only().delayed_work_queue->Empty(),
+                       main_thread_only().delayed_incoming_queue.empty(),
+                       main_thread_only().immediate_work_queue->Empty());
   if (!main_thread_only().delayed_work_queue->Empty() ||
       !main_thread_only().delayed_incoming_queue.empty() ||
       !main_thread_only().immediate_work_queue->Empty()) {
@@ -773,6 +826,8 @@ void TaskQueueImpl::MoveReadyDelayedTasksToWorkQueue(
 
     // Leave the top task alone if it hasn't been canceled and it is not ready.
     const bool is_cancelled = task.task.IsCancelled();
+    recordreplay::Assert("[RUN-1916] TaskQueueImpl::MoveReadyDelayedTasksToWorkQueue #2 %d %d",
+                         is_cancelled, lazy_now->has_value());
     if (!is_cancelled && task.earliest_delayed_run_time() > lazy_now->Now()) {
       break;
     }
@@ -1018,7 +1073,7 @@ void TaskQueueImpl::RemoveFence() {
   front_task_unblocked |= main_thread_only().delayed_work_queue->RemoveFence();
 
   {
-    base::internal::CheckedAutoLock lock(any_thread_lock_);
+    recordreplay::AutoLockMaybeEventsDisallowed lock(any_thread_lock_);
     if (!front_task_unblocked && previous_fence) {
       if (!any_thread_.immediate_incoming_queue.empty() &&
           any_thread_.immediate_incoming_queue.front().task_order() >
@@ -1267,6 +1322,13 @@ void TaskQueueImpl::ReclaimMemory(TimeTicks now) {
     return;
   }
 
+  // The sweep of cancelled tasks is always done here, where Replay's Chromium
+  // 108 has a feature for it.
+  recordreplay::Assert(
+    "[RUN-2801-2978] TaskQueueImpl::ReclaimMemory %d %d",
+    1,
+    !!main_thread_only().delayed_work_queue);
+
   main_thread_only().delayed_incoming_queue.SweepCancelledTasks(
       sequence_manager_);
 
@@ -1335,7 +1397,7 @@ void TaskQueueImpl::SetThrottler(TaskQueue::Throttler* throttler) {
 
 void TaskQueueImpl::ResetThrottler() {
   main_thread_only().throttler = nullptr;
-  LazyNow lazy_now(sequence_manager_->main_thread_clock());
+  LazyNow lazy_now(sequence_manager_->any_thread_clock_maybe_events_disallowed());
   // The current delayed wake up may have been determined by the Throttler.
   // Update it now that there is no Throttler.
   UpdateWakeUp(&lazy_now);
@@ -1419,8 +1481,11 @@ TaskQueueImpl::AddOnTaskPostedHandler(OnTaskPostedHandler handler) {
   std::unique_ptr<OnTaskPostedCallbackHandleImpl> handle =
       std::make_unique<OnTaskPostedCallbackHandleImpl>(this,
                                                        associated_thread_);
-  base::internal::CheckedAutoLock lock(any_thread_lock_);
-  any_thread_.on_task_posted_handlers.insert(
+  // Ensure we grab the ordered lock first.
+  base::internal::CheckedAutoLock o_lock(any_thread_lock_);
+  base::internal::CheckedAutoLock u_lock(unordered_lock_);
+
+  on_task_posted_handlers.insert(
       {handle.get(), std::move(handler)});
   return handle;
 }
@@ -1428,8 +1493,10 @@ TaskQueueImpl::AddOnTaskPostedHandler(OnTaskPostedHandler handler) {
 void TaskQueueImpl::RemoveOnTaskPostedHandler(
     TaskQueueImpl::OnTaskPostedCallbackHandleImpl*
         on_task_posted_callback_handle) {
-  base::internal::CheckedAutoLock lock(any_thread_lock_);
-  any_thread_.on_task_posted_handlers.erase(on_task_posted_callback_handle);
+  // Ensure we grab the ordered lock first.
+  base::internal::CheckedAutoLock o_lock(any_thread_lock_);
+  base::internal::CheckedAutoLock u_lock(unordered_lock_);
+  on_task_posted_handlers.erase(on_task_posted_callback_handle);
 }
 
 void TaskQueueImpl::SetTaskExecutionTraceLogger(
@@ -1439,7 +1506,7 @@ void TaskQueueImpl::SetTaskExecutionTraceLogger(
 }
 
 bool TaskQueueImpl::IsUnregistered() const {
-  base::internal::CheckedAutoLock lock(any_thread_lock_);
+  recordreplay::AutoLockMaybeEventsDisallowed lock(any_thread_lock_);
   return any_thread_.unregistered;
 }
 

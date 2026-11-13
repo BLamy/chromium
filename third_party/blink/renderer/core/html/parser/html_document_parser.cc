@@ -651,8 +651,20 @@ bool HTMLDocumentParser::IsParsingFragment() const {
 
 void HTMLDocumentParser::DeferredPumpTokenizerIfPossible(
     bool from_finish_append,
-    base::TimeTicks schedule_time) {
+    base::TimeTicks schedule_time,
+    int record_replay_scheduled_node_id) {
   // This method is called asynchronously, continues building the HTML document.
+
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"deferredDocumentPumpTokenizer\"}"
+    );
+    recordreplay::AddDependencyGraphEdge(
+      record_replay_scheduled_node_id, node_id, "{\"kind\":\"scheduler\"}"
+    );
+    execute.emplace(node_id);
+  }
 
   // If we're scheduled for a tokenizer pump, then document should be attached
   // and the parser should not be stopped, but sometimes a script completes
@@ -955,21 +967,15 @@ void HTMLDocumentParser::SchedulePumpTokenizer(bool from_finish_append) {
   if (RuntimeEnabledFeatures::HTMLParserYieldAndDelayOftenForTestingEnabled()) {
     delay = base::Milliseconds(10);
   }
+  int record_replay_scheduled_node_id = recordreplay::NewDependencyGraphNode(
+    "{\"kind\":\"documentSchedulePumpTokenizer\"}"
+  );
   loading_task_runner_->PostDelayedTask(
       FROM_HERE,
-      blink::BindOnce(
-          [](HTMLDocumentParser* self, bool from_finish_append,
-             base::TimeTicks schedule_time, int scheduled_node_id) {
-            recordreplay::AutoDependencyExecution execute(
-                recordreplay::NewDependencyGraphNodeFrom(
-                    scheduled_node_id, "scheduler",
-                    "{\"kind\":\"deferredDocumentPumpTokenizer\"}"));
-            self->DeferredPumpTokenizerIfPossible(from_finish_append,
-                                                  schedule_time);
-          },
-          WrapPersistent(this), from_finish_append, base::TimeTicks::Now(),
-          recordreplay::NewDependencyGraphNode(
-              "{\"kind\":\"documentSchedulePumpTokenizer\"}")),
+      blink::BindOnce(&HTMLDocumentParser::DeferredPumpTokenizerIfPossible,
+                      WrapPersistent(this), from_finish_append,
+                      base::TimeTicks::Now(),
+                      record_replay_scheduled_node_id),
       delay);
   task_runner_state_->SetState(
       HTMLDocumentParserState::DeferredParserState::kScheduled);
@@ -986,21 +992,15 @@ void HTMLDocumentParser::ScheduleEndIfDelayed() {
 
   // Schedule a pump callback if needed.
   if (!task_runner_state_->IsScheduled()) {
+    int record_replay_scheduled_node_id = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"documentScheduleEndIfDelayed\"}"
+    );
     loading_task_runner_->PostTask(
         FROM_HERE,
-        blink::BindOnce(
-            [](HTMLDocumentParser* self, base::TimeTicks schedule_time,
-               int scheduled_node_id) {
-              recordreplay::AutoDependencyExecution execute(
-                  recordreplay::NewDependencyGraphNodeFrom(
-                      scheduled_node_id, "scheduler",
-                      "{\"kind\":\"deferredDocumentPumpTokenizer\"}"));
-              self->DeferredPumpTokenizerIfPossible(
-                  /*from_finish_append=*/false, schedule_time);
-            },
-            WrapPersistent(this), base::TimeTicks::Now(),
-            recordreplay::NewDependencyGraphNode(
-                "{\"kind\":\"documentScheduleEndIfDelayed\"}")));
+        blink::BindOnce(&HTMLDocumentParser::DeferredPumpTokenizerIfPossible,
+                        WrapPersistent(this),
+                        /*from_finish_append=*/false, base::TimeTicks::Now(),
+                        record_replay_scheduled_node_id));
     yield_timer_ = std::make_unique<base::ElapsedTimer>();
   }
   // If a pump is already scheduled, it's OK to just upgrade it to one
@@ -1362,11 +1362,24 @@ void HTMLDocumentParser::AppendCurrentInputStreamToPreloadScannerAndScan() {
   }
 }
 
-void HTMLDocumentParser::NotifyScriptLoaded() {
+void HTMLDocumentParser::NotifyScriptLoaded(int record_replay_scheduled_node_id) {
   TRACE_EVENT("blink", "HTMLDocumentParser::NotifyScriptLoaded",
               perfetto::Flow::FromPointer(this), "parser", (void*)this);
   DCHECK(script_runner_);
   DCHECK(!IsExecutingScript());
+
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode(
+      "{\"kind\":\"documentNotifyScriptLoaded\"}"
+    );
+    if (record_replay_scheduled_node_id) {
+      recordreplay::AddDependencyGraphEdge(
+        record_replay_scheduled_node_id, node_id, "{\"kind\":\"scheduler\"}"
+      );
+    }
+    execute.emplace(node_id);
+  }
 
   if (IsStopped() || IsDetached()) {
     return;

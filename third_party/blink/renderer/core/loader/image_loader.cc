@@ -128,11 +128,14 @@ class ImageLoader::Task {
   void Run() {
     if (!loader_)
       return;
-    ExecutionContext* context = loader_->GetElement()->GetExecutionContext();
+    Element* element = loader_->GetElement();
+    recordreplay::Assert("[Run-1333] ImageLoader::Run %d",
+                         element->RecordReplayId());
+    ExecutionContext* context = element->GetExecutionContext();
     probe::AsyncTask async_task(context, &async_task_context_);
-    loader_->record_replay_update_scheduled_node_id_ =
-        record_replay_scheduled_node_id_;
-    loader_->DoUpdateFromElement(world_.Get(), update_behavior_);
+    loader_->DoUpdateFromElement(world_.Get(), update_behavior_, nullptr,
+                                 UpdateType::kAsync,
+                                 record_replay_scheduled_node_id_);
   }
 
   void ClearLoader() {
@@ -421,6 +424,9 @@ inline void ImageLoader::EnqueueImageLoadingMicroTask(
     UpdateFromElementBehavior update_behavior) {
   auto task = std::make_unique<Task>(this, update_behavior);
   pending_task_ = task->GetWeakPtr();
+  recordreplay::Assert(
+      "[RUN-1333] ImageLoader::EnqueueImageLoadingMicroTask %d",
+      element_->RecordReplayId());
   element_->GetDocument().GetAgent().event_loop()->EnqueueMicrotask(
       BindOnce(&Task::Run, std::move(task)));
   delay_until_do_update_from_element_ =
@@ -456,18 +462,18 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
                                       UpdateFromElementBehavior update_behavior,
                                       const KURL* source_url,
                                       UpdateType update_type,
+                                      int record_replay_scheduled_node_id,
                                       bool force_blocking) {
   std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
   if (recordreplay::DependencyGraphEnabled()) {
     int node_id = RecordReplayImageLoaderNode(
         "imageUpdateFromElement", element_.Get(),
         record_replay_created_node_id_);
-    if (record_replay_update_scheduled_node_id_ > 0) {
+    if (record_replay_scheduled_node_id) {
       recordreplay::AddDependencyGraphEdge(
-          record_replay_update_scheduled_node_id_, node_id,
+          record_replay_scheduled_node_id, node_id,
           "{\"kind\":\"scheduler\"}");
     }
-    record_replay_update_scheduled_node_id_ = 0;
     record_replay_execute.emplace(node_id);
   }
 
@@ -589,6 +595,10 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
       params.SetLazyImageNonBlocking();
     }
 
+    recordreplay::Assert(
+        "[TT-418-1118] ImageLoader::DoUpdateFromElement A %d",
+        element_->RecordReplayId());
+
     new_image_content = ImageResourceContent::Fetch(params, document.Fetcher());
 
     // If this load is starting while navigating away, treat it as an auditing
@@ -609,6 +619,16 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
   ImageResourceContent* old_image_content = image_content_.Get();
   if (old_image_content != new_image_content)
     RejectPendingDecodes(update_type);
+
+  recordreplay::Assert(
+      "[TT-418-1118] ImageLoader::DoUpdateFromElement B %d %d %d layout=%d %d",
+      update_behavior,
+      !!old_image_content,
+      new_image_content == old_image_content,
+
+      !!element_->GetLayoutObject(),
+      element_->GetLayoutObject() && element_->GetLayoutObject()->IsImage()
+  );
 
   if (update_behavior == kUpdateSizeChanged && element_->GetLayoutObject() &&
       element_->GetLayoutObject()->IsImage() &&
@@ -651,6 +671,8 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
       old_image_content->RemoveObserver(this);
     }
   }
+
+  recordreplay::Assert("[TT-418-1118] ImageLoader::DoUpdateFromElement C");
 
   ResetAnimation(update_behavior == kUpdateForcedReload
                      ? ResetTimeline::kAll
@@ -708,8 +730,11 @@ void ImageLoader::UpdateFromElement(UpdateFromElementBehavior update_behavior,
   const KURL image_source_kurl = ImageSourceToKURL(image_source_url);
   if (ShouldLoadImmediately(image_source_kurl) &&
       update_behavior != kUpdateFromMicrotask) {
+    recordreplay::Assert("[Run-1333] ImageLoader::UpdateFromElement %d",
+                         element_->RecordReplayId());
     DoUpdateFromElement(element_->GetExecutionContext()->GetCurrentWorld(),
                         update_behavior, &image_source_kurl, UpdateType::kSync,
+                        /* record_replay_scheduled_node_id */ 0,
                         force_blocking);
     return;
   }
@@ -953,6 +978,15 @@ void ImageLoader::UpdateLayoutObject() {
   // is a complete image.  This prevents flickering in the case where a dynamic
   // change is happening between two images.
   ImageResourceContent* cached_image_content = image_resource->CachedImage();
+
+  recordreplay::Assert(
+      "[TT-418-1118] ImageLoader::UpdateLayoutObject %d %d %d %d",
+      !!cached_image_content,
+      !!image_complete_,
+      image_content_ == cached_image_content,
+      !!cached_image_content
+  );
+
   if (image_content_ != cached_image_content &&
       (image_complete_ || !cached_image_content))
     image_resource->SetImageResource(image_content_.Get());

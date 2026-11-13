@@ -37,6 +37,8 @@ class SelfKeepAliveCreationKey final {
   friend class RefCountedAndGarbageCollected;
   friend class Responder;
   friend class RTCDataChannel;
+  // Replay: kept alive while recording or replaying, as in its Chromium 108.
+  friend class RTCPeerConnection;
   friend class ScriptState;
   friend class SetMediaKeysHandler;
   friend class ThreadedMessagingProxyBase;

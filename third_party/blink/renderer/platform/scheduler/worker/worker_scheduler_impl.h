@@ -126,7 +126,7 @@ class PLATFORM_EXPORT WorkerSchedulerImpl : public WorkerScheduler {
   using TaskQueueVoterMap = HashMap<
       scoped_refptr<NonMainThreadTaskQueue>,
       std::unique_ptr<base::sequence_manager::TaskQueue::QueueEnabledVoter>,
-      recordreplay::CompareRefptrByPointerId<scoped_refptr<NonMainThreadTaskQueue>>>;
+      RecordReplayRefPtrPointerIdHash<NonMainThreadTaskQueue>>;
 
   // `task_runners_` includes the queues listed above along with the associated
   // voters, plus any task queues and voter pairs created with
