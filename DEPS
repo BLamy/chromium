@@ -330,11 +330,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': 'ddaf9fbad01a36b90e49e05fb3dea9c23adcd347',
+  'skia_revision': '9a0c1a9abd77dc7f022eab8f1a24d03bccef3704',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '975672ea5eee9c247770e29c332792dec6defb82',
+  'v8_revision': '7a396bc62fbee2c10e922e1f6f093990c963df46',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
@@ -3304,7 +3304,7 @@ deps = {
   'src/third_party/webrtc':
     # Upstream bd3d2d31501d's tree, imported without its history, plus what
     # recording needs, on chromium-158.
-    'https://github.com/BLamy/webrtc.git' + '@' + '1d4d9ac604e762a0d7109326939e98ef9cc22075',
+    'https://github.com/BLamy/webrtc.git' + '@' + '2f0a30b991ba759a2d7eb1e8a250d284ae2945a5',
 
   # Wuffs' canonical repository is at github.com/google/wuffs, but we use
   # Skia's mirror of Wuffs, the same as in upstream Skia's DEPS file.
