@@ -278,6 +278,10 @@ struct WeakMemberHashTraitsRecordReplayId
   static constexpr bool kSupportsCompaction = true;
 };
 
+template <typename T>
+struct UntracedMemberHashTraitsRecordReplayId
+    : BaseMemberHashTraitsRecordReplayId<T, blink::UntracedMember<T>> {};
+
 // Custom HashTraits<UntracedMember<Type>> can inherit this type.
 template <typename T>
 struct UntracedMemberHashTraits

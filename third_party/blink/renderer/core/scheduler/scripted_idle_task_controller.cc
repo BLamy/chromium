@@ -329,6 +329,10 @@ void ScriptedIdleTaskController::RunIdleTask(
   IdleTask* idle_task = idle_task_iter->value;
   DCHECK(idle_task);
 
+  recordreplay::Assert(
+      "[RUN-2419] ScriptedIdleTaskController::RunCallback B %d %d",
+      id, idle_task->RecordReplayId());
+
   base::TimeDelta allotted_time =
       std::max(deadline - base::TimeTicks::Now(), base::TimeDelta());
 
@@ -378,6 +382,11 @@ void ScriptedIdleTaskController::RemoveAllIdleTasks() {
 }
 
 void ScriptedIdleTaskController::ContextDestroyed() {
+  if (idle_tasks_.size())
+    recordreplay::Assert(
+        "[RUN-2419] ScriptedIdleTaskController::ContextDestroyed %lu %d",
+        idle_tasks_.size(),
+        idle_tasks_.begin()->value->RecordReplayId());
   RemoveAllIdleTasks();
 }
 

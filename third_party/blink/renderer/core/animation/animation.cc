@@ -34,6 +34,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/debug/stack_trace.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/types/optional_util.h"
@@ -2842,6 +2843,8 @@ Animation::NativePaintWorkletReasons Animation::GetNativePaintWorkletReasons()
 // composited and non-composited animations. The use of 'compositor' in the name
 // is confusing.
 void Animation::SetCompositorPending(CompositorPendingReason reason) {
+  recordreplay::Assert("[RUN-1641] Animation::SetCompositorPending %d", RecordReplayId());
+
   // Determine if we need to reset the cached state for a property that is
   // composited via a native paint worklet. If reset, it forces Paint to
   // re-evaluate whether to paint with a native paint worklet.

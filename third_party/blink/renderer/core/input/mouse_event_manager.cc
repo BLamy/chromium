@@ -284,7 +284,7 @@ MouseEventManager::DispatchMouseEvent(
 
       if (should_dispatch) {
         input_event_result = event_handling_util::ToWebInputEventResult(
-            target->DispatchEvent(*event));
+            target->DispatchEvent(*event, "MouseEventManager::DispatchMouseEvent #1"));
         return {event, input_event_result};
       }
     } else {
@@ -302,7 +302,7 @@ MouseEventManager::DispatchMouseEvent(
 
       if (should_dispatch) {
         input_event_result = event_handling_util::ToWebInputEventResult(
-            target->DispatchEvent(*event));
+            target->DispatchEvent(*event, "MouseEventManager::DispatchMouseEvent #2"));
         return {event, input_event_result};
       }
     }

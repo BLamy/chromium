@@ -202,7 +202,12 @@ int DOMTimer::setTimeout(ScriptState* script_state,
                          V8Function* handler,
                          int timeout,
                          const HeapVector<ScriptValue>& arguments) {
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("WindowOrWorkerGlobalScope::setTimeout #1");
+
   if (!IsAllowed(script_state, context, false, g_empty_string)) {
+    // https://linear.app/replay/issue/RUN-885
+    recordreplay::Assert("WindowOrWorkerGlobalScope::setTimeout #1.1");
     return 0;
   }
   auto* action = MakeGarbageCollected<ScheduledAction>(script_state, context,
@@ -219,6 +224,9 @@ int DOMTimer::setTimeout(ScriptState* script_state,
                          int timeout,
                          const HeapVector<ScriptValue>&,
                          ExceptionState& exception_state) {
+  // https://linear.app/replay/issue/RUN-885
+  recordreplay::Assert("WindowOrWorkerGlobalScope::setTimeout #2");
+
   // In the current version of the HTML spec, the two setTimeout variants have
   // been unified, and the Trusted Types check is moved much further down. This
   // is script-obervable if one tries hard enough, e.g. by having competing
@@ -236,11 +244,15 @@ int DOMTimer::setTimeout(ScriptState* script_state,
   }
 
   if (!IsAllowed(script_state, context, true, handler)) {
+    // https://linear.app/replay/issue/RUN-885
+    recordreplay::Assert("WindowOrWorkerGlobalScope::setTimeout #2.1");
     return 0;
   }
   // Don't allow setting timeouts to run empty functions.  Was historically a
   // performance issue.
   if (handler.empty()) {
+    // https://linear.app/replay/issue/RUN-885
+    recordreplay::Assert("WindowOrWorkerGlobalScope::setTimeout #2.2");
     return 0;
   }
   auto* action =

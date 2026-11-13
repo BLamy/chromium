@@ -251,10 +251,15 @@ void ScriptRunner::ExecuteAsyncPendingScript(
     PendingScript* pending_script,
     base::TimeTicks ready_to_evaluate_time,
     int record_replay_scheduled_node_id) {
-  recordreplay::AutoDependencyExecution record_replay_execute(
-      recordreplay::NewDependencyGraphNodeFrom(
-          record_replay_scheduled_node_id, "scheduler",
-          "{\"kind\":\"executeAsyncScript\"}"));
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode("{\"kind\":\"executeAsyncScript\"}");
+    recordreplay::AddDependencyGraphEdge(
+      record_replay_scheduled_node_id, node_id, "{\"kind\":\"scheduler\"}"
+    );
+    execute.emplace(node_id);
+  }
+
   base::UmaHistogramMediumTimes(
       "Blink.Script.AsyncScript.FromReadyToStartExecution.Time",
       base::TimeTicks::Now() - ready_to_evaluate_time);

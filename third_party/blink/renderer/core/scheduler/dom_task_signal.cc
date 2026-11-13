@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/functional/callback.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_task_priority_change_event_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_task_signal_any_init.h"
@@ -124,7 +125,7 @@ void DOMTaskSignal::SignalPriorityChange(V8TaskPriority::Enum priority,
   auto* init = TaskPriorityChangeEventInit::Create();
   init->setPreviousPriority(previous_priority);
   DispatchEvent(*TaskPriorityChangeEvent::Create(
-      event_type_names::kPrioritychange, init));
+      event_type_names::kPrioritychange, init), "DOMTaskSignal::SignalPriorityChange");
 
   if (auto* source_signal_manager = DynamicTo<SourceSignalCompositionManager>(
           *priority_composition_manager_.Get())) {

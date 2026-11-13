@@ -1208,7 +1208,7 @@ void LocalDOMWindow::SendOrientationChangeEvent() {
 
   for (LocalFrame* frame : frames) {
     frame->DomWindow()->DispatchEvent(
-        *Event::Create(event_type_names::kOrientationchange));
+        *Event::Create(event_type_names::kOrientationchange), "LocalDOMWindow::SendOrientationChangeEvent");
   }
 }
 
@@ -1473,7 +1473,7 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
     // restore.
     EnqueueEvent(*event, TaskType::kInternalDefault);
   } else {
-    DispatchEvent(*event);
+    DispatchEvent(*event, "LocalDOMWindow::DispatchMessageEventWithOriginCheck");
   }
 }
 

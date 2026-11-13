@@ -352,7 +352,9 @@ class CORE_EXPORT LocalFrameView final
   void AdjustMediaTypeForPrinting(bool printing);
 
   // Objects with background-attachment:fixed.
-  typedef HeapHashSet<Member<LayoutBoxModelObject>> BoxModelObjectSet;
+  typedef HeapHashSet<Member<LayoutBoxModelObject>,
+                      MemberHashTraitsRecordReplayId<LayoutBoxModelObject>>
+      BoxModelObjectSet;
   void AddBackgroundAttachmentFixedObject(LayoutBoxModelObject&);
   void RemoveBackgroundAttachmentFixedObject(LayoutBoxModelObject&);
   bool RequiresMainThreadScrollingForBackgroundAttachmentFixed() const;
@@ -1203,7 +1205,9 @@ class CORE_EXPORT LocalFrameView final
 
   void RunCanvasOnpaintSteps();
 
-  typedef HeapHashSet<WeakMember<LayoutEmbeddedContent>> EmbeddedContentSet;
+  typedef HeapHashSet<WeakMember<LayoutEmbeddedContent>,
+                      WeakMemberHashTraitsRecordReplayId<LayoutEmbeddedContent>>
+      EmbeddedContentSet;
   EmbeddedContentSet part_update_set_;
 
   Member<LocalFrame> frame_;

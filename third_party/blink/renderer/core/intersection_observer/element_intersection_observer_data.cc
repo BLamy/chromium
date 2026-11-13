@@ -52,9 +52,6 @@ void ElementIntersectionObserverData::TrackWithController(
 }
 
 bool ElementIntersectionObserverData::NeedsOcclusionTracking() const {
-
-  // Intersections need to be computed in a consistent order.
-  HeapVector<Member<IntersectionObservation>> observations_to_process;
   for (auto& entry : observations_) {
     if (entry.key->trackVisibility())
       return true;

@@ -31,6 +31,7 @@
 
 #include "third_party/blink/renderer/core/editing/commands/clipboard_commands.h"
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/memory/raw_ptr.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
@@ -535,7 +536,7 @@ void ClipboardCommands::PasteAsFragment(LocalFrame& frame,
   }
   target->DispatchEvent(*TextEvent::CreateForFragmentPaste(
       frame.DomWindow(), pasting_fragment, smart_replace, match_style,
-      data_transfer));
+      data_transfer), "ClipboardCommands::PasteAsFragment");
 }
 
 void ClipboardCommands::PasteAsPlainTextFromClipboard(
@@ -551,7 +552,7 @@ void ClipboardCommands::PasteAsPlainTextFromClipboard(
     return;
   }
   target->DispatchEvent(*TextEvent::CreateForPlainTextPaste(
-      frame.DomWindow(), text, smart_replace));
+      frame.DomWindow(), text, smart_replace), "ClipboardCommands::PasteAsPlainTextFromClipboard");
 }
 
 ClipboardCommands::FragmentAndPlainText

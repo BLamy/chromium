@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_calculator.h"
 
+#include "base/record_replay.h"
 #include "base/check.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
@@ -184,6 +185,13 @@ void LargestContentfulPaintCalculator::
   uint64_t image_size = largest_presented_image_
                             ? largest_presented_image_->EffectiveVisualSize()
                             : 0u;
+
+  recordreplay::Assert(
+      "[RUN-2317-2316] "
+      "LargestContentfulPaintCalculator::UpdateLargestContentfulPaintIfNeeded "
+      "%llu %llu",
+      image_size, text_size);
+
   if (image_size > text_size) {
     if (image_size > largest_reported_size_) {
       CHECK(largest_presented_image_->HasPaintTime());
@@ -262,6 +270,11 @@ void LargestContentfulPaintCalculator::UpdateWebExposedLargestContentfulText(
       text_node->IsInShadowTree() ? nullptr : DynamicTo<Element>(text_node);
   const AtomicString& text_id =
       text_element ? text_element->GetIdAttribute() : AtomicString();
+
+  recordreplay::Assert(
+      "[RUN-2317-2316] "
+      "LargestContentfulPaintCalculator::UpdateLargestContentfulText %d",
+      text_node->RecordReplayId());
 
   // Always use paint time as start time for text LCP candidate.
   delegate_->EmitLcpPerformanceEntry(

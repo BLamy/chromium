@@ -117,8 +117,12 @@ void MainThreadDebugger::SetClientMessageLoop(
 
 void MainThreadDebugger::DidClearContextsForFrame(LocalFrame* frame) {
   DCHECK(IsMainThread());
-  if (frame->LocalFrameRoot() == frame)
+  REPLAY_ASSERT_MAYBE_EVENTS_DISALLOWED(
+      "MainThreadDebugger::DidClearContextsForFrame %d",
+      frame->LocalFrameRoot() == frame);
+  if (frame->LocalFrameRoot() == frame) {
     GetV8Inspector()->resetContextGroup(ContextGroupId(frame));
+  }
 }
 
 void MainThreadDebugger::ContextCreated(ScriptState* script_state,

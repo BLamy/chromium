@@ -1437,6 +1437,8 @@ void FetchManager::Loader::Failed(
     }
     response_resolver_.Clear();
   }
+
+  recordreplay::Assert("[TT-187-819] Loader::Failed B");
   NotifyFinished();
 }
 
@@ -1825,6 +1827,14 @@ ScriptPromise<Response> FetchManager::Fetch(ScriptState* script_state,
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<Response>>(
       script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
+  if (recordreplay::AreEventsUnavailable("divergent-side-effect")) {
+    resolver->Reject(V8ThrowException::CreateTypeError(
+        script_state->GetIsolate(),
+        "This evaluation tried to read network contents that were not captured "
+        "in the recording. Replay cannot perform fresh network reads "
+        "divergently."));
+    return promise;
+  }
 
   auto* loader = MakeGarbageCollected<Loader>(
       GetExecutionContext(), this, resolver, request, script_state, signal);

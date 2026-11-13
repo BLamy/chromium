@@ -46,8 +46,7 @@ class CORE_EXPORT IntersectionObserverEntry final : public ScriptWrappable {
   Member<Element> target_;
   // The node of the dependency graph a replay builds for this entry's
   // creation.
-  int record_replay_created_node_id_ = recordreplay::NewDependencyGraphNode(
-      "{\"kind\":\"intersectionObserverEntryCreated\"}");
+  int record_replay_created_node_id_ = 0;
 
  public:
   int RecordReplayCreatedNodeId() const {

@@ -834,7 +834,7 @@ void HTMLFormElement::PrepareForSubmission(const Event* event,
       SubmitEvent* submit_event = MakeGarbageCollected<SubmitEvent>(
           event_type_names::kSubmit, submit_event_init);
       should_submit =
-          DispatchEvent(*submit_event) == DispatchEventResult::kNotCanceled;
+          DispatchEvent(*submit_event, "HTMLFormElement::PrepareForSubmission #2") == DispatchEventResult::kNotCanceled;
       // `DispatchEvent()` above could have disconnected `this` from the DOM. In
       // that case, the form would have been unregistered as a tool,
       // `active_webmcp_tool_` will be null; there's no need to react to the

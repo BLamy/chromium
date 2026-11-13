@@ -97,11 +97,18 @@ class CORE_EXPORT IntersectionObserverController
   void PostTaskToDeliverNotifications();
 
   // IntersectionObserver's with a connected explicit root in this document.
-  HeapHashSet<Member<IntersectionObserver>> tracked_explicit_root_observers_;
+  HeapHashSet<Member<IntersectionObserver>,
+              MemberHashTraitsRecordReplayRegisteredPointerId<
+                  IntersectionObserver>>
+      tracked_explicit_root_observers_;
   // IntersectionObservations with an implicit root and connected target in this
   // document, grouped by IntersectionObservers.
   HeapHashMap<Member<IntersectionObserver>,
-              HeapHashSet<Member<IntersectionObservation>>>
+              HeapHashSet<Member<IntersectionObservation>,
+                          MemberHashTraitsRecordReplayRegisteredPointerId<
+                              IntersectionObservation>>,
+              MemberHashTraitsRecordReplayRegisteredPointerId<
+                  IntersectionObserver>>
       tracked_implicit_root_observations_;
 
   HeapHashSet<Member<IntersectionObserver>> replay_strong_tracked_explicit_root_observers_;

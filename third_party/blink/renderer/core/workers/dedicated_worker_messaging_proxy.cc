@@ -376,7 +376,7 @@ void DedicatedWorkerMessagingProxy::DispatchErrorEvent(
       effective_sanitize == SanitizeScriptErrors::kSanitize
           ? ErrorEvent::CreateSanitizedError()
           : event;
-  if (worker_object_->DispatchEvent(*event_for_worker_object) !=
+  if (worker_object_->DispatchEvent(*event_for_worker_object, "DedicatedWorkerMessagingProxy::DispatchErrorEvent") !=
       DispatchEventResult::kNotCanceled) {
     return;
   }
