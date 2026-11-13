@@ -343,7 +343,7 @@ bool ExecutionContext::DispatchErrorEventInternal(
 
   DCHECK(!in_dispatch_error_event_);
   in_dispatch_error_event_ = true;
-  target->DispatchEvent(*error_event);
+  target->DispatchEvent(*error_event, "ExecutionContext::DispatchErrorEventInternal");
   in_dispatch_error_event_ = false;
   return error_event->defaultPrevented();
 }

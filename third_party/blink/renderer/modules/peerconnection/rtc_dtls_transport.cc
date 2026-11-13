@@ -123,7 +123,7 @@ void RTCDtlsTransport::Close() {
   if (!base::FeatureList::IsEnabled(
           features::kWebRtcSuppressDtlsStateChangeOnClose) &&
       current_state_.state() != webrtc::DtlsTransportState::kClosed) {
-    DispatchEvent(*Event::Create(event_type_names::kStatechange));
+    DispatchEvent(*Event::Create(event_type_names::kStatechange), "RTCDtlsTransport::Close");
   }
   ice_transport_->Stop();
 }

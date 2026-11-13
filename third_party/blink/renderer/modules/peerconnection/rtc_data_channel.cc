@@ -730,7 +730,7 @@ void RTCDataChannel::OnStateChange(
       break;
     case webrtc::DataChannelInterface::kClosing:
       if (!closed_from_owner_) {
-        DispatchEvent(*Event::Create(event_type_names::kClosing));
+        DispatchEvent(*Event::Create(event_type_names::kClosing), "RTCDataChannel::OnStateChange#2");
       }
       break;
     case webrtc::DataChannelInterface::kClosed: {
@@ -749,7 +749,7 @@ void RTCDataChannel::OnStateChange(
         DispatchEvent(*MakeGarbageCollected<RTCErrorEvent>(
             event_type_names::kError, error));
       }
-      DispatchEvent(*Event::Create(event_type_names::kClose));
+      DispatchEvent(*Event::Create(event_type_names::kClose), "RTCDataChannel::OnStateChange#4");
       break;
     }
     default:

@@ -3540,7 +3540,7 @@ void LocalFrame::DidResume() {
   // event.
   DCHECK_NE(DomWindow()->ContextPauseState(),
             mojom::blink::FrameLifecycleState::kFrozen);
-  GetDocument()->DispatchEvent(*Event::Create(event_type_names::kResume));
+  GetDocument()->DispatchEvent(*Event::Create(event_type_names::kResume), "LocalFrame::DidResume");
   // TODO(fmeawad): Move the following logic to the page once we have a
   // PageResourceCoordinator in Blink
   if (auto* document_resource_coordinator =

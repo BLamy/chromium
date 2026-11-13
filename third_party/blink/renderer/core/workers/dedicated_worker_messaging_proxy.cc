@@ -340,7 +340,7 @@ void DedicatedWorkerMessagingProxy::PostMessageToWorkerObject(
               std::move(context), GetExecutionContext(), *event);
         },
         perfetto::Flow::Global(event->GetTraceId()));
-    worker_object_->DispatchEvent(*event);
+    worker_object_->DispatchEvent(*event, "DedicatedWorkerMessagingProxy::DispatchErrorEvent");
   } else {
     worker_object_->DispatchEvent(*MessageEvent::CreateError());
   }

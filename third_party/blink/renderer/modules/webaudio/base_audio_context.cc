@@ -775,7 +775,7 @@ void BaseAudioContext::SetContextState(V8AudioContextState::Enum new_state) {
 }
 
 void BaseAudioContext::NotifyStateChange() {
-  DispatchEvent(*Event::Create(event_type_names::kStatechange));
+  DispatchEvent(*Event::Create(event_type_names::kStatechange), "BaseAudioContext::NotifyStateChange");
 }
 
 void BaseAudioContext::NotifySourceNodeFinishedProcessing(
