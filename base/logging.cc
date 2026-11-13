@@ -965,11 +965,26 @@ void LogMessage::Init(const char* file, int line) {
     if (g_log_prefix) {
       stream_ << g_log_prefix << ':';
     }
+    // The line is written with a call that's in the recording, so it has to be
+    // the same text on a replay, where the process and its threads have other
+    // IDs: the IDs are recorded. (Linux records the calls that give them; macOS
+    // doesn't.)
+    const bool record_replay_ids = recordreplay::IsRecordingOrReplaying() &&
+                                   !recordreplay::AreEventsDisallowed() &&
+                                   !recordreplay::AreEventsPassedThrough();
     if (g_log_process_id) {
-      stream_ << base::GetUniqueIdForProcess() << ':';
+      uintptr_t id = base::GetUniqueIdForProcess().GetUnsafeValue();
+      if (record_replay_ids) {
+        id = recordreplay::RecordReplayValue("LogMessage process", id);
+      }
+      stream_ << id << ':';
     }
     if (g_log_thread_id) {
-      stream_ << base::PlatformThread::CurrentId() << ':';
+      uintptr_t id = static_cast<uintptr_t>(base::PlatformThread::CurrentId().raw());
+      if (record_replay_ids) {
+        id = recordreplay::RecordReplayValue("LogMessage thread", id);
+      }
+      stream_ << id << ':';
     }
     if (g_log_timestamp) {
 #if BUILDFLAG(IS_WIN)

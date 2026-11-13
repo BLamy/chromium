@@ -299,6 +299,7 @@ static bool RecordReplayShouldRecord(int* pargc, const char*** pargv) {
   // Append required switches, see below.
   command_line->AppendSwitch("no-sandbox");
   command_line->AppendSwitch("disable-gpu");
+  command_line->AppendSwitch("disable-gpu-compositing");
 
 #else // !BUILDFLAG(IS_WIN)
 
@@ -329,7 +330,7 @@ static bool RecordReplayShouldRecord(int* pargc, const char*** pargv) {
 
   // If there is no type, this is the main process. Add a couple command line
   // arguments which are required to record/replay.
-  const char** nargv = new const char*[*pargc + 3];
+  const char** nargv = new const char*[*pargc + 4];
   memcpy(nargv, *pargv, *pargc * sizeof(char*));
   *pargv = nargv;
 
@@ -340,8 +341,14 @@ static bool RecordReplayShouldRecord(int* pargc, const char*** pargv) {
   // Recording/replaying currently requires software rendering.
   (*pargv)[*pargc + 1] = strdup("--disable-gpu");
 
-  (*pargv)[*pargc + 2] = nullptr;
-  *pargc += 2;
+  // In this Chromium that flag alone leaves the renderer compositing through
+  // the GPU process's command buffers, whose state it reads from memory the
+  // GPU process writes: nothing a replay has. Chromium 108, where Replay wrote
+  // the line above, composited in software once the GPU was off.
+  (*pargv)[*pargc + 2] = strdup("--disable-gpu-compositing");
+
+  (*pargv)[*pargc + 3] = nullptr;
+  *pargc += 3;
 
 #endif // !BUILDFLAG(IS_WIN)
 
