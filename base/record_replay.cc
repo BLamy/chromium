@@ -11,6 +11,8 @@
 
 #include "base/record_replay.h"
 
+#include "base/record_replay_racy_static.h"
+
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -522,6 +524,20 @@ void OnNetworkStreamEnd(const char* id, size_t length) {
   if (Active() && gRecordReplayOnNetworkStreamEnd) {
     gRecordReplayOnNetworkStreamEnd(id, length);
   }
+}
+
+namespace {
+thread_local int g_unordered_lock_creation_depth = 0;
+}  // namespace
+
+AutoUnorderedLockCreation::AutoUnorderedLockCreation() {
+  g_unordered_lock_creation_depth++;
+}
+AutoUnorderedLockCreation::~AutoUnorderedLockCreation() {
+  g_unordered_lock_creation_depth--;
+}
+bool InUnorderedLockCreation() {
+  return g_unordered_lock_creation_depth > 0;
 }
 
 void BeginPassThroughEvents() {
