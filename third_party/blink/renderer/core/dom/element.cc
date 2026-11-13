@@ -2373,6 +2373,10 @@ ScriptPromise<ScrollResult> Element::scrollIntoView(
 
 void Element::scrollIntoViewWithOptions(const ScrollIntoViewOptions* options,
                                         ScrollPromiseResolver* resolver) {
+  if (RecordReplayThrowIfEventsUnavailable("Element.scrollIntoView")) {
+    return;
+  }
+
   ActivateDisplayLockIfNeeded(DisplayLockActivationReason::kScrollIntoView);
   GetDocument().UpdateStyleAndLayoutForNode(this,
                                             DocumentUpdateReason::kJavaScript);
@@ -3018,6 +3022,10 @@ ScriptPromise<ScrollResult> Element::scrollBy(ScriptState* script_state,
 ScriptPromise<ScrollResult> Element::scrollBy(
     ScriptState* script_state,
     const ScrollToOptions* scroll_to_options) {
+  if (RecordReplayThrowIfEventsUnavailable("Element.scrollBy")) {
+    return EmptyPromise();
+  }
+
   ScrollPromiseResolver* resolver =
       MakeGarbageCollected<ScrollPromiseResolver>(script_state);
 
@@ -3055,6 +3063,10 @@ ScriptPromise<ScrollResult> Element::scrollTo(ScriptState* script_state,
 ScriptPromise<ScrollResult> Element::scrollTo(
     ScriptState* script_state,
     const ScrollToOptions* scroll_to_options) {
+  if (RecordReplayThrowIfEventsUnavailable("Element.scrollTo")) {
+    return EmptyPromise();
+  }
+
   ScrollPromiseResolver* resolver =
       MakeGarbageCollected<ScrollPromiseResolver>(script_state);
   ScrollTo(scroll_to_options, resolver);
@@ -5659,6 +5671,7 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   }
 
   if (child_change.TraverseChildren(*this)) {
+    recordreplay::Assert("[RUN-1436-1437] Element::RecalcStyle D %d", !!GetShadowRoot());
     if (ShadowRoot* root = GetShadowRoot()) {
       root->RecalcDescendantStyles(child_change, child_recalc_context, *this);
     } else if (auto* slot = ToHTMLSlotElementIfSupportsAssignmentOrNull(this)) {

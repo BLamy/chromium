@@ -61,6 +61,8 @@ class OnceCallbackAlgorithm final : public AbortSignal::Algorithm {
 AbortSignal::AbortSignal(ExecutionContext* execution_context)
     : ExecutionContextLifecycleObserver(execution_context),
       signal_type_(SignalType::kComposite) {
+  // https://linear.app/replay/issue/RUN-1182
+  recordreplay::RegisterPointer("AbortSignal", this);
   InitializeCompositeSignal(HeapVector<Member<AbortSignal>>());
 }
 
@@ -71,6 +73,8 @@ AbortSignal::AbortSignal(ExecutionContext* execution_context,
       composition_manager_(MakeGarbageCollected<SourceSignalCompositionManager>(
           *this,
           AbortSignalCompositionType::kAbort)) {
+  // https://linear.app/replay/issue/RUN-1182
+  recordreplay::RegisterPointer("AbortSignal", this);
   DCHECK_NE(signal_type, SignalType::kComposite);
 }
 
@@ -78,6 +82,8 @@ AbortSignal::AbortSignal(ScriptState* script_state,
                          const HeapVector<Member<AbortSignal>>& source_signals)
     : ExecutionContextLifecycleObserver(ExecutionContext::From(script_state)),
       signal_type_(SignalType::kComposite) {
+  // https://linear.app/replay/issue/RUN-1182
+  recordreplay::RegisterPointer("AbortSignal", this);
   // If any of the signals are aborted, skip the linking and just abort this
   // signal.
   for (auto& source : source_signals) {
@@ -102,7 +108,9 @@ void AbortSignal::InitializeCompositeSignal(
   AbortSignalRegistry::From(CHECK_DEREF(GetExecutionContext()));
 }
 
-AbortSignal::~AbortSignal() = default;
+AbortSignal::~AbortSignal() {
+  recordreplay::UnregisterPointer(this);
+}
 
 // static
 AbortSignal* AbortSignal::abort(ScriptState* script_state) {
@@ -244,6 +252,8 @@ void AbortSignal::SignalAbort(ScriptState* script_state,
                               ScriptValue reason,
                               SignalAbortPassKey) {
   DCHECK(!reason.IsEmpty());
+
+  recordreplay::Assert("[RUN-1182] AbortSignal::SignalAbort %d", recordreplay::PointerId(this));
   if (aborted()) {
     return;
   }
