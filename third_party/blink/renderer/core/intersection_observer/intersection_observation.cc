@@ -48,6 +48,12 @@ int64_t IntersectionObservation::ComputeIntersection(
     needs_update_ = true;
   }
 
+  REPLAY_ASSERT("[TT-1483-1499] IntersectionObservation::ComputeIntersection A %d %u %d",
+    needs_update_,
+    compute_flags,
+    ShouldCompute(compute_flags));
+
+
   if (!CanCompute() || !ShouldCompute(compute_flags)) {
     return 0;
   }

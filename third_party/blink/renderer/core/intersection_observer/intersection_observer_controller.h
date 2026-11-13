@@ -103,9 +103,13 @@ class CORE_EXPORT IntersectionObserverController
   HeapHashMap<Member<IntersectionObserver>,
               HeapHashSet<Member<IntersectionObservation>>>
       tracked_implicit_root_observations_;
+
+  HeapHashSet<Member<IntersectionObserver>> replay_strong_tracked_explicit_root_observers_;
+  HeapHashSet<Member<IntersectionObservation>> replay_strong_tracked_implicit_root_observations_;
+
   // IntersectionObservers for which this is the execution context of the
   // callback, and with unsent notifications.
-  HeapHashSet<Member<IntersectionObserver>> pending_intersection_observers_;
+  HeapHashSet<Member<IntersectionObserver>, MemberHashTraitsRecordReplayRegisteredPointerId<IntersectionObserver>> pending_intersection_observers_;
   // This is 'true' if any observation tracked by this controller is able to
   // compute geometry (i.e., observation->CanCompute() is true).
   bool has_active_observations_ = false;
