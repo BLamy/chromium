@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/memory/safety_checks.h"
@@ -284,6 +285,7 @@ void PaintOpBuffer::Append(
 }
 
 PaintOpBuffer::~PaintOpBuffer() {
+  recordreplay::AutoDisallowEvents disallow("~PaintOpBuffer");
   // Frees immutable serialized `PaintOp` value/Skia buffers and internal
   // `AlignedAlloc` backing bytes with no JS/DOM callbacks or escaping
   // untrusted pointers. Excluding paint teardown avoids quarantine churn on

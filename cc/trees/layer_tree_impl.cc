@@ -15,6 +15,7 @@
 #include <set>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/containers/adapters.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
@@ -1994,6 +1995,9 @@ bool LayerTreeImpl::UpdateDrawProperties(
     image_animation_controller()->UpdateStateFromDrivers(
         host_impl()->GatherAnimatedImageDriverState());
   }
+
+  // https://linear.app/replay/issue/RUN-550
+  recordreplay::Assert("[RUN-550] LayerTreeImpl::UpdateDrawProperties Done");
 
   device_viewport_rect_changed_ = false;
 

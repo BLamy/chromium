@@ -1177,6 +1177,25 @@ static void AssertCanNavigate(WebNavigationParams* params, LocalFrame* frame) {
       params->response.HttpHeaderField(http_names::kContentDisposition)));
 }
 
+static void ReportCommitNavigation(const WebNavigationParams* navigation_params,
+                                   CommitReason commit_reason) {
+  if (!recordreplay::IsRecordingOrReplaying() || !IsMainThread()) {
+    return;
+  }
+
+  std::string annotationContents;
+  if (recordreplay::IsReplaying()) {
+    base::DictValue info;
+    info.Set("commit_reason", (int)commit_reason);
+    info.Set("url", navigation_params->url.GetString().Utf8());
+    info.Set("http_method", navigation_params->http_method.Utf8());
+    info.Set("referrer", navigation_params->referrer.Utf8());
+    info.Set("referrer_policy", (int)navigation_params->referrer_policy);
+    base::JSONWriter::Write(info, &annotationContents);
+  }
+  recordreplay::OnAnnotation("CommitNavigation", annotationContents.c_str());
+}
+
 void FrameLoader::CommitNavigation(
     std::unique_ptr<WebNavigationParams> navigation_params,
     std::unique_ptr<WebDocumentLoader::ExtraData> extra_data,
@@ -1208,6 +1227,8 @@ void FrameLoader::CommitNavigation(
     info.Set("referrer_policy",
              static_cast<int>(navigation_params->referrer_policy));
   });
+
+  ReportCommitNavigation(navigation_params.get(), commit_reason);
 
   // The encoding may be inherited from the parent frame if the security context
   // allows it, but we don't have the frame's security context set up yet. In

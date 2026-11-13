@@ -33,6 +33,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/containers/span.h"
 #include "base/containers/span_or_size.h"
 #include "base/memory/scoped_refptr.h"
@@ -1808,6 +1809,8 @@ void InspectorNetworkAgent::DidFinishLoading(
   int pending_encoded_data_length = static_cast<int>(
       resources_data_->GetAndClearPendingEncodedDataLength(request_id));
   if (pending_encoded_data_length > 0) {
+    double timestamp = base::TimeTicks::Now().since_origin().InSecondsF();
+
     GetFrontend()->dataReceived(
         request_id, base::TimeTicks::Now().since_origin().InSecondsF(), 0,
         pending_encoded_data_length);
@@ -2533,6 +2536,10 @@ void InspectorNetworkAgent::getResponseBody(
   bool base64_encoded;
   protocol::Response response =
       GetResponseBody(request_id, &content, &base64_encoded);
+
+  recordreplay::Assert("[RUN-2194] InspectorNetworkAgent::getResponseBody %d",
+                       (int)response.Code());
+
   if (response.IsSuccess()) {
     callback->sendSuccess(content, base64_encoded);
   } else {

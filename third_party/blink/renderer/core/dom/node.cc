@@ -164,6 +164,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/character_visitor.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+namespace v8 { extern std::string RecordReplayGetScriptedCaller(); }
+
 
 #if DUMP_NODE_STATISTICS
 #include "third_party/blink/renderer/core/dom/named_node_map.h"

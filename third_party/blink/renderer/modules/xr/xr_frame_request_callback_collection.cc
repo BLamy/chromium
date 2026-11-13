@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/modules/xr/xr_frame_request_callback_collection.h"
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_events.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_xr_frame_request_callback.h"
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
 #include "third_party/blink/renderer/core/probe/async_task_context.h"
@@ -89,6 +91,9 @@ void XRFrameRequestCallbackCollection::ExecuteCallbacks(XRSession* session,
 
     TRACE_EVENT_END("xr", perfetto::Track(trace_id_base_ + id));
     probe::AsyncTask async_task(context_, it_async_task->value.get());
+
+    recordreplay::UserEventProbe replayEvent("XRRequestFrame", AtomicString());
+
     it_frame_request->value->InvokeAndReportException(session, timestamp,
                                                       frame);
   }

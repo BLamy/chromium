@@ -25,6 +25,8 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_script_runner.h"
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_events.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
@@ -541,6 +543,9 @@ v8::MaybeLocal<v8::Value> V8ScriptRunner::RunCompiledScript(
     // unpacked.
     String url = ToCoreString(isolate, script_url);
     probe::ExecuteScript probe(context, url, script->ScriptId());
+
+    recordreplay::UserEventProbe replayEvent;
+
     result = script->Run(isolate->GetCurrentContext(), host_defined_options);
   }
 

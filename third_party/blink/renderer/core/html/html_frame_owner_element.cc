@@ -20,6 +20,8 @@
 
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/platform/bindings/record_replay_throw.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
@@ -761,6 +763,11 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
       Page::MaxNumberOfFrames()) {
     return false;
   }
+
+  // Creating the child frame needs a synchronous call to the browser process
+  // for its routing ID.
+  if (RecordReplayThrowIfEventsUnavailable("subframe creation"))
+    return false;
 
   LocalFrame* child_frame =
       GetDocument().GetFrame()->Client()->CreateFrame(frame_name, this);

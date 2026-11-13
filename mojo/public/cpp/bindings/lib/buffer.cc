@@ -13,6 +13,10 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/record_replay.h"
 #include "mojo/public/cpp/bindings/lib/bindings_internal.h"
+namespace recordreplay {
+extern bool IsMainThread();
+}
+
 
 namespace mojo {
 namespace internal {

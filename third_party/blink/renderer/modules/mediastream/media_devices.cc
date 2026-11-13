@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -557,6 +558,9 @@ ScriptPromise<IDLSequence<MediaDeviceInfo>> MediaDevices::enumerateDevices(
             kEnumerateDevicesTimeout + base::Milliseconds(100));
   }
 
+  // There is no video capture while recording/replaying, so cameras are not
+  // listed.
+  const bool video_input = !recordreplay::IsRecordingOrReplaying("no-video");
   LocalFrame* frame = LocalDOMWindow::From(script_state)->GetFrame();
   GetDispatcherHost(frame).EnumerateDevices(
       /*request_audio_input=*/true, /*request_video_input=*/true,

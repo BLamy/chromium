@@ -36,6 +36,7 @@
 #include <iterator>
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/memory/ptr_util.h"
 #include "third_party/blink/renderer/platform/language.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -197,6 +198,10 @@ String LocaleMac::DateFormat() {
   if (!date_format_.IsNull())
     return date_format_;
   date_format_ = ShortDateFormatter().dateFormat;
+
+  recordreplay::Assert("[RUN-1548] LocaleMac::DateFormat #2 %s",
+                       date_format_.Utf8().c_str());
+
   return date_format_;
 }
 

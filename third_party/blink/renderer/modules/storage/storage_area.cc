@@ -110,6 +110,8 @@ StorageArea::StorageArea(LocalDOMWindow* window,
       cached_area_(std::move(storage_area)),
       storage_type_(storage_type),
       should_enqueue_events_(should_enqueue_events) {
+  // Pointer registration is needed for sorting in CachedStorageArea::EnqueueStorageEvent.
+  recordreplay::RegisterPointer("StorageArea", static_cast<CachedStorageArea::Source*>(this));
   DCHECK(window);
   DCHECK(cached_area_);
   cached_area_->RegisterSource(this);
@@ -118,6 +120,10 @@ StorageArea::StorageArea(LocalDOMWindow* window,
         BindOnce(&StorageArea::OnDocumentActivatedForPrerendering,
                  WrapWeakPersistent(this)));
   }
+}
+
+StorageArea::~StorageArea() {
+  recordreplay::UnregisterPointer(static_cast<CachedStorageArea::Source*>(this));
 }
 
 unsigned StorageArea::length(ExceptionState& exception_state) const {
@@ -156,6 +162,20 @@ NamedPropertySetterResult StorageArea::setItem(
     const String& key,
     const String& value,
     ExceptionState& exception_state) {
+  if (recordreplay::IsRecordingOrReplaying() && IsMainThread()) {
+    std::string annotationContents;
+    if (recordreplay::IsReplaying()) {
+      base::DictValue info;
+      info.Set("kind", "setItem");
+      info.Set("type", (int)storage_type_);
+      info.Set("key", key.Utf8());
+      info.Set("value", value.Utf8());
+      base::JSONWriter::Write(info, &annotationContents);
+    }
+    recordreplay::OnAnnotation("StorageArea", annotationContents.c_str());
+  }
+
+  recordreplay::Assert("[RUN-1307-1773] StorageArea::setItem A %s", key.Utf8().c_str());
   RecordReplayAnnotation("StorageArea", [&](base::DictValue& info) {
     info.Set("kind", "setItem");
     info.Set("type", static_cast<int>(storage_type_));
@@ -167,6 +187,8 @@ NamedPropertySetterResult StorageArea::setItem(
     return NamedPropertySetterResult::kIntercepted;
   }
   if (!cached_area_->SetItem(key, value, this)) {
+    recordreplay::Assert("[RUN-1307-1773] StorageArea::setItem B %s",
+                         key.Utf8().c_str());
     QuotaExceededError::Throw(
         exception_state,
         StrCat({"Setting the value of '", key, "' exceeded the quota."}));
@@ -214,6 +236,13 @@ bool StorageArea::Contains(const String& key,
 
 void StorageArea::NamedPropertyEnumerator(Vector<String>& names,
                                           ExceptionState& exception_state) {
+  if (!cached_area_->memory_used() &&  // This means either empty or not loaded
+      recordreplay::IsInReplayCode()) {
+    // This ignores crash-inducing side effects observed during interceptor key collection
+    // when handling commands.
+    // See: https://linear.app/replay/issue/RUN-1315#comment-26f96699
+    return;
+  }
   unsigned length = this->length(exception_state);
   if (exception_state.HadException())
     return;
@@ -245,6 +274,11 @@ void StorageArea::Trace(Visitor* visitor) const {
 
 bool StorageArea::CanAccessStorage() const {
   if (!DomWindow())
+    return false;
+
+  // We can't perform synchronous IPC calls after diverging from the recording,
+  // as the calls will never complete. Check before the cached allow result.
+  if (recordreplay::HasDivergedFromRecording())
     return false;
 
   if (did_check_can_access_storage_)

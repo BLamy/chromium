@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/module_record.h"
 
+#include "base/record_replay.h"
+#include "third_party/blink/renderer/bindings/core/v8/record_replay_events.h"
 #include "base/feature_list.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/v8_cache_options.mojom-blink.h"
@@ -121,6 +123,9 @@ ScriptValue ModuleRecord::Instantiate(ScriptState* script_state,
                                      record->IsSourceTextModule()
                                  ? record->ScriptId()
                                  : v8::UnboundScript::kNoScriptId);
+
+  recordreplay::UserEventProbe replayEvent;
+
   bool success;
   if (!record
            ->InstantiateModule(context, &ResolveModuleCallback,

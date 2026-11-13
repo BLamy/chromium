@@ -184,6 +184,7 @@ std::unique_ptr<SavedFormState> SavedFormState::Deserialize(
 
 void SavedFormState::SerializeTo(Vector<String>& state_vector) const {
   state_vector.push_back(String::Number(control_state_count_));
+  std::vector<ControlKey> keys;
   for (const auto& form_control : state_for_new_controls_) {
     const ControlKey& key = form_control.key;
     const Deque<FormControlState>& queue = form_control.value;

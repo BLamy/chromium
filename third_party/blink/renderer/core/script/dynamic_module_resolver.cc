@@ -26,6 +26,8 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "v8/include/v8.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
 #include <optional>
 
 namespace blink {
@@ -196,6 +198,18 @@ void DynamicImportTreeClient::NotifyModuleTreeLoadFinished(
         MakeGarbageCollected<ResourceTimingContext>(module_script->SourceUrl());
     task_attribution_resource_timing_scope = SetTaskStateVariable(
         resource_timing_context, ExecutionContext::From(script_state));
+  }
+
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "dynamicImportTreeLoadFinished");
+    if (module_script)
+      info.Set("url", module_script->SourceUrl().GetString().Utf8());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    int node_id = recordreplay::NewDependencyGraphNode(json.c_str());
+    execute.emplace(node_id);
   }
 
   // <spec step="9">Otherwise, set promise to the result of running a module

@@ -35,6 +35,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/unguessable_token.h"
 #include "third_party/blink/public/common/features.h"
@@ -674,6 +675,8 @@ String WebDevToolsAgentImpl::NavigationInitiatorInfo(LocalFrame* frame) {
 }
 
 void WebDevToolsAgentImpl::FlushProtocolNotifications() {
+  recordreplay::Assert("[RUN-2161] WebDevToolsAgentImpl::FlushProtocolNotifications");
+
   agent_->FlushProtocolNotifications();
 }
 
@@ -703,6 +706,8 @@ void WebDevToolsAgentImpl::DidProcessTask(
       inspected_frames_->Root()->GetPage()->GetAgentGroupScheduler().Isolate();
   ThreadDebugger::IdleStarted(isolate);
   FlushProtocolNotifications();
+
+  recordreplay::Assert("[RUN-2161] WebDevToolsAgentImpl::DidProcessTask Done");
 }
 
 }  // namespace blink

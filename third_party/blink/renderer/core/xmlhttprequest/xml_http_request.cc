@@ -109,6 +109,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
 
 namespace blink {
 
@@ -289,6 +291,7 @@ XMLHttpRequest::XMLHttpRequest(ExecutionContext* context,
                                           : nullptr) {}
 
 XMLHttpRequest::~XMLHttpRequest() {
+  recordreplay::UnregisterPointer(this);
   binary_response_builder_ = nullptr;
   length_downloaded_to_blob_ = 0;
   response_text_.Clear();
@@ -579,6 +582,19 @@ void XMLHttpRequest::DispatchReadyStateChangeEvent() {
     record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
         recordreplay::DependencyGraphJson("xhrReadyStateChangeEvent", {{"url", Url().GetString().Utf8()}})
             .c_str()));
+  }
+
+  recordreplay::Assert(
+      "[RUN-1126] XMLHttpRequest::DispatchReadyStateChangeEvent %d %d", state_, async_);
+
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "xhrReadyStateChangeEvent");
+    info.Set("url", Url().GetString().Utf8());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
   }
 
   if (async_ || (state_ <= kOpened || state_ == kDone)) {
@@ -1155,6 +1171,16 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
     }
     resource_loader_options.synchronous_policy = kRequestSynchronously;
   }
+  if (recordreplay::AreEventsUnavailable("divergent-side-effect")) {
+    HandleNetworkError();
+    ThrowForLoadFailureIfNeeded(
+        exception_state,
+        "This evaluation tried to read network contents that were not captured "
+        "in the recording. Replay cannot perform fresh network reads "
+        "divergently.");
+    return;
+  }
+
 
   exception_code_ = DOMExceptionCode::kNoError;
   error_ = false;

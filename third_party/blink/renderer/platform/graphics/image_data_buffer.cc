@@ -32,6 +32,7 @@
 
 #include "third_party/blink/renderer/platform/graphics/image_data_buffer.h"
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -149,6 +150,20 @@ String ImageDataBuffer::ToDataURL(const ImageEncodingMimeType mime_type,
   Vector<unsigned char> result;
   if (!ImageEncoder::Encode(&result, pixmap_, mime_type, quality)) {
     return "data:,";
+  if (!recordreplay::AreEventsUnavailable()) {
+    // [TT-604] Avoid divergences caused by small differences in render output.
+    wtf_size_t numBytes = (wtf_size_t)recordreplay::RecordReplayValue(
+      "ImageDataBuffer::ToDataURL",
+      (uintptr_t)result.size()
+    );
+    result.resize(numBytes);
+    recordreplay::RecordReplayBytes(
+      "ImageDataBuffer::ToDataURL",
+      (void*)&result[0],
+      result.size()
+    );
+  }
+
   }
   return StrCat({"data:", ImageEncoderUtils::MimeTypeName(mime_type),
                  ";base64,", Base64Encode(result)});

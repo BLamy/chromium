@@ -203,6 +203,12 @@ PageSchedulerImpl::~PageSchedulerImpl() {
   recordreplay::UnregisterPointer(this);
 }
 
+void
+PageSchedulerImpl::BreakLinkages() {
+  REPLAY_ASSERT("[TT-1367-1386] PageSchedulerImpl::BreakLinkages %d", !!delegate_);
+  delegate_ = nullptr;
+}
+
 // static
 // kRecentAudioDelay is defined in the header for use in unit tests and requires
 // storage for linking to succeed with some compiler toolchains.
@@ -351,6 +357,10 @@ bool PageSchedulerImpl::IsLoading() const {
 }
 
 bool PageSchedulerImpl::IsOrdinary() const {
+  REPLAY_ASSERT(
+      "[TT-1367-1371] "
+      "PageSchedulerImpl::RequestBeginMainFrameNotExpected %d",
+      !!delegate_);
   if (!delegate_)
     return true;
   return delegate_->IsOrdinary();

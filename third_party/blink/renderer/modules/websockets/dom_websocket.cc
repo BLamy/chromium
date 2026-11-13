@@ -79,6 +79,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
 
 namespace blink {
 
@@ -288,6 +290,7 @@ DOMWebSocket::DOMWebSocket(ExecutionContext* context)
       event_queue_(MakeGarbageCollected<EventQueue>(this)),
       buffered_amount_update_task_pending_(false) {
   DVLOG(1) << "DOMWebSocket " << this << " created";
+  record_replay_id_ = recordreplay::NewIdAnyThread("DOMWebSocket");
 }
 
 DOMWebSocket::~DOMWebSocket() {
@@ -527,6 +530,30 @@ void DOMWebSocket::send(DOMArrayBuffer* binary_data,
     UpdateBufferedAmountAfterClose(binary_data->ByteLength());
     return;
   }
+
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "websocketSendMessage");
+    info.Set("socketId", record_replay_id_);
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
+  }
+
+  if (recordreplay::IsRecordingOrReplaying() && IsMainThread()) {
+    std::string annotationContents;
+    if (recordreplay::IsReplaying()) {
+      base::DictValue info;
+      info.Set("kind", "send");
+      info.Set("socketId", record_replay_id_);
+      info.Set("binary", true);
+      info.Set("encodedLength", (int)binary_data->ByteLength());
+      base::JSONWriter::Write(info, &annotationContents);
+    }
+    recordreplay::OnAnnotation("DOMWebSocket", annotationContents.c_str());
+  }
+
   DCHECK(channel_);
   recordreplay::AutoDependencyExecution record_replay_execute(
       RecordReplaySocketNode("websocketSendMessage", RecordReplayId()));

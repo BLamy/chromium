@@ -30,6 +30,8 @@
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "ui/gfx/geometry/size.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
 #include <optional>
 
 namespace {
@@ -193,6 +195,18 @@ void ImageDownloaderImpl::DownloadImage(const KURL& image_url,
     record_replay_execute.emplace(recordreplay::NewDependencyGraphNode(
         recordreplay::DependencyGraphJson("downloadImage", {{"url", image_url.GetString().Utf8()}})
             .c_str()));
+  }
+
+  // Keep track of network requests triggered by the download mojo message
+  // we are handling.
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "downloadImage");
+    info.Set("url", image_url.GetString().Utf8());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    execute.emplace(recordreplay::NewDependencyGraphNode(json.c_str()));
   }
 
   // Constrain the preferred size by the max bitmap size. This will prevent

@@ -25,6 +25,7 @@
  */
 
 #include "base/record_replay.h"
+#include "third_party/blink/renderer/platform/bindings/record_replay_throw.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 
 #include <algorithm>
@@ -2285,6 +2286,8 @@ bool Element::HasAttributeIgnoringNamespace(
 }
 
 void Element::SynchronizeAllAttributes() const {
+  recordreplay::Assert("[RUN-2424-3238] Element::SynchronizeAllAttributes %d",
+                        !!GetElementData());
   if (!HasElementData()) {
     return;
   }
@@ -2443,6 +2446,14 @@ void Element::ScrollIntoViewNoVisualUpdate(
     GetDocument().SetSequentialFocusNavigationStartingPoint(
         originating_element);
   }
+}
+
+void Element::RecordReplayScrollIntoViewIfNeededForBinding(
+    bool center_if_needed) {
+  if (RecordReplayThrowIfEventsUnavailable("Element.scrollIntoViewIfNeeded")) {
+    return;
+  }
+  scrollIntoViewIfNeeded(center_if_needed);
 }
 
 void Element::scrollIntoViewIfNeeded(bool center_if_needed) {
@@ -2825,6 +2836,10 @@ double Element::scrollTop() {
 }
 
 void Element::setScrollLeft(double new_left) {
+  if (RecordReplayThrowIfEventsUnavailable("Element.scrollLeft")) {
+    return;
+  }
+
   if (!InActiveDocument()) {
     return;
   }
@@ -2882,6 +2897,10 @@ void Element::setScrollLeft(double new_left) {
 }
 
 void Element::setScrollTop(double new_top) {
+  if (RecordReplayThrowIfEventsUnavailable("Element.scrollTop")) {
+    return;
+  }
+
   if (!InActiveDocument()) {
     return;
   }
@@ -5266,6 +5285,9 @@ const ComputedStyle* Element::StyleForLayoutObject(
            (GetDocument().View() && GetDocument().View()->IsBeingAutoSized()) ||
            element_animations->CssAnimations().PendingUpdate().IsEmpty());
     element_animations->CssAnimations().ClearPendingUpdate();
+  bool has_custom_style_callbacks = HasCustomStyleCallbacks();
+  recordreplay::Assert("[RUN-2424-3227] Element::StyleForLayoutObject %d",
+    has_custom_style_callbacks);
   }
 
   new_style_recalc_context.old_style = PostStyleUpdateScope::GetOldStyle(*this);
@@ -5454,6 +5476,10 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   DCHECK(!GetDocument().Lifecycle().InDetach());
   DCHECK(!GetForceReattachLayoutTree() || GetComputedStyle())
       << "No need to force a layout tree reattach if we had no computed style";
+  recordreplay::Assert("[RUN-1436-1437] Element::RecalcStyle A %d %d", 
+                       RecordReplayId(),
+                       HasCustomStyleCallbacks());
+
   DCHECK(LayoutTreeBuilderTraversal::ParentElement(*this) ||
          this == GetDocument().documentElement())
       << "No recalc for Elements outside flat tree";
@@ -10578,6 +10604,9 @@ const ComputedStyle* Element::EnsureComputedStyle(
   // because there is always a possibility that it could allocate something on
   // the V8 heap.
   DCHECK(ThreadState::Current()->IsAllocationAllowed());
+  recordreplay::Assert("[RUN-2424-3227] Element::EnsureComputedStyle %d",
+    RecordReplayId());
+
 
   StyleEngine::InEnsureComputedStyleScope ensure_scope(
       GetDocument().GetStyleEngine());
@@ -11955,6 +11984,9 @@ Element* Element::closest(const AtomicString& selectors) {
 }
 
 DOMTokenList& Element::classList() {
+  // https://linear.app/replay/issue/RUN-1040
+  recordreplay::Assert("Element::classList %d", RecordReplayId());
+
   return EnsureRareData().EnsureClassList(*this).RefreshNodeAndUnwrap(*this);
 }
 

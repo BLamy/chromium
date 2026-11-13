@@ -28,6 +28,7 @@
 
 #include "third_party/blink/renderer/platform/fonts/font_fallback_list.h"
 
+#include "base/record_replay.h"
 #include "base/timer/elapsed_timer.h"
 #include "third_party/blink/renderer/platform/font_family_names.h"
 #include "third_party/blink/renderer/platform/fonts/alternate_font_family.h"
@@ -204,6 +205,13 @@ const FontData* FontFallbackList::FontDataAt(
 
   if (family_index_ == kCAllFamiliesScanned)
     return nullptr;
+  // RUN-2625: We cannot (yet) make up font data if its not loaded already.
+  if (recordreplay::IsInReplayCode() &&
+      recordreplay::FeatureEnabled("replay-code",
+                                   "FontFallbackList::FontDataAt")) {
+    return nullptr;
+  }
+
 
   // Ask the font cache for the font data.
   // We are obtaining this font for the first time.  We keep track of the

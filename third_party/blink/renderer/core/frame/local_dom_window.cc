@@ -233,6 +233,15 @@ class LocalDOMWindow::NetworkStateObserver final
   std::unique_ptr<NetworkStateNotifier::NetworkStateObserverHandle>
       online_observer_handle_;
 };
+static std::unordered_set<LocalDOMWindow*>* gValidDOMWindowPointers;
+
+// Workaround for invalid window pointers being used.
+//
+// See https://linear.app/replay/issue/TT-957
+bool LocalDOMWindowPointerIsValid(LocalDOMWindow* window) {
+  return gValidDOMWindowPointers && gValidDOMWindowPointers->find(window) != gValidDOMWindowPointers->end();
+}
+
 
 LocalDOMWindow::LocalDOMWindow(LocalFrame& frame, WindowAgent* agent)
     : DOMWindow(frame),
@@ -1379,6 +1388,16 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
     SourceLocation* location,
     const base::UnguessableToken& source_agent_cluster_id) {
   TRACE_EVENT0("blink", "LocalDOMWindow::DispatchMessageEventWithOriginCheck");
+
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    int node_id = recordreplay::NewDependencyGraphNode("{\"kind\":\"dispatchMessageEvent\"}");
+    int created_node_id = event->RecordReplayDependencyGraphNodeId();
+    if (created_node_id)
+      recordreplay::AddDependencyGraphEdge(created_node_id, node_id, "{\"kind\":\"messageEventCreated\"}");
+    execute.emplace(node_id);
+  }
+
 
   recordreplay::AutoDependencyExecution record_replay_execute(
       recordreplay::NewDependencyGraphNodeFrom(

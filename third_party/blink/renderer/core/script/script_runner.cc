@@ -44,6 +44,8 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "base/record_replay.h"
+#include "base/values.h"
+#include "base/json/json_writer.h"
 #include <optional>
 #include <string>
 
@@ -215,6 +217,19 @@ void ScriptRunner::RemoveDelayReasonFromScript(PendingScript* pending_script,
     // Still to be delayed.
     return;
   }
+  int record_replay_scheduled_node_id = 0;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "scheduleExecuteAsyncScript");
+    if (pending_script->IsEligibleForLowPriorityAsyncScriptExecution()) {
+      double timeout = features::kTimeoutForLowPriorityAsyncScriptExecution.Get().InMillisecondsF();
+      info.Set("lowPriorityTimeout", timeout);
+    }
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    record_replay_scheduled_node_id = recordreplay::NewDependencyGraphNode(json.c_str());
+  }
+
 
   // Script is really ready to evaluate.
   pending_async_scripts_.erase(it);
@@ -277,6 +292,9 @@ void ScriptRunner::ExecutePendingScript(PendingScript* pending_script) {
 
   DCHECK(!document_->domWindow() || !document_->domWindow()->IsContextPaused());
   DCHECK(pending_script);
+  int node_id = recordreplay::NewDependencyGraphNode("{\"kind\":\"executePendingScript\"}");
+  recordreplay::AutoDependencyExecution execute(node_id);
+
 
   recordreplay::AutoDependencyExecution record_replay_execute(
       recordreplay::NewDependencyGraphNode(

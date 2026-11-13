@@ -71,7 +71,10 @@
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "base/json/json_writer.h"
+
 #include "base/record_replay.h"
+#include "base/values.h"
 #include <optional>
 
 namespace blink {
@@ -240,6 +243,7 @@ Resource::Resource(const ResourceRequestHead& request,
 
 Resource::~Resource() {
   InstanceCounters::DecrementCounter(InstanceCounters::kResourceCounter);
+  recordreplay::UnregisterPointer(this);
 }
 
 void Resource::Trace(Visitor* visitor) const {
@@ -504,6 +508,18 @@ void Resource::FinishAsError(const ResourceError& error,
 
 void Resource::Finish(base::TimeTicks load_response_end,
                       base::SingleThreadTaskRunner* task_runner) {
+  std::optional<recordreplay::AutoDependencyExecution> execute;
+  if (recordreplay::DependencyGraphEnabled()) {
+    base::DictValue info;
+    info.Set("kind", "resourceFinished");
+    info.Set("url", Url().GetString().Utf8());
+    std::string json;
+    base::JSONWriter::Write(info, &json);
+    int node_id = recordreplay::NewDependencyGraphNode(json.c_str());
+    record_replay_dependency_node_ids_.push_back(node_id);
+    execute.emplace(node_id);
+  }
+
   std::optional<recordreplay::AutoDependencyExecution> record_replay_execute;
   if (recordreplay::DependencyGraphEnabled()) {
     int node_id = recordreplay::NewDependencyGraphNode(
@@ -607,6 +623,9 @@ base::TimeDelta Resource::FreshnessLifetime() const {
 static bool CanUseResponse(const ResourceResponse& response,
                            bool allow_stale,
                            base::Time response_timestamp) {
+  // https://linear.app/replay/issue/RUN-820
+  recordreplay::Assert("CanUseResponse Start");
+
   if (response.IsNull())
     return false;
 
@@ -631,6 +650,9 @@ static bool CanUseResponse(const ResourceResponse& response,
   base::TimeDelta max_life = FreshnessLifetime(response, response_timestamp);
   if (allow_stale)
     max_life += response.CacheControlStaleWhileRevalidate();
+  // https://linear.app/replay/issue/RUN-820
+  recordreplay::Assert("CanUseResponse Done");
+
 
   return CurrentAge(response, response_timestamp) <= max_life;
 }

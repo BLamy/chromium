@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/record_replay.h"
 #include "base/bit_cast.h"
 #include "base/check_op.h"
 #include "base/debug/dump_without_crashing.h"
@@ -340,6 +341,8 @@ double V8Platform::MonotonicallyIncreasingTime() {
   return base::TimeTicks::Now().ToInternalValue() /
       static_cast<double>(base::Time::kMicrosecondsPerSecond);
 }
+extern "C" void V8RecordReplayAssert(const char* format, ...);
+
 
 double V8Platform::CurrentClockTimeMillis() {
   return static_cast<double>(time_clamper_.ClampToMillis(base::Time::Now()));
