@@ -322,6 +322,15 @@ void GpuChannelHost::VerifyFlush(uint32_t deferred_message_id) {
     return;
   }
 
+  // A replay that has left its recording has no GPU process to answer a
+  // synchronous flush, and a canvas makes one for each software resource it
+  // hands the compositor (108's canvas resources were bitmaps of its own).
+  // The frame a repaint draws is drawn in this process, from the resource's
+  // own memory, so nothing waits on the other side having seen the flush.
+  if (recordreplay::HasDivergedFromRecording()) {
+    return;
+  }
+
   bool ipc_needed = false;
   const bool skip_flush_if_possible =
       base::FeatureList::IsEnabled(features::kConditionallySkipGpuChannelFlush);
