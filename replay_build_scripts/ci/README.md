@@ -40,7 +40,8 @@ step checks the repository out: a clone is tens of GB. The build step then:
 3. `checkout.sh sync`: creates the key's checkout if the agent has none
    (`CHROMIUM_CHECKOUT_PREPARE=1`), puts it at the commit, then runs
    `gclient sync` and the hooks in the build image.
-4. `build-in-container.sh`: runs `node build.js` in the image. That embeds the
+4. `build-in-container.sh`: runs `node build.cjs` in the image (upstream's
+   `build.js`, renamed because 158's `package.json` makes `.js` an ES module). That embeds the
    record/replay driver, writes `out/Release/args.gn` to import
    `replay_build_scripts/linux_args.gn`, runs `gn gen` and builds `chrome`.
 5. `package-artifacts.sh`: archives the browser as `<build id>.tar.xz`.
@@ -76,7 +77,7 @@ work on the agent gets the CPU first.
 - **No EngFlow, no buildevents, no S3.** The agent has none of those secrets
   wired up for this pipeline. `package-artifacts.sh` replaces
   `upload-artifacts.sh`.
-- **The driver** is downloaded by `build.js` exactly as upstream does, from
+- **The driver** is downloaded by `build.cjs` exactly as upstream does, from
   `https://static.replay.io/downloads/linux-recordreplay.tgz` (public). It is
   embedded in the browser but is the 108-era driver: enough to compile and
   link, not a statement that this browser records with it.

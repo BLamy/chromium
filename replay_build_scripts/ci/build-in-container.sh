@@ -32,7 +32,9 @@ if [ -z "$root" ]; then
   root=$("$dir/checkout.sh" require)
 fi
 if [ ${#cmd[@]} -eq 0 ]; then
-  cmd=(node build.js)
+  # build.cjs, not upstream's build.js: 158's package.json says "type": "module",
+  # and the build script is CommonJS.
+  cmd=(node build.cjs)
 fi
 mkdir -p "$root/home"
 
