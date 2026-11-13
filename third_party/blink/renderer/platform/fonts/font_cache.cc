@@ -90,9 +90,11 @@ extern const char kNotoColorEmojiCompat[] = "Noto Color Emoji Compat";
 
 namespace {
 
-scoped_refptr<SimpleFontData>& ReplayLastResortSimpleFontDataStorage() {
-  static base::NoDestructor<scoped_refptr<SimpleFontData>> font_data;
-  return *font_data;
+// 158's font data is garbage collected, so what 108 kept with a reference is
+// kept with a persistent handle, which belongs to the main thread.
+Persistent<const SimpleFontData>& ReplayLastResortSimpleFontDataStorage() {
+  DEFINE_STATIC_LOCAL(Persistent<const SimpleFontData>, font_data, ());
+  return font_data;
 }
 
 }  // namespace
@@ -235,6 +237,24 @@ String FontCache::FirstAvailableOrFirst(const String& families) {
   // setting change/script.
   return String::FromUtf8(
       gfx::FontList::FirstAvailableOrFirst(families.Utf8()));
+}
+
+void FontCache::WarmReplayLastResortFont() {
+  if (!IsMainThread()) {
+    return;
+  }
+  Persistent<const SimpleFontData>& font_data =
+      ReplayLastResortSimpleFontDataStorage();
+  if (font_data)
+    return;
+  font_data = FontCache::Get().GetLastResortFallbackFont(FontDescription());
+}
+
+const SimpleFontData* FontCache::ReplayLastResortSimpleFontData() {
+  if (!IsMainThread()) {
+    return nullptr;
+  }
+  return ReplayLastResortSimpleFontDataStorage().Get();
 }
 
 const SimpleFontData* FontCache::FallbackFontForCharacter(

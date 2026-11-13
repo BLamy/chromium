@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/record_replay.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -228,8 +229,15 @@ bool MediaRecorderHandler::CanSupportMimeType(const String& type,
   if (!video && !audio)
     return false;
 
+  // While recording/replaying no video encoder is available: |video| types
+  // only support audio codecs, and need them listed because their default
+  // codecs include a video one.
+  const bool no_video_codecs =
+      video && recordreplay::IsRecordingOrReplaying("no-video");
   std::vector<std::string> codecs_list;
   media::SplitCodecs(web_codecs.Utf8(), &codecs_list);
+  if (no_video_codecs && codecs_list.empty())
+    return false;
 
   for (const auto& codec : codecs_list) {
     const auto profile = VideoStringToCodecProfile(String(codec));
@@ -294,6 +302,11 @@ bool MediaRecorderHandler::CanSupportMimeTypeForCodec(const String& type,
   if (video) {
     relevant_codecs = kVideoCodecs;
   } else {
+    relevant_codecs = kAudioCodecs;
+  }
+  // While recording/replaying no video encoder is available: |video| types
+  // only support audio codecs.
+  if (video && recordreplay::IsRecordingOrReplaying("no-video")) {
     relevant_codecs = kAudioCodecs;
   }
 

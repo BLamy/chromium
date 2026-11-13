@@ -229,6 +229,11 @@ RTCDataChannel::Observer::Observer(
       blink_channel_(blink_channel),
       webrtc_channel_(std::move(channel)) {
   CHECK(webrtc_channel_.get());
+  // Because we avoid unregistering this observer non-deterministically,
+  // we also leak a reference to the observer to ensure it isn't destroyed
+  // without having been unregistered first.
+  if (recordreplay::IsRecordingOrReplaying("leak-references", "RTCDataChannel::Observer::Observer"))
+    AddRef();
 }
 
 RTCDataChannel::Observer::~Observer() {
@@ -701,7 +706,7 @@ void RTCDataChannel::SetStateToOpenWithoutEvent(int max_message_size) {
 }
 
 void RTCDataChannel::DispatchOpenEvent() {
-  DispatchEvent(*Event::Create(event_type_names::kOpen));
+  DispatchEvent(*Event::Create(event_type_names::kOpen), "RTCDataChannel::DispatchOpenEvent");
 }
 
 void RTCDataChannel::OnStateChange(

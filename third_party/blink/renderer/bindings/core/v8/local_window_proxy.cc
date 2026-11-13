@@ -83,6 +83,7 @@
 #include "base/record_replay.h"
 #include <optional>
 #include "third_party/blink/renderer/core/inspector/record_replay_dom.h"
+#include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "base/record_replay_paint.h"
 
 namespace blink {
@@ -319,6 +320,9 @@ void LocalWindowProxy::Initialize() {
     if (GetFrame()->IsMainFrame()) {
       if (recordreplay::IsRecordingOrReplaying()) {
         RecordReplaySetDomRootFrame(GetFrame());
+        // Retain last-resort font before first checkpoint for post-diverge PF
+        // inject.
+        FontCache::WarmReplayLastResortFont();
         // The page's surface is a new one from here: the next frame drawn says
         // which.
         recordreplay::DoResetPaintSurface();

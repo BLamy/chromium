@@ -71,7 +71,8 @@ constexpr base::MemoryConsumerTraits kMemoryConsumerTraits(
     base::MemoryConsumerTraits::ReleaseMemoryCpuCost::kExpensive);
 
 bool CompressionEnabled() {
-  return base::FeatureList::IsEnabled(features::kCompressParkableStrings);
+  return base::FeatureList::IsEnabled(features::kCompressParkableStrings) &&
+         !recordreplay::IsRecordingOrReplaying("no-park-strings");
 }
 
 Vector<ParkableStringImpl*> EnumerateStrings(

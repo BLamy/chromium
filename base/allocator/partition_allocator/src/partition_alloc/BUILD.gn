@@ -152,8 +152,11 @@ declare_args() {
 }
 
 # Sanitizers replace the allocator, don't use our own.
-memory_tool_replaces_allocator =
-    is_asan || is_hwasan || is_lsan || is_tsan || is_msan
+#
+# [Replay] As in its Chromium 108, where build/config/BUILD.gn always defined
+# MEMORY_TOOL_REPLACES_ALLOCATOR: this primarily disables PartitionAlloc, so
+# allocations go to malloc, which is what a recording has.
+memory_tool_replaces_allocator = true
 
 pa_buildflag_header("buildflags") {
   header = "buildflags.h"

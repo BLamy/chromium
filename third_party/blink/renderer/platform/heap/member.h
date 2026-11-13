@@ -148,6 +148,10 @@ struct BaseMemberHashTraits : SimpleClassHashTraits<MemberType> {
   // Member. Prefer compressing raw pointers instead of decompressing Members,
   // assuming the former is cheaper.
   static uint32_t GetHash(const T* key) {
+    uint32_t record_replay_hash;
+    if (RecordReplayIdHash(key, &record_replay_hash)) {
+      return record_replay_hash;
+    }
 #if defined(CPPGC_POINTER_COMPRESSION)
     cppgc::internal::CompressedPointer st(key);
 #else
@@ -158,7 +162,43 @@ struct BaseMemberHashTraits : SimpleClassHashTraits<MemberType> {
   template <typename Member>
     requires(IsAnyMemberType<Member>::value)
   static uint32_t GetHash(const Member& m) {
-    return blink::GetHash(m.GetRawStorage().GetAsInteger());
+    if constexpr (kHasRecordReplayId<T>) {
+      return GetHash(static_cast<const T*>(m.Get()));
+    } else {
+      return blink::GetHash(m.GetRawStorage().GetAsInteger());
+    }
+  }
+
+  // Replay's default for tables of Member<>-derived elements, as in its
+  // Chromium 108 (DefaultHashTypeForMember): an element whose type has a
+  // RecordReplayId() is hashed by that ID while recording or replaying, so
+  // every such table has the same order in a recording and in each replay of
+  // it, where an address isn't the same.
+  //
+  // Whether the type has an ID is asked where a key is hashed, not where the
+  // table's type is named, and the type has to be complete there: a file that
+  // hashed the same table by address because it never saw the type would
+  // disagree with the files that did.
+  template <typename U>
+  static constexpr bool kHasRecordReplayId = requires(const U* u) {
+    static_cast<int>(u->RecordReplayId());
+  };
+  static bool RecordReplayIdHash(const T* key, uint32_t* hash) {
+    static_assert(sizeof(T) > 0,
+                  "a table of Member<T> is hashed where T isn't defined: "
+                  "include T's header");
+    if constexpr (kHasRecordReplayId<T>) {
+      if (key && recordreplay::IsRecordingOrReplaying("pointer-ids")) {
+        int id = static_cast<int>(key->RecordReplayId());
+        // An object made where IDs aren't given has none, and is hashed by
+        // its address.
+        if (id > 0) {
+          *hash = blink::GetHash(static_cast<uint32_t>(id));
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   static constexpr bool kEmptyValueIsZero = true;

@@ -455,6 +455,10 @@ void DiscardableSharedMemoryHeap::ReleaseMemory(
     size_t size) {
   size_t offset = 0u;
   size_t end = size / block_size_;
+
+  recordreplay::Assert(
+      "[TT-1252-1255] DiscardableSharedMemoryHeap::ReleaseMemory A %zu %d",
+      end - offset, recordreplay::PointerId(shared_memory));
   while (offset < end) {
     Span* span = spans_[{shared_memory, offset}];
     UnregisterSpan(span);

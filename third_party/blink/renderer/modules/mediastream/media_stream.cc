@@ -27,6 +27,7 @@
 
 #include <algorithm>
 
+#include "base/record_replay.h"
 #include "base/functional/callback_helpers.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -586,7 +587,7 @@ void MediaStream::ScheduledEventTimerFired(TimerBase*) {
   events.swap(scheduled_events_);
 
   for (auto& event : events) {
-    DispatchEvent(*event.Release());
+    DispatchEvent(*event.Release(), "MediaStream::ScheduledEventTimerFired");
   }
 
   events.clear();

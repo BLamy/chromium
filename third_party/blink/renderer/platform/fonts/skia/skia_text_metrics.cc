@@ -116,7 +116,10 @@ void SkFontGetGlyphExtentsForHarfBuzz(const SkFont& font,
 #if BUILDFLAG(IS_APPLE)
   // TODO(drott): Remove this once we have better metrics bounds
   // on Mac, https://bugs.chromium.org/p/skia/issues/detail?id=5328
-  if (const auto path = font.getPath(glyph)) {
+  if (const auto path =
+          !recordreplay::AreEventsUnavailable("divergent-update")
+              ? font.getPath(glyph)
+              : std::nullopt) {
     sk_bounds = path->getBounds();
   } else {
     sk_bounds = font.getBounds(glyph, nullptr);
@@ -145,7 +148,10 @@ void SkFontGetGlyphExtentsForHarfBuzz(const SkFont& font,
 static void GetPathBoundsForGlyph(const SkFont& font,
                                   Glyph glyph,
                                   SkRect* bounds) {
-  if (const auto path = font.getPath(glyph)) {
+  if (const auto path =
+          !recordreplay::AreEventsUnavailable("divergent-update")
+              ? font.getPath(glyph)
+              : std::nullopt) {
     *bounds = path->getBounds();
   } else {
     *bounds = font.getBounds(glyph, nullptr);
@@ -186,7 +192,10 @@ void SkFontGetPreciseBoundsForGlyph(const SkFont& font,
   // Unlike GetPathBoundsForGlyph / SkFontGetBoundsForGlyph, we intentionally
   // do NOT round to integers for non-subpixel fonts, because the caller
   // (canvas TextMetrics) needs float-precision results.
-  if (const auto path = font.getPath(glyph)) {
+  if (const auto path =
+          !recordreplay::AreEventsUnavailable("divergent-update")
+              ? font.getPath(glyph)
+              : std::nullopt) {
     *bounds = path->getBounds();
   } else {
     // Bitmap-only glyphs (e.g. color emoji) have no outlines.

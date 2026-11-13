@@ -26,6 +26,7 @@
 
 #include <array>
 
+#include "base/record_replay.h"
 #include "base/containers/span.h"
 #include "cc/paint/paint_flags.h"
 #include "third_party/blink/renderer/platform/fonts/character_range.h"
@@ -53,6 +54,8 @@ namespace {
 FontFallbackList* GetOrCreateFontFallbackList(
     const FontDescription& font_description,
     FontSelector* font_selector) {
+  recordreplay::Assert("[RUN-1436-2286] GetFontFallbackMap %d",
+                       font_selector ? font_selector->RecordReplayId() : -1);
   FontFallbackMap& fallback_map = font_selector
                                       ? font_selector->GetFontFallbackMap()
                                       : FontCache::Get().GetFontFallbackMap();

@@ -1317,6 +1317,8 @@ void PaintArtifactCompositor::Update(
       root_layer_->SetNeedsCommit();
   }
 
+  recordreplay::Assert("[RUN-657-1540] PaintArtifactCompositor::Update");
+
   root_layer_->layer_tree_host()->RegisterSelection(layer_selection);
 
   property_tree_manager.Finalize();

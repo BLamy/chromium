@@ -1905,14 +1905,19 @@ bool LayerTreeImpl::UpdateDrawProperties(
 
   // For max_texture_size. When a new output surface is received the needs
   // update draw properties flag is set again.
-  if (!host_impl_->layer_tree_frame_sink())
+  if (!host_impl_->layer_tree_frame_sink()) {
+    // https://linear.app/replay/issue/RUN-550
+    recordreplay::Assert("[RUN-550] LayerTreeImpl::UpdateDrawProperties #2");
     return false;
+  }
 
   // Clear this after the renderer early out, as it should still be
   // possible to hit test even without a renderer.
   render_surface_list_.clear();
 
   if (layer_list_.empty()) {
+    // https://linear.app/replay/issue/RUN-550
+    recordreplay::Assert("[RUN-550] LayerTreeImpl::UpdateDrawProperties #3");
     return true;
   }
 

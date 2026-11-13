@@ -432,6 +432,11 @@ void LayerTreeView::DidPresentCompositorFrame(
   }
   while (!presentation_callbacks_.empty()) {
     auto front = presentation_callbacks_.begin();
+
+    recordreplay::Assert(
+        "[RUN-2317-2570] LayerTreeView::DidPresentCompositorFrame B %u %zu %d",
+        front->first, front->second.size(), front->first > frame_token);
+
     if (front->first > frame_token) {
       break;
     }

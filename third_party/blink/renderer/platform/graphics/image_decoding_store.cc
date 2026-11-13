@@ -27,6 +27,7 @@
 
 #include <memory>
 
+#include "base/record_replay.h"
 #include "base/synchronization/lock.h"
 #include "third_party/blink/renderer/platform/graphics/image_frame_generator.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
@@ -48,6 +49,7 @@ static std::atomic<bool> gHasInstance{false};
 ImageDecodingStore::ImageDecodingStore()
     : heap_limit_in_bytes_(kDefaultMaxTotalSizeOfHeapEntries),
       heap_memory_usage_in_bytes_(0) {
+  REPLAY_ASSERT("[TT-1524-1526] ImageDecodingStore::ImageDecodingStore");
   gHasInstance = true;
 }
 
