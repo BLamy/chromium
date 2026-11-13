@@ -438,9 +438,11 @@ bool HandleVersionSwitches(const base::CommandLine& command_line) {
 #endif
 
   if (print_product_version) {
-    printf("%s\n", CHROME_VERSION_STRING);
+    printf("%s (replay.io build %s)\n", CHROME_VERSION_STRING,
+           RECORD_REPLAY_BUILD_ID);
   } else {
-    printf("%s %s %s\n", PRODUCT_FULLNAME_STRING, CHROME_VERSION_STRING,
+    printf("%s %s %s (replay.io build %s)\n", PRODUCT_FULLNAME_STRING,
+           CHROME_VERSION_STRING,
            chrome::GetChannelName(chrome::WithExtendedStable(true)).c_str(),
            RECORD_REPLAY_BUILD_ID);
   }
