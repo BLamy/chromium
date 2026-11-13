@@ -109,6 +109,27 @@ SVGImage::SVGImage(ImageObserver* observer, bool is_multipart)
 
 SVGImage::~SVGImage() {
   if (document_host_) {
+    // Leak the Page during nondeterministic GC sweep: WillBeDestroyed() would
+    // erase it from AllPages(), diverging membership at iteration time. Here
+    // the page belongs to the document host, so the host is what's leaked.
+    if (recordreplay::AreEventsDisallowed("~SVGImage") &&
+        recordreplay::EnterLeakMemory("SVGImage")) {
+      DEFINE_STATIC_LOCAL(
+          Persistent<GCedHeapHashSet<Member<IsolatedSVGDocumentHost>>>,
+          leaked_hosts,
+          (MakeGarbageCollected<
+              GCedHeapHashSet<Member<IsolatedSVGDocumentHost>>>()));
+      leaked_hosts->insert(document_host_.Release());
+      // Null dangling image_ that WillBeDestroyed() would have cleared (UAF).
+      if (chrome_client_) {
+        chrome_client_->ChromeDestroyed();
+      }
+      // Warn once if the leak grows large.
+      if (leaked_hosts->size() == 500) {
+        recordreplay::Warning("ManyLeakedSVGImagePages");
+      }
+      return;
+    }
     // Store `document_host_` in a local variable and clear it so that
     // SVGImageChromeClient knows we're destructed.
     auto* document_host = document_host_.Release();
