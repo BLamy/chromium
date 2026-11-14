@@ -44,6 +44,9 @@ namespace {
 // memory pressure where it will be cleared. DO NOT increase unnecessarily.
 const wtf_size_t kMaxSize = 64;
 
+// [RecordReplay] How many entries the cache has when recording or replaying.
+const wtf_size_t kRecordReplayMaxSize = 1024;
+
 }  // namespace
 
 const SimpleFontData* FontDataCache::Get(const FontPlatformData* platform_data,
@@ -72,10 +75,24 @@ const SimpleFontData* FontDataCache::Get(const FontPlatformData* platform_data,
   strong_reference_lru_.PrependOrMoveToFirst(result);
   // [RecordReplay] The collector clears an entry nothing else holds at a
   // point which isn't the same on a replay, and making its font data again
-  // asks the system about the font, which is recorded. So every entry is held
-  // until the cache is cleared.
-  while (strong_reference_lru_.size() > kMaxSize &&
-         !recordreplay::IsRecordingOrReplaying()) {
+  // asks the system about the font, which is recorded. So the cache has
+  // exactly what this list holds, which is more than upstream keeps: an entry
+  // leaves the cache when it leaves the list, whoever else still has it.
+  // Holding every entry for good isn't an option: these are collected
+  // objects, and a page that measures text at thousands of sizes then fills a
+  // small heap with them.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    while (strong_reference_lru_.size() > kRecordReplayMaxSize) {
+      const SimpleFontData* oldest = strong_reference_lru_.back();
+      auto it = cache_.find(&oldest->PlatformData());
+      if (it != cache_.end() && it->value == oldest) {
+        cache_.erase(it);
+      }
+      strong_reference_lru_.pop_back();
+    }
+    return result;
+  }
+  while (strong_reference_lru_.size() > kMaxSize) {
     strong_reference_lru_.pop_back();
   }
 

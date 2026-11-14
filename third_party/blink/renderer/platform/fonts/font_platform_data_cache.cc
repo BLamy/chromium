@@ -47,6 +47,26 @@ FontPlatformDataCache::FontPlatformDataCache()
               static_cast<float>(FontCacheKey::PrecisionMultiplier()),
           0.0f)) {}
 
+void FontPlatformDataCache::RecordReplayHold(
+    const FontCacheKey& key,
+    const FontPlatformData* platform_data) {
+  if (!recordreplay::IsRecordingOrReplaying()) {
+    return;
+  }
+  // See the header.
+  static const wtf_size_t kMaxHeld = 1024;
+  record_replay_held_.push_back(platform_data);
+  record_replay_keys_.push_back(key);
+  while (record_replay_held_.size() > kMaxHeld) {
+    auto it = map_.find(record_replay_keys_.front());
+    if (it != map_.end() && it->value == record_replay_held_.front()) {
+      map_.erase(it);
+    }
+    record_replay_held_.pop_front();
+    record_replay_keys_.pop_front();
+  }
+}
+
 const FontPlatformData* FontPlatformDataCache::GetOrCreateFontPlatformData(
     FontCache* font_cache,
     const FontDescription& font_description,
@@ -69,9 +89,7 @@ const FontPlatformData* FontPlatformDataCache::GetOrCreateFontPlatformData(
   if (const FontPlatformData* result = font_cache->CreateFontPlatformData(
           font_description, creation_params, size, alternate_font_name)) {
     map_.insert(key, result);
-    if (recordreplay::IsRecordingOrReplaying()) {
-      record_replay_held_.push_back(result);
-    }
+    RecordReplayHold(key, result);
     return result;
   }
 
@@ -100,6 +118,7 @@ const FontPlatformData* FontPlatformDataCache::GetOrCreateFontPlatformData(
     // Cache the platform_data under the old name.
     // "accessibility/font-changed.html" reaches here.
     map_.insert(key, result);
+    RecordReplayHold(key, result);
     return result;
   }
 

@@ -113,10 +113,13 @@ class CORE_EXPORT CachedMatchedProperties final
   // The same property sets, kept alive while recording or replaying so the
   // cache's weak clearing doesn't depend on when collections happen.
   HeapVector<Member<CSSPropertyValueSet>> replay_matched_properties_strong_;
+  HeapVector<Member<const MixinParameterBindings>>
+      replay_mixin_parameter_bindings_strong_;
 
   void Trace(Visitor* visitor) const {
     visitor->Trace(entries);
     visitor->Trace(replay_matched_properties_strong_);
+    visitor->Trace(replay_mixin_parameter_bindings_strong_);
   }
 
   bool CorrespondsTo(const MatchedPropertiesVector& lookup_properties) const;
@@ -192,6 +195,12 @@ class CORE_EXPORT MatchedPropertiesCache {
                             AlreadyHashedTraits>;
 
   void CleanMatchedPropertiesCache(const LivenessBroker&);
+
+  // [RecordReplay] The cache is cleaned and pruned from the collector, at a
+  // point which isn't the same on a replay, and whether a style is found here
+  // decides how it's resolved. While recording or replaying the collector
+  // leaves the cache alone and Add() prunes it, at the same limits.
+  void RecordReplayPrune();
 
   // Erase all MPC entries where the given predicate returns true,
   // and updates the counter. Removes all keys that have no entries left.
