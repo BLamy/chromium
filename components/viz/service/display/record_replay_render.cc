@@ -270,9 +270,11 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
   gRepaintEvent = nullptr;
   if (!gRepaintResult) {
     Print("[RuntimeError] Repaint drew nothing: %d frames submitted, %d for "
-          "another surface, %d painted.",
+          "another surface, %d painted. The page %s layers and %s visible.",
           gRepaintFramesSubmitted.load(), gRepaintFramesForOtherSurface.load(),
-          gRepaintFramesPainted.load());
+          gRepaintFramesPainted.load(),
+          gCurrentCompositorProxy->RecordReplayHasRootLayer() ? "has" : "has no",
+          gCurrentCompositorProxy->RecordReplayIsVisible() ? "is" : "isn't");
     // The compositor thread says what it's waiting on, and gets a moment to.
     gCurrentCompositorProxy->RecordReplayDescribeRepaint();
     base::PlatformThread::Sleep(base::Milliseconds(200));
