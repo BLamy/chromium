@@ -32,7 +32,8 @@
 
 #include "third_party/blink/renderer/platform/fonts/font_cache_key.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
-#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
+#include "third_party/blink/renderer/platform/wtf/deque.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 
@@ -66,6 +67,7 @@ class FontPlatformDataCache final {
   void Clear() {
     map_.clear();
     record_replay_held_.clear();
+    record_replay_keys_.clear();
   }
 
  private:
@@ -74,9 +76,15 @@ class FontPlatformDataCache final {
 
   // [RecordReplay] `map_` is weak, and the collector clears an entry nothing
   // else holds at a point which isn't the same on a replay. Making the entry
-  // again asks the system for the font, which is recorded, so while recording
-  // or replaying every entry is held here until the cache is cleared.
-  HeapVector<Member<const FontPlatformData>> record_replay_held_;
+  // again asks the system for the font, which is recorded. So while recording
+  // or replaying the newest entries are held here, with their keys, and an
+  // entry leaves the map when it leaves this list, whoever else still has it:
+  // the map then has the same entries on a replay. They aren't all held for
+  // good, as these are collected objects and a page can ask for thousands.
+  void RecordReplayHold(const FontCacheKey& key,
+                        const FontPlatformData* platform_data);
+  HeapDeque<Member<const FontPlatformData>> record_replay_held_;
+  Deque<FontCacheKey> record_replay_keys_;
 
   // A maximum float value to which we limit incoming font sizes. This is the
   // smallest float so that multiplying it by
