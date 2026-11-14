@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/allocator/partition_alloc_support.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
@@ -340,6 +341,13 @@ int RendererMain(MainFunctionParams parameters) {
       RenderThreadImpl::current()->set_run_loop_start_time(run_loop_start_time);
       LogTimeToStartRunLoop(command_line, run_loop_start_time);
       run_loop.Run();
+      // [RecordReplay] The recording is finished here if nothing finished it
+      // sooner. The channel to the browser closing ends this loop and, on the
+      // IO thread, asks for the recording to be finished, which is a task for
+      // this thread. If the loop ended first the task never ran: this thread
+      // went on to stop the IO thread, which was waiting for it, and the
+      // process sat there until it was killed, its recording unfinished.
+      recordreplay::FinishRecording();
     }
 
 #if defined(LEAK_SANITIZER)
