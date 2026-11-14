@@ -92,6 +92,12 @@
 #include "mojo/public/cpp/bindings/lib/test_random_mojo_delays.h"
 #endif
 
+namespace recordreplay {
+// Declared here and not in the header: see NoteMainThreadPhase in
+// base/record_replay.cc.
+BASE_EXPORT void NoteMainThreadPhase(int phase);
+}  // namespace recordreplay
+
 namespace content {
 namespace {
 
@@ -347,6 +353,7 @@ int RendererMain(MainFunctionParams parameters) {
       // this thread. If the loop ended first the task never ran: this thread
       // went on to stop the IO thread, which was waiting for it, and the
       // process sat there until it was killed, its recording unfinished.
+      recordreplay::NoteMainThreadPhase(5);
       recordreplay::FinishRecording();
     }
 

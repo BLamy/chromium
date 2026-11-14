@@ -28,6 +28,12 @@
 #include "base/threading/threading_features.h"
 #endif
 
+namespace recordreplay {
+// Declared here and not in the header: see NoteMainThreadPhase in
+// base/record_replay.cc.
+BASE_EXPORT void NoteMainThreadPhase(int phase);
+}  // namespace recordreplay
+
 namespace base {
 
 namespace {
@@ -109,6 +115,7 @@ void MessagePumpDefault::Run(Delegate* delegate) {
       before = base::TimeTicks::Now();
     }
 
+    recordreplay::NoteMainThreadPhase(3);
     bool should_busy_loop = ShouldBusyLoop();
     bool found_in_busy_loop = false;
     bool woke_from_os = false;
@@ -123,6 +130,7 @@ void MessagePumpDefault::Run(Delegate* delegate) {
       woke_from_os = event_.TimedWait(RecordReplayWaitLimit(next_work_info));
     }
 
+    recordreplay::NoteMainThreadPhase(4);
     if (woke_from_os) {
       MessagePumpWakeupCounter::GetForCurrentThread().RecordWakeup();
     }
