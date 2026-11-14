@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "gpu/ipc/client/shared_image_interface_proxy.h"
 
 #include <bit>
@@ -638,6 +639,10 @@ void SharedImageInterfaceProxy::CreateSharedImagePool(
 
 void SharedImageInterfaceProxy::DestroySharedImagePool(
     const SharedImagePoolId& pool_id) {
+  // [RecordReplay] A canvas's resource provider destroys its pool when the
+  // collector frees it. The message is for the GPU process, which a replay
+  // doesn't have.
+  recordreplay::AutoPassThroughEventsIfDisallowed pass_through;
   auto params = mojom::DestroySharedImagePoolParams::New();
   params->pool_id = pool_id;
   {

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "extensions/renderer/extension_throttle_manager.h"
 
 #include <map>
@@ -33,6 +34,9 @@ ExtensionThrottleManager::ExtensionThrottleManager()
 }
 
 ExtensionThrottleManager::~ExtensionThrottleManager() {
+  // [RecordReplay] A worker's heap destroys this as it's torn down. Only this
+  // object's own entries are dropped.
+  recordreplay::AutoPassThroughEventsIfDisallowed pass_through;
   access_->SetDestroyed();
 
   base::AutoLock auto_lock(lock_);

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/platform/instrumentation/canvas_memory_dump_provider.h"
 
 #include "base/trace_event/memory_dump_manager.h"
@@ -62,6 +63,9 @@ void CanvasMemoryDumpProvider::RegisterClient(CanvasMemoryDumpClient* client) {
 
 void CanvasMemoryDumpProvider::UnregisterClient(
     CanvasMemoryDumpClient* client) {
+  // [RecordReplay] A canvas context the collector frees takes itself off the
+  // list, which only memory dumps read.
+  recordreplay::AutoPassThroughEventsIfDisallowed pass_through;
   base::AutoLock auto_lock(lock_);
   DCHECK(clients_.Contains(client));
   clients_.erase(client);
