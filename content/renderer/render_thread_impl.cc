@@ -38,6 +38,11 @@
 #include "base/process/process.h"
 #include "base/process/process_metrics.h"
 #include "base/record_replay.h"
+#include "base/no_destructor.h"
+#include "components/viz/service/display/record_replay_render.h"
+#include "gpu/command_buffer/common/shared_image_capabilities.h"
+#include "gpu/config/gpu_feature_info.h"
+#include "gpu/config/gpu_info.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -480,6 +485,10 @@ RenderThreadImpl::RenderThreadImpl(
 void RenderThreadImpl::Init() {
   recordreplay::SetMainThreadTaskRunner(
       base::SingleThreadTaskRunner::GetCurrentDefault());
+  if (recordreplay::IsRecordingOrReplaying()) {
+    recordreplay::SetRepaintSharedImageInterfaceGetter(
+        &RenderThreadImpl::RecordReplayRepaintSharedImageInterface);
+  }
 
   TRACE_EVENT0("startup", "RenderThreadImpl::Init");
 
@@ -1089,6 +1098,37 @@ RenderThreadImpl::GetVideoFrameCompositorContextProvider(
           /*automatic_flushes=*/false, /*support_locking=*/false, limits,
           viz::command_buffer_metrics::ContextType::RENDERER_COMPOSITOR);
   return video_frame_compositor_context_provider_;
+}
+
+// static
+scoped_refptr<gpu::SharedImageInterface>
+RenderThreadImpl::RecordReplayRepaintSharedImageInterface() {
+  RenderThreadImpl* thread = current();
+  if (!thread) {
+    return nullptr;
+  }
+  if (thread->shared_image_interface_ &&
+      !thread->shared_image_interface_->IsLost()) {
+    return thread->shared_image_interface_;
+  }
+  // The usual interface comes with a channel to the GPU process, which is
+  // asked of the browser, and a replay that has left its recording hears from
+  // no one. A software compositor's shared images are memory this process
+  // allocates and only tells the GPU process about, so a channel with no one
+  // at the other end does: the end that's never read is never closed either,
+  // which keeps the channel from looking lost.
+  static base::NoDestructor<scoped_refptr<gpu::SharedImageInterface>>
+      repaint_interface;
+  if (!*repaint_interface) {
+    mojo::MessagePipe pipe;
+    std::ignore = pipe.handle1.release();
+    scoped_refptr<gpu::GpuChannelHost> channel = gpu::GpuChannelHost::Create(
+        thread->client_id_, viz::mojom::GpuClientType::kRenderer,
+        gpu::GPUInfo(), gpu::GpuFeatureInfo(), gpu::SharedImageCapabilities(),
+        std::move(pipe.handle0), thread->GetIOTaskRunner());
+    *repaint_interface = channel->CreateClientSharedImageInterface();
+  }
+  return *repaint_interface;
 }
 
 scoped_refptr<gpu::SharedImageInterface>

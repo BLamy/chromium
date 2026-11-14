@@ -18,6 +18,7 @@ class ProxyMain;
 
 namespace gpu {
 class ClientSharedImage;
+class SharedImageInterface;
 }
 
 namespace viz {
@@ -69,6 +70,16 @@ void OnRepaintFinished();
 // The proxy a repaint is asked of, from the main thread.
 void SetCompositorProxy(cc::ProxyMain* proxy);
 void CompositorProxyDestroyed(cc::ProxyMain* proxy);
+
+// What a repaint's tiles are made with when the compositor has never had a
+// frame sink, as at a pause before the page's first one was made: tiles are
+// rastered into shared images, and the interface for them comes with a frame
+// sink. The renderer says how to get one. Main thread.
+using RepaintSharedImageInterfaceGetter =
+    scoped_refptr<gpu::SharedImageInterface> (*)();
+void SetRepaintSharedImageInterfaceGetter(
+    RepaintSharedImageInterfaceGetter getter);
+scoped_refptr<gpu::SharedImageInterface> GetRepaintSharedImageInterface();
 
 // The size in pixels of what was last painted.
 gfx::Size GetCurrentViewportPixelSize();

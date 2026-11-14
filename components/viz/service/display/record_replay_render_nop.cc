@@ -10,6 +10,7 @@
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/surfaces/local_surface_id.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
+#include "gpu/command_buffer/client/shared_image_interface.h"
 
 namespace recordreplay {
 
@@ -28,6 +29,11 @@ bool IsDrawingFrame() {
 }
 void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {}
 void OnRepaintFinished() {}
+void SetRepaintSharedImageInterfaceGetter(
+    RepaintSharedImageInterfaceGetter getter) {}
+scoped_refptr<gpu::SharedImageInterface> GetRepaintSharedImageInterface() {
+  return nullptr;
+}
 void SetCompositorProxy(cc::ProxyMain* proxy) {}
 void CompositorProxyDestroyed(cc::ProxyMain* proxy) {}
 gfx::Size GetCurrentViewportPixelSize() {

@@ -132,7 +132,10 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
   // and is asked what the page looks like.
   void RecordReplayRepaint();
   // Told before a repaint's commit, which can wait on a pending tree.
-  void RecordReplayRepaintPending();
+  // |shared_image_interface| is for a repaint's own frame sink when the
+  // compositor never had one.
+  void RecordReplayRepaintPending(
+      scoped_refptr<gpu::SharedImageInterface> shared_image_interface);
   const DelayedUniqueNotifier& SmoothnessPriorityExpirationNotifierForTesting()
       const {
     return smoothness_priority_expiration_notifier_;

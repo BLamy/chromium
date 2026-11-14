@@ -37,6 +37,7 @@
 #include "components/viz/service/display/software_renderer.h"
 #include "components/viz/service/display_embedder/software_output_surface.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
+#include "gpu/command_buffer/client/shared_image_interface.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkPixmap.h"
 #include "ui/gfx/codec/jpeg_codec.h"
@@ -267,6 +268,20 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
 }
 
 }  // namespace
+
+static RepaintSharedImageInterfaceGetter gRepaintSharedImageInterfaceGetter;
+
+void SetRepaintSharedImageInterfaceGetter(
+    RepaintSharedImageInterfaceGetter getter) {
+  gRepaintSharedImageInterfaceGetter = getter;
+}
+
+scoped_refptr<gpu::SharedImageInterface> GetRepaintSharedImageInterface() {
+  if (!gRepaintSharedImageInterfaceGetter) {
+    return nullptr;
+  }
+  return gRepaintSharedImageInterfaceGetter();
+}
 
 void NotifyRasterBuffer(scoped_refptr<gpu::ClientSharedImage> image) {
   if (!image) {
