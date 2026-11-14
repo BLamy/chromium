@@ -1243,6 +1243,12 @@ void ProxyImpl::RecordReplayRepaintPending(
   if (!record_replay_shared_image_interface_) {
     record_replay_shared_image_interface_ = std::move(shared_image_interface);
   }
+  // The compositor of a page that isn't visible has no frame sink and asks for
+  // none, so it's told the page is visible: it then asks for a frame sink,
+  // which the repaint's own stands in for below.
+  if (!host_impl_->visible()) {
+    SetVisibleOnImpl(true);
+  }
   // A frame sink the main thread gave before the repaint was initialized
   // first, since its task was posted first. A frame sink lost while frames
   // keep the scheduler from asking for another isn't replaced, and the repaint
