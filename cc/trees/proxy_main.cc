@@ -476,6 +476,12 @@ void ProxyMain::BeginMainFrameWithBlocking(
   // drew, which is what the page looked like: the repaint is of that.
   if (record_replay_force_blocking_) {
     skip_commit = !layer_tree_host_->root_layer();
+    if (skip_commit) {
+      recordreplay::Print(
+          "Repaint: the page has no layers (visible %d), drawing the tree the "
+          "compositor last drew.",
+          layer_tree_host_->IsVisible());
+    }
   }
 
   // When we don't need to produce a CompositorFrame, there's also no need to
