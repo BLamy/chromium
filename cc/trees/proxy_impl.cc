@@ -1312,6 +1312,7 @@ void ProxyImpl::RecordReplayRepaint() {
   // The page may not have changed since its last draw, and a frame without
   // damage isn't drawn at all.
   host_impl_->SetFullViewportDamage();
+  scheduler_->RecordReplayWillRepaint();
   scheduler_->OnBeginFrameDerivedImpl(args);
 }
 

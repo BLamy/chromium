@@ -179,6 +179,7 @@ class CC_EXPORT Scheduler : public viz::BeginFrameObserverBase {
   // initialized.
   bool RecordReplayCreatingFrameSink() const;
   std::string RecordReplayDescribe() const;
+  void RecordReplayWillRepaint();
   void RecordReplayReuseLostLayerTreeFrameSink();
 
   void SetNeedsPrepareTiles();
