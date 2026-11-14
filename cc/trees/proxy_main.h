@@ -79,6 +79,7 @@ class CC_EXPORT ProxyMain : public Proxy {
   void RecordReplayBeginMainFrame(
       std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state);
   void RecordReplayRepaint();
+  void RecordReplayDescribeRepaint();
   void RecordReplayRepaintPending();
   // The surface this proxy's compositor submits its frames to.
   const viz::LocalSurfaceId& RecordReplayLocalSurfaceId() const;

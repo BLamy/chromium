@@ -208,6 +208,15 @@ const viz::LocalSurfaceId& ProxyMain::RecordReplayLocalSurfaceId() const {
   return layer_tree_host_->local_surface_id_from_parent();
 }
 
+void ProxyMain::RecordReplayDescribeRepaint() {
+  if (!proxy_impl_) {
+    return;
+  }
+  ImplThreadTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&ProxyImpl::RecordReplayDescribeRepaint,
+                                base::Unretained(proxy_impl_.get())));
+}
+
 void ProxyMain::RecordReplayRepaint() {
   if (!proxy_impl_) {
     return;

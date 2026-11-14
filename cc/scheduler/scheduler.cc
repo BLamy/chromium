@@ -324,6 +324,10 @@ void Scheduler::RecordReplayRepaintPending() {
   ProcessScheduledActions();
 }
 
+std::string Scheduler::RecordReplayDescribe() const {
+  return state_machine_->RecordReplayDescribe();
+}
+
 bool Scheduler::RecordReplayCreatingFrameSink() const {
   return state_machine_->RecordReplayCreatingFrameSink();
 }

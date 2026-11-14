@@ -178,6 +178,7 @@ class CC_EXPORT Scheduler : public viz::BeginFrameObserverBase {
   // Whether the scheduler asked for a LayerTreeFrameSink that hasn't been
   // initialized.
   bool RecordReplayCreatingFrameSink() const;
+  std::string RecordReplayDescribe() const;
   void RecordReplayReuseLostLayerTreeFrameSink();
 
   void SetNeedsPrepareTiles();

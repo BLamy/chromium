@@ -131,6 +131,8 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
   // [RecordReplay] Draws a frame now, for a replay that has left its recording
   // and is asked what the page looks like.
   void RecordReplayRepaint();
+  // Prints what the scheduler is waiting on, for a repaint that drew nothing.
+  void RecordReplayDescribeRepaint();
   // Told before a repaint's commit, which can wait on a pending tree.
   // |shared_image_interface| is for a repaint's own frame sink when the
   // compositor never had one.

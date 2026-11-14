@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/threading/platform_thread.h"
 #include "base/base64.h"
 #include "base/no_destructor.h"
 #include "base/record_replay.h"
@@ -263,6 +264,9 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
           "another surface, %d painted.",
           gRepaintFramesSubmitted.load(), gRepaintFramesForOtherSurface.load(),
           gRepaintFramesPainted.load());
+    // The compositor thread says what it's waiting on, and gets a moment to.
+    gCurrentCompositorProxy->RecordReplayDescribeRepaint();
+    base::PlatformThread::Sleep(base::Milliseconds(200));
   }
   return gRepaintResult;
 }

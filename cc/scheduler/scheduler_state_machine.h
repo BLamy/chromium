@@ -5,6 +5,7 @@
 #ifndef CC_SCHEDULER_SCHEDULER_STATE_MACHINE_H_
 #define CC_SCHEDULER_SCHEDULER_STATE_MACHINE_H_
 
+#include <string>
 #include <stdint.h>
 
 #include "base/time/time.h"
@@ -399,6 +400,8 @@ class CC_EXPORT SchedulerStateMachine {
     return layer_tree_frame_sink_state_ == LayerTreeFrameSinkState::CREATING;
   }
   void RecordReplayReuseLostLayerTreeFrameSink();
+  // What the state machine is waiting on, for a repaint that drew nothing.
+  std::string RecordReplayDescribe() const;
 
   void set_is_scrolling(bool is_scrolling) { is_scrolling_ = is_scrolling; }
   void set_waiting_for_scroll_event(bool waiting_for_scroll_event) {
