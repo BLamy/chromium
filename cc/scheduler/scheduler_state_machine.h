@@ -400,6 +400,8 @@ class CC_EXPORT SchedulerStateMachine {
     return layer_tree_frame_sink_state_ == LayerTreeFrameSinkState::CREATING;
   }
   void RecordReplayReuseLostLayerTreeFrameSink();
+  // A repaint's frame is about to be given: see the definition.
+  void RecordReplayWillRepaint();
   // What the state machine is waiting on, for a repaint that drew nothing.
   std::string RecordReplayDescribe() const;
 

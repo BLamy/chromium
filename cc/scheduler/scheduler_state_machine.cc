@@ -1764,6 +1764,19 @@ void SchedulerStateMachine::DidLoseLayerTreeFrameSink() {
   needs_redraw_ = false;
 }
 
+void SchedulerStateMachine::RecordReplayWillRepaint() {
+  // The repaint's commit is over by now, if it made one. It makes none for a
+  // page whose layers have been taken away, and draws the tree the compositor
+  // still has: a frame sink the repaint put in is then still waiting for a
+  // first commit that isn't coming, and nothing has asked for a redraw, for
+  // want of which the scheduler would turn the repaint's frame away.
+  if (layer_tree_frame_sink_state_ ==
+      LayerTreeFrameSinkState::WAITING_FOR_FIRST_COMMIT) {
+    layer_tree_frame_sink_state_ = LayerTreeFrameSinkState::ACTIVE;
+  }
+  needs_redraw_ = true;
+}
+
 std::string SchedulerStateMachine::RecordReplayDescribe() const {
   return base::StringPrintf(
       "sink=%d impl_frame=%d main_frame=%d forced_redraw=%d next_action=%d "

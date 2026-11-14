@@ -324,6 +324,10 @@ void Scheduler::RecordReplayRepaintPending() {
   ProcessScheduledActions();
 }
 
+void Scheduler::RecordReplayWillRepaint() {
+  state_machine_->RecordReplayWillRepaint();
+}
+
 std::string Scheduler::RecordReplayDescribe() const {
   return state_machine_->RecordReplayDescribe();
 }
