@@ -343,7 +343,12 @@ class BASE_EXPORT SequenceManagerImpl
 
     // RAW_PTR_EXCLUSION: Performance reasons (based on analysis of
     // speedometer3).
-    RAW_PTR_EXCLUSION std::set<internal::TaskQueueImpl*> active_queues;
+    // [RecordReplay] In the order the queues were made, as in Replay's
+    // Chromium 108: where a queue sits in memory isn't the same on a replay,
+    // and the queues are walked in this set's order.
+    RAW_PTR_EXCLUSION std::set<internal::TaskQueueImpl*,
+                               recordreplay::CompareByPointerId>
+        active_queues;
 
     std::map<internal::TaskQueueImpl*, std::unique_ptr<internal::TaskQueueImpl>,
              recordreplay::CompareByPointerId>
