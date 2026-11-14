@@ -64,6 +64,11 @@ bool IsDrawingFrame();
 // The software output device has been painted to. Compositor thread.
 void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size);
 
+// The compositor thread has committed the tree it last heard was ready, and
+// has activated the tree it last committed.
+void OnCommitOnImpl();
+void OnActivateOnImpl();
+
 // A repaint's forced draw is over, whether or not it drew. Compositor thread.
 void OnRepaintFinished();
 

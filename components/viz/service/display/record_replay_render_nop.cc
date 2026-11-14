@@ -28,6 +28,8 @@ bool IsDrawingFrame() {
   return false;
 }
 void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {}
+void OnCommitOnImpl() {}
+void OnActivateOnImpl() {}
 void OnRepaintFinished() {}
 void SetRepaintSharedImageInterfaceGetter(
     RepaintSharedImageInterfaceGetter getter) {}

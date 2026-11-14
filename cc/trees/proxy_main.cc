@@ -457,6 +457,13 @@ void ProxyMain::BeginMainFrameWithBlocking(
   // avoid committing right now, or may have allowed commits to go through. So
   // evaluate this flag now.
   bool skip_commit = defer_main_frame_update_ || IsDeferringCommits();
+  // [RecordReplay] Commits are held back while a page first loads, until it
+  // has something worth showing. A repaint at a pause in that time is asked
+  // what the page looks like now, and with its commit held back the
+  // compositor has no layers and draws nothing.
+  if (record_replay_force_blocking_) {
+    skip_commit = false;
+  }
 
   // When we don't need to produce a CompositorFrame, there's also no need to
   // commit our updates. We still need to run layout and paint though, as it can

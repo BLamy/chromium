@@ -167,8 +167,17 @@ char* PaintCallback(const char* mime_type, int jpeg_quality) {
 // Made on the main thread before it blocks.
 std::atomic<size_t> gCurrentPaintBookmark;
 
-// The paint last committed.
+// The paint the compositor thread last heard was ready to commit.
 std::atomic<size_t> gLastCommitBookmark;
+
+// The paints of the tree last committed and of the tree being drawn, which is
+// the last one activated. Compositor thread. A paint goes to the second: the
+// compositor can hear of the next commit, and even make it, while it still
+// draws the tree before, and across a navigation that next commit can be of
+// an empty tree. Its bookmark would then be a paint point at which there is
+// nothing to repaint.
+size_t gCommittedBookmark;
+size_t gActiveBookmark;
 
 // How a repaint is encoded, the event that ends its wait, and its picture.
 const char* gRepaintMimeType;
@@ -429,7 +438,7 @@ void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
       gRepaintResult = EncodeBitmapContents(gRepaintMimeType, gRepaintJPEGQuality);
     }
   } else if (size_t bookmark = RecordReplayValueIfAllowed(
-                 "OnPaintFinished bookmark", gLastCommitBookmark.load())) {
+                 "OnPaintFinished bookmark", gActiveBookmark)) {
     // The main thread sets this for each commit, of any of the process's
     // compositors, while this thread draws: with several widgets (a page and
     // its popups) which commit this draw comes after isn't the same on a
@@ -437,6 +446,14 @@ void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
     PaintFinished(bookmark);
   }
   gCurrentPixmap = nullptr;
+}
+
+void OnCommitOnImpl() {
+  gCommittedBookmark = gLastCommitBookmark.load();
+}
+
+void OnActivateOnImpl() {
+  gActiveBookmark = gCommittedBookmark;
 }
 
 void OnRepaintFinished() {
