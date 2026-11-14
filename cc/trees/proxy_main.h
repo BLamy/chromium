@@ -80,6 +80,9 @@ class CC_EXPORT ProxyMain : public Proxy {
       std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state);
   void RecordReplayRepaint();
   void RecordReplayDescribeRepaint();
+  // Whether the page has layers to commit, and whether it's visible.
+  bool RecordReplayHasRootLayer() const;
+  bool RecordReplayIsVisible() const;
   void RecordReplayRepaintPending();
   // The surface this proxy's compositor submits its frames to.
   const viz::LocalSurfaceId& RecordReplayLocalSurfaceId() const;

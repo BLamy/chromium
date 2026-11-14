@@ -208,6 +208,14 @@ const viz::LocalSurfaceId& ProxyMain::RecordReplayLocalSurfaceId() const {
   return layer_tree_host_->local_surface_id_from_parent();
 }
 
+bool ProxyMain::RecordReplayHasRootLayer() const {
+  return !!layer_tree_host_->root_layer();
+}
+
+bool ProxyMain::RecordReplayIsVisible() const {
+  return layer_tree_host_->IsVisible();
+}
+
 void ProxyMain::RecordReplayDescribeRepaint() {
   if (!proxy_impl_) {
     return;
@@ -461,8 +469,13 @@ void ProxyMain::BeginMainFrameWithBlocking(
   // has something worth showing. A repaint at a pause in that time is asked
   // what the page looks like now, and with its commit held back the
   // compositor has no layers and draws nothing.
+  //
+  // A page that still has no layers after its frame has run is one that is
+  // being closed, and has had them taken away. Committing that would leave the
+  // compositor with nothing to draw, while it still has the tree it last
+  // drew, which is what the page looked like: the repaint is of that.
   if (record_replay_force_blocking_) {
-    skip_commit = false;
+    skip_commit = !layer_tree_host_->root_layer();
   }
 
   // When we don't need to produce a CompositorFrame, there's also no need to
