@@ -226,6 +226,34 @@ cc::ProxyMain* RepaintCompositorProxy() {
       }
     }
   }
+  // No window owns the paint surface, or none has been drawn yet. The current
+  // proxy is the one made or used last, which can be of a window that is
+  // hidden and has no layers (on Linux it often was, and its repaint drew
+  // nothing or an old blank frame). A window with layers is the one to draw:
+  // a visible one if there is one, and the newest of those.
+  if (gCompositorProxies &&
+      (!gCurrentCompositorProxy ||
+       !gCurrentCompositorProxy->RecordReplayHasRootLayer() ||
+       !gCurrentCompositorProxy->RecordReplayIsVisible())) {
+    cc::ProxyMain* with_layers = nullptr;
+    cc::ProxyMain* visible_with_layers = nullptr;
+    for (cc::ProxyMain* proxy : *gCompositorProxies) {
+      if (!proxy->RecordReplayHasRootLayer()) {
+        continue;
+      }
+      with_layers = proxy;
+      if (proxy->RecordReplayIsVisible()) {
+        visible_with_layers = proxy;
+      }
+    }
+    if (visible_with_layers) {
+      return visible_with_layers;
+    }
+    if (with_layers && (!gCurrentCompositorProxy ||
+                        !gCurrentCompositorProxy->RecordReplayHasRootLayer())) {
+      return with_layers;
+    }
+  }
   return gCurrentCompositorProxy;
 }
 
@@ -275,6 +303,8 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
           gRepaintFramesPainted.load(),
           gCurrentCompositorProxy->RecordReplayHasRootLayer() ? "has" : "has no",
           gCurrentCompositorProxy->RecordReplayIsVisible() ? "is" : "isn't");
+    Print("[RuntimeError] Repaint: %zu compositors in this process.",
+          gCompositorProxies ? gCompositorProxies->size() : 0);
     // The compositor thread says what it's waiting on, and gets a moment to.
     gCurrentCompositorProxy->RecordReplayDescribeRepaint();
     base::PlatformThread::Sleep(base::Milliseconds(200));
