@@ -109,11 +109,16 @@ void RandBytesInternal(span<uint8_t> output, bool avoid_allocation) {
   // On Android it is mandatory to check that the kernel _version_ has the
   // support for a syscall before calling. The same check is made on Linux and
   // ChromeOS to avoid making a syscall that predictably returns ENOSYS.
-  static const bool kernel_has_support = KernelSupportsGetRandom();
-  // Not tested when recording or replaying: in some cases a replay doesn't
-  // think there is kernel support for getrandom, for an unknown reason.
-  if ((kernel_has_support || recordreplay::IsRecordingOrReplaying()) &&
-      GetRandomSyscall(output.data(), output.size())) {
+  // Not tested when recording or replaying: the test asks the system for its
+  // version the first time bytes are asked for here, and that first time can
+  // be inside a collection, where nothing is recorded, on one run and outside
+  // on another.
+  bool use_getrandom = recordreplay::IsRecordingOrReplaying();
+  if (!use_getrandom) {
+    static const bool kernel_has_support = KernelSupportsGetRandom();
+    use_getrandom = kernel_has_support;
+  }
+  if (use_getrandom && GetRandomSyscall(output.data(), output.size())) {
     return;
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||

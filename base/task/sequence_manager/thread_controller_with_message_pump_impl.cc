@@ -174,11 +174,18 @@ void ThreadControllerWithMessagePumpImpl::ScheduleWork() {
   if (recordreplay::IsRecordingOrReplaying() &&
       (recordreplay::AreEventsDisallowed() ||
        recordreplay::AreEventsPassedThrough())) {
-    // The wake-up isn't part of the recording either. A pump that wakes its
-    // thread through a lock (MessagePumpDefault's WaitableEvent on Linux)
-    // would otherwise take a recorded lock with events disallowed.
+    // The wake-up isn't part of the recording either. On macOS a pump's
+    // wake-up is a Mach message or a kqueue event, which the kernel keeps. On
+    // other POSIX systems the pumps keep it in memory of their own
+    // (WaitableEvent's signalled flag and waiter list, MessagePumpEpoll's
+    // flags), which a wake-up made at another point on a replay leaves in
+    // another state than the recording's, and the woken thread then takes
+    // another path. So, as in Replay's Chromium 108, the thread isn't woken
+    // there: the task runs when the thread next has something to do.
+#if BUILDFLAG(IS_APPLE)
     recordreplay::AutoPassThroughEvents pass_through;
     pump_->ScheduleWork();
+#endif
     return;
   }
   if (work_deduplicator_.OnWorkRequested() ==
