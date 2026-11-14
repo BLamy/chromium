@@ -35,6 +35,12 @@
 #include "base/message_loop/message_pump_android.h"
 #endif
 
+namespace recordreplay {
+// Declared here and not in the header: see NoteMainThreadPhase in
+// base/record_replay.cc.
+BASE_EXPORT void NoteMainThreadPhase(int phase);
+}  // namespace recordreplay
+
 namespace base::sequence_manager::internal {
 namespace {
 
@@ -351,6 +357,7 @@ void ThreadControllerWithMessagePumpImpl::BeforeWait() {
 
 MessagePump::Delegate::NextWorkInfo
 ThreadControllerWithMessagePumpImpl::DoWork() {
+  recordreplay::NoteMainThreadPhase(1);
 #if BUILDFLAG(IS_WIN)
   // We've been already in a wakeup here. Deactivate the high res timer of OS
   // immediately instead of waiting for next DoIdleWork().
@@ -582,6 +589,7 @@ void ThreadControllerWithMessagePumpImpl::DoIdleWork() {
   // goes away, the task runs there too and can't finish anything: the
   // renderer sat idle until it was killed, its recording unfinished. So the
   // main thread also looks each time it runs out of work, where it can.
+  recordreplay::NoteMainThreadPhase(2);
   recordreplay::MaybeFinishRecording();
   struct OnIdle {
     STACK_ALLOCATED();

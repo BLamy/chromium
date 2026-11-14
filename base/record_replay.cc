@@ -229,11 +229,35 @@ BASE_EXPORT void MaybeTerminate(void (*callback)(void*), void* data) {
 // them disallowed. The task that asks for it can be run that way, when it was
 // posted from somewhere outside the recording (see TaskQueueImpl's unordered
 // tasks), so the task queue also calls this once those have run.
+// Where the main thread last was, and how its looks for a finish request
+// went, for FinishRecording() to report when the main thread doesn't answer.
+// 1: running work, 2: out of work, 3: waiting in its pump, 4: back from the
+// wait, 5: its loop has ended.
+static std::atomic<int> gMainThreadPhase{0};
+static std::atomic<int> gFinishLooks{0};
+static std::atomic<int> gFinishLooksNotMain{0};
+static std::atomic<int> gFinishLooksNotAllowed{0};
+
+BASE_EXPORT void NoteMainThreadPhase(int phase) {
+  if (Active() && IsMainThread()) {
+    gMainThreadPhase.store(phase, std::memory_order_relaxed);
+  }
+}
+
 BASE_EXPORT void MaybeFinishRecording() {
-  if (!Active() || !IsMainThread() || AreEventsDisallowed() ||
-      AreEventsPassedThrough() || HasDivergedFromRecording()) {
+  if (!Active()) {
     return;
   }
+  if (!IsMainThread()) {
+    gFinishLooksNotMain.fetch_add(1, std::memory_order_relaxed);
+    return;
+  }
+  if (AreEventsDisallowed() || AreEventsPassedThrough() ||
+      HasDivergedFromRecording()) {
+    gFinishLooksNotAllowed.fetch_add(1, std::memory_order_relaxed);
+    return;
+  }
+  gFinishLooks.fetch_add(1, std::memory_order_relaxed);
   // Another thread sets this, so when the main thread first sees it set is
   // recorded: a replay finishes where the recording did, and not a task or
   // two to either side.
@@ -298,6 +322,13 @@ void FinishRecording() {
     // flushed.
     return;
   }
+  // The main thread ends the process when it has finished the recording. If
+  // it hasn't after a while, say where it was last seen.
+  sleep(3);
+  Print("[RuntimeError] The recording wasn't finished: main thread phase %d, "
+        "looks %d, not allowed %d, off the main thread %d.",
+        gMainThreadPhase.load(), gFinishLooks.load(),
+        gFinishLooksNotAllowed.load(), gFinishLooksNotMain.load());
   sleep(UINT32_MAX);
 }
 
