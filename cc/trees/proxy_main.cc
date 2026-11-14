@@ -309,7 +309,11 @@ void ProxyMain::BeginMainFrameWithBlocking(
   // Visibility check needs to happen before setting
   // max_requested_pipeline_stage_. Otherwise a requested commit could get lost
   // after tab becomes visible again.
-  if (!layer_tree_host_->IsVisible()) {
+  // [RecordReplay] A repaint is of the page as it is at the pause, shown or
+  // not: the browser may not have said yet that it's visible, or has just
+  // hidden it to close it, and a frame for a page that isn't visible is
+  // aborted here, before anything is committed.
+  if (!layer_tree_host_->IsVisible() && !record_replay_force_blocking_) {
     TRACE_EVENT("cc,benchmark", "MainFrameAborted",
                 [&](perfetto::EventContext ctx) {
                   auto* pipeline = EmitMainFramePipelineStep(
@@ -345,7 +349,8 @@ void ProxyMain::BeginMainFrameWithBlocking(
   has_sent_unthrottled_commit_request_ = false;
 
   // If main frame updates and commits are deferred, skip the entire pipeline.
-  if (defer_main_frame_update_ || pause_rendering_) {
+  if ((defer_main_frame_update_ || pause_rendering_) &&
+      !record_replay_force_blocking_) {
     TRACE_EVENT("cc,benchmark", "MainFrameAborted",
                 [&](perfetto::EventContext ctx) {
                   auto* pipeline = EmitMainFramePipelineStep(
