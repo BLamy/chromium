@@ -30,6 +30,8 @@
 
 #include "third_party/blink/renderer/platform/fonts/font_data_cache.h"
 
+#include "base/record_replay.h"
+
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
 
@@ -68,7 +70,12 @@ const SimpleFontData* FontDataCache::Get(const FontPlatformData* platform_data,
 
   // Update our LRU to keep a strong reference to `result`.
   strong_reference_lru_.PrependOrMoveToFirst(result);
-  while (strong_reference_lru_.size() > kMaxSize) {
+  // [RecordReplay] The collector clears an entry nothing else holds at a
+  // point which isn't the same on a replay, and making its font data again
+  // asks the system about the font, which is recorded. So every entry is held
+  // until the cache is cleared.
+  while (strong_reference_lru_.size() > kMaxSize &&
+         !recordreplay::IsRecordingOrReplaying()) {
     strong_reference_lru_.pop_back();
   }
 

@@ -69,6 +69,9 @@ const FontPlatformData* FontPlatformDataCache::GetOrCreateFontPlatformData(
   if (const FontPlatformData* result = font_cache->CreateFontPlatformData(
           font_description, creation_params, size, alternate_font_name)) {
     map_.insert(key, result);
+    if (recordreplay::IsRecordingOrReplaying()) {
+      record_replay_held_.push_back(result);
+    }
     return result;
   }
 
