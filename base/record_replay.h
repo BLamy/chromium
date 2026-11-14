@@ -71,6 +71,10 @@ void AssertMaybeEventsDisallowed(const char* format, ...);
 // The calling thread is exiting and running its thread-local destructors:
 // its asserts are skipped from here on.
 void NoteThreadExiting();
+
+// On the main thread, where events are allowed: finishes the recording if
+// another thread has asked for that. See FinishRecording().
+BASE_EXPORT void MaybeFinishRecording();
 void AssertBytes(const char* why, const void* buf, size_t size);
 bool AreAssertsDisabled();
 
