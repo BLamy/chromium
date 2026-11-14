@@ -23,6 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "base/record_replay.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 
 #include "base/byte_size.h"
@@ -72,6 +73,14 @@ void RecordAccessibilityUKMForCanvasElement(
     bool did_draw_text) {
   DCHECK(IsMainThread());
   DCHECK(canvas_element);
+
+  // [RecordReplay] A context is also disposed of by a task the collector
+  // posts, outside the recording, and the metric would mint a source ID and
+  // send a message there.
+  if (recordreplay::IsRecordingOrReplaying() &&
+      recordreplay::AreEventsDisallowed()) {
+    return;
+  }
 
   DEFINE_STATIC_LOCAL(const Vector<AtomicString>, keyboard_event_types,
                       ({event_type_names::kKeydown, event_type_names::kKeypress,

@@ -309,8 +309,16 @@ bool HasAsserts() {
   return Active() && gHasAsserts;
 }
 
+// Set for a thread that is running its thread-local destructors as it exits.
+// The driver no longer has the thread by then, and warns of an assert from it.
+static thread_local bool gThreadExiting = false;
+
+void NoteThreadExiting() {
+  gThreadExiting = true;
+}
+
 void Assert(const char* format, ...) {
-  if (!Active() || !gRecordReplayAssert) {
+  if (!Active() || !gRecordReplayAssert || gThreadExiting) {
     return;
   }
   va_list ap;
@@ -320,7 +328,8 @@ void Assert(const char* format, ...) {
 }
 
 void AssertMaybeEventsDisallowed(const char* format, ...) {
-  if (!Active() || !gRecordReplayAssert || AreEventsDisallowed() ||
+  if (!Active() || !gRecordReplayAssert || gThreadExiting ||
+      AreEventsDisallowed() || AreEventsPassedThrough() ||
       HasDivergedFromRecording()) {
     return;
   }

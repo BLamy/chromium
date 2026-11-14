@@ -328,6 +328,7 @@ base::span<TlsVectorEntry> ConstructTlsVector() {
 
 void OnThreadExitInternal(TlsVectorEntry* tls_data) {
   DCHECK(tls_data);
+  recordreplay::NoteThreadExiting();
   // Some allocators, such as TCMalloc, use TLS. As a result, when a thread
   // terminates, one of the destructor calls we make may be to shut down an
   // allocator. We have to be careful that after we've shutdown all of the known

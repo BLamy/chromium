@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 
 #include <GLES2/gl2.h>
@@ -129,6 +130,8 @@ void SharedImageInterface::CopyNativeGmbToSharedMemoryAsync(
 }
 
 void SharedImageInterface::Release() const {
+  // [RecordReplay] The collector drops references too, with a pool it frees.
+  recordreplay::AutoPassThroughEventsIfDisallowed pass_through;
   bool should_destroy = false;
 
   {

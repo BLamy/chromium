@@ -67,6 +67,10 @@ bool HadMismatch();
 bool HasAsserts();
 void Assert(const char* format, ...);
 void AssertMaybeEventsDisallowed(const char* format, ...);
+
+// The calling thread is exiting and running its thread-local destructors:
+// its asserts are skipped from here on.
+void NoteThreadExiting();
 void AssertBytes(const char* why, const void* buf, size_t size);
 bool AreAssertsDisabled();
 
@@ -149,6 +153,24 @@ void BrowserEvent(const char* msg, const base::DictValue& info);
 struct AutoPassThroughEvents {
   AutoPassThroughEvents() { BeginPassThroughEvents(); }
   ~AutoPassThroughEvents() { EndPassThroughEvents(); }
+};
+
+// For a destructor the collector can run, or anything else that also runs
+// where events are disallowed: what it does there is passed through, as the
+// driver does with it anyway, without the driver warning of each lock it
+// takes. Where events are allowed this does nothing. Each use says why the
+// code is safe to run at a point that isn't the same on a replay.
+struct AutoPassThroughEventsIfDisallowed {
+  AutoPassThroughEventsIfDisallowed()
+      : active_(IsRecordingOrReplaying() && AreEventsDisallowed()) {
+    if (active_) BeginPassThroughEvents();
+  }
+  ~AutoPassThroughEventsIfDisallowed() {
+    if (active_) EndPassThroughEvents();
+  }
+
+ private:
+  const bool active_;
 };
 
 struct AutoDisallowEvents {
