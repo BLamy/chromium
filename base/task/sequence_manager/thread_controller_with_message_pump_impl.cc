@@ -576,6 +576,13 @@ bool ThreadControllerWithMessagePumpImpl::RunsTasksByBatches() const {
 }
 
 void ThreadControllerWithMessagePumpImpl::DoIdleWork() {
+  // [RecordReplay] A thread other than the main one asks for the recording to
+  // be finished, by a task for the main thread. If it asks from where events
+  // are disallowed, as a renderer's IO thread does on Linux when the browser
+  // goes away, the task runs there too and can't finish anything: the
+  // renderer sat idle until it was killed, its recording unfinished. So the
+  // main thread also looks each time it runs out of work, where it can.
+  recordreplay::MaybeFinishRecording();
   struct OnIdle {
     STACK_ALLOCATED();
 

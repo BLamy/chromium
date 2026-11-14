@@ -1266,6 +1266,15 @@ void ProxyImpl::RecordReplayRepaintPending(
   // the interface a frame sink carries (Chromium 108 rastered software tiles
   // into bitmaps of its own). The repaint's sink carries the one the lost sink
   // had; with none there is nothing to raster into.
+  RecordReplayEnsureRepaintFrameSink();
+  if (scheduler_->RecordReplayCreatingFrameSink()) {
+    recordreplay::Print(
+        "[RuntimeError] Repaint has no frame sink to draw with.");
+  }
+  scheduler_->RecordReplayRepaintPending();
+}
+
+void ProxyImpl::RecordReplayEnsureRepaintFrameSink() {
   if (scheduler_->RecordReplayCreatingFrameSink() &&
       !record_replay_frame_sink_ && record_replay_shared_image_interface_) {
     auto frame_sink = std::make_unique<RecordReplayRepaintFrameSink>(
@@ -1276,11 +1285,6 @@ void ProxyImpl::RecordReplayRepaintPending(
       scheduler_->DidCreateAndInitializeLayerTreeFrameSink();
     }
   }
-  if (scheduler_->RecordReplayCreatingFrameSink()) {
-    recordreplay::Print(
-        "[RuntimeError] Repaint has no frame sink to draw with.");
-  }
-  scheduler_->RecordReplayRepaintPending();
 }
 
 void ProxyImpl::RecordReplayDescribeRepaint() {
@@ -1312,6 +1316,12 @@ void ProxyImpl::RecordReplayRepaint() {
   // The page may not have changed since its last draw, and a frame without
   // damage isn't drawn at all.
   host_impl_->SetFullViewportDamage();
+  // The frame sink can go while the repaint's frame runs on the main thread
+  // (the page's own sink hears that its connection is gone), after the look
+  // RecordReplayRepaintPending() took: the scheduler asks for another, which
+  // only the repaint's own can be.
+  scheduler_->RecordReplayRepaintPending();
+  RecordReplayEnsureRepaintFrameSink();
   scheduler_->RecordReplayWillRepaint();
   scheduler_->OnBeginFrameDerivedImpl(args);
 }
