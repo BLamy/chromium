@@ -174,6 +174,10 @@ void ThreadControllerWithMessagePumpImpl::ScheduleWork() {
   if (recordreplay::IsRecordingOrReplaying() &&
       (recordreplay::AreEventsDisallowed() ||
        recordreplay::AreEventsPassedThrough())) {
+    // The wake-up isn't part of the recording either. A pump that wakes its
+    // thread through a lock (MessagePumpDefault's WaitableEvent on Linux)
+    // would otherwise take a recorded lock with events disallowed.
+    recordreplay::AutoPassThroughEvents pass_through;
     pump_->ScheduleWork();
     return;
   }
