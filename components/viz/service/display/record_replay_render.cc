@@ -37,6 +37,7 @@
 #include "components/viz/service/display/software_renderer.h"
 #include "components/viz/service/display_embedder/software_output_surface.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
+#include "gpu/command_buffer/client/shared_image_interface.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkPixmap.h"
 #include "ui/gfx/codec/jpeg_codec.h"
@@ -268,6 +269,20 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
 
 }  // namespace
 
+static RepaintSharedImageInterfaceGetter gRepaintSharedImageInterfaceGetter;
+
+void SetRepaintSharedImageInterfaceGetter(
+    RepaintSharedImageInterfaceGetter getter) {
+  gRepaintSharedImageInterfaceGetter = getter;
+}
+
+scoped_refptr<gpu::SharedImageInterface> GetRepaintSharedImageInterface() {
+  if (!gRepaintSharedImageInterfaceGetter) {
+    return nullptr;
+  }
+  return gRepaintSharedImageInterfaceGetter();
+}
+
 void NotifyRasterBuffer(scoped_refptr<gpu::ClientSharedImage> image) {
   if (!image) {
     return;
@@ -409,7 +424,12 @@ void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
     if (gRepaintEvent) {
       gRepaintResult = EncodeBitmapContents(gRepaintMimeType, gRepaintJPEGQuality);
     }
-  } else if (size_t bookmark = gLastCommitBookmark.load()) {
+  } else if (size_t bookmark = RecordReplayValueIfAllowed(
+                 "OnPaintFinished bookmark", gLastCommitBookmark.load())) {
+    // The main thread sets this for each commit, of any of the process's
+    // compositors, while this thread draws: with several widgets (a page and
+    // its popups) which commit this draw comes after isn't the same on a
+    // replay. So what was read is recorded.
     PaintFinished(bookmark);
   }
   gCurrentPixmap = nullptr;

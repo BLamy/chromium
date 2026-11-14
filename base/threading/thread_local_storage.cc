@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/threading/thread_local_storage.h"
 
+#include <optional>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -491,7 +493,15 @@ void ThreadLocalStorage::Slot::Initialize(TLSDestructorFunc destructor) {
 
   // Grab a new slot.
   {
+    // [RecordReplay] Slots are handed out to whichever thread asks first, and
+    // which slot a thing got shows nowhere, so the lock that guards them is
+    // taken outside the recording.
+    std::optional<recordreplay::AutoPassThroughEvents> record_replay_pass;
+    if (recordreplay::IsRecordingOrReplaying()) {
+      record_replay_pass.emplace();
+    }
     base::AutoLock auto_lock(*GetTLSMetadataLock());
+    record_replay_pass.reset();
     for (size_t i = 0; i < kThreadLocalStorageSize; ++i) {
       // Tracking the last assigned slot is an attempt to find the next
       // available slot within one iteration. Under normal usage, slots remain

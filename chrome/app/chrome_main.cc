@@ -4,6 +4,7 @@
 
 #include "chrome/app/chrome_main.h"
 
+#include <dlfcn.h>
 #include <stdint.h>
 
 #include <iostream>
@@ -122,6 +123,14 @@ int ChromeMain(int argc, const char** argv) {
   // Looks for Replay's driver, which has been attached by now if this process
   // is to be recorded.
   recordreplay::Initialize();
+
+  // Read the old space size limit the driver wants V8 to use. This is applied
+  // via --js-flags in renderers, see blink_initializer.cc.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    if (void* sym = dlsym(RTLD_DEFAULT, "RecordReplayMaxOldSpaceMb")) {
+      recordreplay::SetMaxOldSpaceMb(reinterpret_cast<size_t (*)()>(sym)());
+    }
+  }
 
   if (recordreplay::IsRecordingOrReplaying("eager-initialization",
                                            "AbslMutex")) {

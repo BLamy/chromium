@@ -292,7 +292,17 @@ TaskSource::RunStatus JobTaskSource::WillRunTask() {
 size_t JobTaskSource::GetRemainingConcurrency() const {
   // It is safe to read |state_| without a lock since this variable is atomic,
   // and no other state is synchronized with GetRemainingConcurrency().
-  const auto state = TS_UNCHECKED_READ(state_).RecordReplayLoadUnordered();
+  // [RecordReplay] Replay's Chromium 108 reads this without ordering it, for
+  // callers the recording doesn't order (RUN-2080). A caller it does order
+  // acts on the answer: NotifyConcurrencyIncrease() takes a lock or doesn't,
+  // and this Chromium rasters tiles through a job, whose workers change the
+  // count while the compositor thread asks. So the read is ordered wherever
+  // it can be.
+  const bool unordered = recordreplay::AreEventsDisallowed() ||
+                         recordreplay::AreEventsPassedThrough();
+  const auto state = unordered
+                         ? TS_UNCHECKED_READ(state_).RecordReplayLoadUnordered()
+                         : TS_UNCHECKED_READ(state_).Load();
   if (state.is_canceled()) {
     return 0;
   }

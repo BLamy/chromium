@@ -443,6 +443,14 @@ void SoftwareRenderer::DoDrawQuad(const DrawQuad* quad,
       DrawTileQuad(TileDrawQuad::MaterialCast(quad));
       break;
     case DrawQuad::Material::kSurfaceContent:
+      // A frame drawn in the process being recorded comes straight from its
+      // compositor, with no aggregation, so another frame sink's surface (a
+      // canvas a worker draws to, a child frame) is still a quad here. There's
+      // nothing of it to draw. In 108 this NOTREACHED did nothing in a release
+      // build; here it ends the process.
+      if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+        break;
+      }
       // Surface content should be fully resolved to other quad types before
       // reaching a direct renderer.
       NOTREACHED();

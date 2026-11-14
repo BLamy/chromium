@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay_racy_static.h"
 #include "base/record_replay.h"
 #include "base/synchronization/lock_impl.h"
 
@@ -143,6 +144,7 @@ LockImpl::LockImpl(const char* ordered_name) {
       recordreplay::IsRecordingOrReplaying() &&
       !recordreplay::AreEventsDisallowed() &&
       !recordreplay::AreEventsPassedThrough() &&
+      !recordreplay::InUnorderedLockCreation() &&
       RecordReplayOrderUnnamedLocks()) {
     ordered_name = "base::Lock";
   }

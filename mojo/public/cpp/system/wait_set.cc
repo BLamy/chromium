@@ -185,10 +185,11 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
             auto it = contexts_.find(event.trigger_context);
             CHECK(it != contexts_.end());
             // https://linear.app/replay/issue/RUN-551
-            recordreplay::Assert("WaitSet::State::Wait #2 %u %u %d",
-                                 it->second->handle().value(), event.result, event.signals_state);
-            ready_handles_[it->second->handle()] = {event.result,
-                                                    event.signals_state};
+            // 108 has the handle's value here too. With ipcz a handle's
+            // value is an address, which isn't the same on a replay.
+            recordreplay::Assert("WaitSet::State::Wait #2 %u %d",
+                                 event.result, event.signals_state);
+            SetReady(it->second->handle(), event.result, event.signals_state);
           }
         } else if (rv == MOJO_RESULT_NOT_FOUND) {
           // Nothing to watch. If there are no user events, always signal to
@@ -230,6 +231,18 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
     *num_ready_handles = std::min(*num_ready_handles, ready_handles_.size());
     for (size_t i = 0; i < *num_ready_handles; ++i) {
       auto it = ready_handles_.begin();
+      // The map is ordered by the handles' values, which with ipcz are
+      // addresses, and those aren't the same on a replay. Handles come out in
+      // the order they became ready instead, which |lock_| makes the same.
+      if (recordreplay::IsRecordingOrReplaying()) {
+        for (auto other = ready_handles_.begin(); other != ready_handles_.end();
+             ++other) {
+          if (other->second.record_replay_order <
+              it->second.record_replay_order) {
+            it = other;
+          }
+        }
+      }
       ready_handles[i] = it->first;
       ready_results[i] = it->second.result;
       if (!signals_states.empty()) {
@@ -294,7 +307,7 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
     // This notification may have raced with RemoveHandle() from another
     // sequence. We only signal the WaitSet if that's not the case.
     if (handle_to_context_.count(handle)) {
-      ready_handles_[handle] = {result, signals_state};
+      SetReady(handle, result, signals_state);
       handle_event_.Signal();
     }
 
@@ -328,6 +341,9 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
         : result(result), signals_state(signals_state) {}
     ~ReadyState() = default;
 
+    // When the handle became ready, counted from one. See Wait().
+    uint64_t record_replay_order = 0;
+
     MojoResult result = MOJO_RESULT_UNKNOWN;
     MojoHandleSignalsState signals_state = {0, 0};
   };
@@ -340,6 +356,22 @@ class WaitSet::State : public base::RefCountedThreadSafe<State> {
   std::map<uintptr_t, scoped_refptr<Context>> contexts_;
   std::map<Handle, scoped_refptr<Context>> handle_to_context_;
   std::map<Handle, ReadyState> ready_handles_;
+  uint64_t record_replay_next_ready_order_ = 0;
+
+  // Marks |handle| ready. Keeps the place it had if it was ready already, as
+  // assigning to the map's entry does.
+  void SetReady(Handle handle,
+                MojoResult result,
+                MojoHandleSignalsState signals_state) {
+    auto [it, inserted] =
+        ready_handles_.try_emplace(handle, result, signals_state);
+    if (inserted) {
+      it->second.record_replay_order = ++record_replay_next_ready_order_;
+    } else {
+      it->second.result = result;
+      it->second.signals_state = signals_state;
+    }
+  }
   std::vector<scoped_refptr<Context>> cancelled_contexts_;
   // Ordered by the IDs the events were registered with, so that the set has
   // the same order on a replay (recordreplay::CompareByPointerId, for the

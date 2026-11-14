@@ -386,6 +386,10 @@ BlobDataHandle::~BlobDataHandle() {
   // closing it doesn't depend on when the GC ran.
   if (recordreplay::IsRecordingOrReplaying("leak-references",
                                            "BlobDataHandle")) {
+    // 158 orders every base::Lock, and 108 ordered only the named ones, which
+    // this one wasn't. Whichever holder gets here does so at a point the GC
+    // chose, so the lock is taken outside the recording.
+    recordreplay::AutoPassThroughEvents pass_through;
     base::AutoLock locker(blob_remote_lock_);
     std::ignore = blob_remote_.PassPipe().release();
   }

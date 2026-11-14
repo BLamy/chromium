@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "base/record_replay_racy_static.h"
 #include "base/check.h"
 #include "base/dcheck_is_on.h"
 #include "build/build_config.h"
@@ -66,8 +67,23 @@
 // multiple threads.
 //
 // TODO: rename as DEFINE_CROSS_THREAD_STATIC_LOCAL() ?
-#define DEFINE_THREAD_SAFE_STATIC_LOCAL(Type, Name, Arguments) \
-  DEFINE_STATIC_LOCAL_IMPL(Type, Name, Arguments, true)
+//
+// [RecordReplay] Whichever thread gets here first makes the object, and that
+// isn't the same thread on a replay. A lock made while it's made is left
+// unordered, as every lock of this kind is in Replay's Chromium 108, which
+// orders named locks only: its creation can't be in either thread's part of
+// the recording.
+#define DEFINE_THREAD_SAFE_STATIC_LOCAL(Type, Name, Arguments)                \
+  static blink::StaticSingleton<Type> s_##Name(                               \
+      [&]() {                                                                 \
+        recordreplay::AutoUnorderedLockCreation record_replay_unordered;      \
+        return new blink::StaticSingleton<Type>::WrapperType Arguments;       \
+      },                                                                      \
+      [&](void* leaked_ptr) {                                                 \
+        recordreplay::AutoUnorderedLockCreation record_replay_unordered;      \
+        new (leaked_ptr) blink::StaticSingleton<Type>::WrapperType Arguments; \
+      });                                                                     \
+  Type& Name = s_##Name.Get(true)
 
 namespace blink {
 

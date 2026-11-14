@@ -46,6 +46,7 @@
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "components/viz/service/display/record_replay_render.h"
+#include "gpu/command_buffer/client/shared_image_interface.h"
 #include "base/record_replay.h"
 
 namespace cc {
@@ -199,7 +200,8 @@ void ProxyMain::RecordReplayRepaintPending() {
   }
   ImplThreadTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&ProxyImpl::RecordReplayRepaintPending,
-                                base::Unretained(proxy_impl_.get())));
+                                base::Unretained(proxy_impl_.get()),
+                                recordreplay::GetRepaintSharedImageInterface()));
 }
 
 const viz::LocalSurfaceId& ProxyMain::RecordReplayLocalSurfaceId() const {

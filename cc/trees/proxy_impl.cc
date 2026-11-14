@@ -1236,7 +1236,13 @@ class RecordReplayRepaintFrameSink : public LayerTreeFrameSink,
 
 }  // namespace
 
-void ProxyImpl::RecordReplayRepaintPending() {
+void ProxyImpl::RecordReplayRepaintPending(
+    scoped_refptr<gpu::SharedImageInterface> shared_image_interface) {
+  // A pause can come before the page's first frame sink was made, and a
+  // repaint then has the renderer's stand-in to make tiles with.
+  if (!record_replay_shared_image_interface_) {
+    record_replay_shared_image_interface_ = std::move(shared_image_interface);
+  }
   // A frame sink the main thread gave before the repaint was initialized
   // first, since its task was posted first. A frame sink lost while frames
   // keep the scheduler from asking for another isn't replaced, and the repaint
@@ -1254,6 +1260,10 @@ void ProxyImpl::RecordReplayRepaintPending() {
       record_replay_frame_sink_ = std::move(frame_sink);
       scheduler_->DidCreateAndInitializeLayerTreeFrameSink();
     }
+  }
+  if (scheduler_->RecordReplayCreatingFrameSink()) {
+    recordreplay::Print(
+        "[RuntimeError] Repaint has no frame sink to draw with.");
   }
   scheduler_->RecordReplayRepaintPending();
 }
