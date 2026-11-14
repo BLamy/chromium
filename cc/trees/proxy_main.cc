@@ -505,6 +505,13 @@ void ProxyMain::BeginMainFrameWithBlocking(
     // commit happens in the future.
     std::vector<std::unique_ptr<SwapPromise>> empty_swap_promises;
     reason = CommitEarlyOutReason::kAbortedDeferredCommit;
+    // [RecordReplay] A repaint that skips its commit, for a page with no
+    // layers, has finished with nothing to update: a frame sink the repaint
+    // has just put in is waiting for its first commit before it draws, and a
+    // deferred commit would leave it waiting.
+    if (record_replay_force_blocking_) {
+      reason = CommitEarlyOutReason::kFinishedNoUpdates;
+    }
     ImplThreadTaskRunner()->PostTask(
         FROM_HERE, base::BindOnce(&ProxyImpl::BeginMainFrameAbortedOnImpl,
                                   base::Unretained(proxy_impl_.get()), reason,
