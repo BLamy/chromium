@@ -1268,6 +1268,13 @@ void ProxyImpl::RecordReplayRepaintPending(
   scheduler_->RecordReplayRepaintPending();
 }
 
+void ProxyImpl::RecordReplayDescribeRepaint() {
+  recordreplay::Print(
+      "[RuntimeError] Repaint scheduler state: %s own_sink=%d interface=%d",
+      scheduler_->RecordReplayDescribe().c_str(), !!record_replay_frame_sink_,
+      !!record_replay_shared_image_interface_);
+}
+
 void ProxyImpl::RecordReplayRepaint() {
   // The main thread has brought layout up to date and committed. The message
   // that would have the compositor draw the result won't come: a replay that
