@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/threading/scoped_blocking_call_internal.h"
 
 #include <algorithm>
@@ -382,8 +383,14 @@ UncheckedScopedBlockingCall::UncheckedScopedBlockingCall(
   // threads. Cancels() any pending monitored call when a WILL_BLOCK or
   // ScopedBlockingCallWithBaseSyncPrimitives nests into a
   // ScopedBlockingCall(MAY_BLOCK).
+  // [RecordReplay] The main thread sets the global while other threads are
+  // already making blocking calls (an audio device thread reading its socket),
+  // so which of them see it set is recorded.
+  const bool only_monitor_observed_threads =
+      !!recordreplay::RecordReplayValueIfAllowed(
+          "g_only_monitor_observed_threads", g_only_monitor_observed_threads);
   if (!IsBackgroundPriorityWorker() &&
-      (!g_only_monitor_observed_threads || blocking_observer_)) {
+      (!only_monitor_observed_threads || blocking_observer_)) {
     const bool is_monitored_type =
         blocking_call_type == BlockingCallType::kRegular && !is_will_block_;
     if (is_monitored_type && !previous_scoped_blocking_call_) {

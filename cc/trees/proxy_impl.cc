@@ -915,6 +915,9 @@ DrawResult ProxyImpl::ScheduledActionDrawForced() {
 }
 
 void ProxyImpl::ScheduledActionCommit() {
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    recordreplay::OnCommitOnImpl();
+  }
   TRACE_EVENT(
       "cc,benchmark", "ProxyImpl::Commit", [&](perfetto::EventContext ctx) {
         EmitMainFramePipelineStep(
@@ -959,6 +962,9 @@ void ProxyImpl::ScheduledActionPostCommit() {
 }
 
 void ProxyImpl::ScheduledActionActivateSyncTree() {
+  if (recordreplay::IsRecordingOrReplaying("notify-paints")) {
+    recordreplay::OnActivateOnImpl();
+  }
   if (host_impl_->sync_tree() &&
       host_impl_->sync_tree()->source_frame_number() !=
           host_impl_->active_tree()->source_frame_number()) {
@@ -1249,6 +1255,9 @@ void ProxyImpl::RecordReplayRepaintPending(
   if (!host_impl_->visible()) {
     SetVisibleOnImpl(true);
   }
+  // What CanDraw() answers changes when a replay leaves its recording (an
+  // evicted surface no longer counts), and nothing tells the scheduler so.
+  scheduler_->SetCanDraw(host_impl_->CanDraw());
   // A frame sink the main thread gave before the repaint was initialized
   // first, since its task was posted first. A frame sink lost while frames
   // keep the scheduler from asking for another isn't replaced, and the repaint
@@ -1276,9 +1285,11 @@ void ProxyImpl::RecordReplayRepaintPending(
 
 void ProxyImpl::RecordReplayDescribeRepaint() {
   recordreplay::Print(
-      "[RuntimeError] Repaint scheduler state: %s own_sink=%d interface=%d",
+      "[RuntimeError] Repaint scheduler state: %s own_sink=%d interface=%d "
+      "can_draw: %s",
       scheduler_->RecordReplayDescribe().c_str(), !!record_replay_frame_sink_,
-      !!record_replay_shared_image_interface_);
+      !!record_replay_shared_image_interface_,
+      host_impl_->RecordReplayDescribeCanDraw().c_str());
 }
 
 void ProxyImpl::RecordReplayRepaint() {
