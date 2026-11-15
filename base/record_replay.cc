@@ -218,6 +218,8 @@ BASE_EXPORT void MaybeTerminate(void (*callback)(void*), void* data) {
   if (callback) {
     gTerminateCallbackData.store(data, std::memory_order_release);
     gTerminateCallback.store(callback, std::memory_order_release);
+    // The request can have come already, with nobody left to make the call.
+    MaybeFinishRecording();
     return;
   }
   gTerminateCallback.store(nullptr, std::memory_order_release);
