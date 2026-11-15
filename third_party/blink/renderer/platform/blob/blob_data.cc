@@ -28,6 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "third_party/blink/renderer/platform/mojo/record_replay_thread_remote.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
 
 #include <memory>
@@ -111,6 +112,7 @@ mojom::blink::BlobRegistry* GetThreadSpecificRegistry() {
     // workers wouldn't need to do that.
     Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
         (*registry).BindNewPipeAndPassReceiver());
+    RecordReplayResetBeforeThreadEnds(&*registry);
   }
   return registry->get();
 }
