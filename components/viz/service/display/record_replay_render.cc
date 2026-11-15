@@ -219,6 +219,14 @@ std::atomic<const base::UnguessableToken*> gSurfaceEmbedToken;
 // SubmitCompositorFrame ignores, and returns nothing.
 cc::ProxyMain* RepaintCompositorProxy() {
   const base::UnguessableToken* embed_token = gSurfaceEmbedToken;
+  // After a navigation has asked for the paint surface to change, the owner
+  // on record is the page that was left until the new page's first frame is
+  // submitted. A repaint before then (at the new page's first paint, which is
+  // credited to its commit) drew the old page's window, which has no layers
+  // left: a blank picture, on Linux, where the new page gets a new window.
+  if (IsPaintSurfaceResetPending()) {
+    embed_token = nullptr;
+  }
   if (embed_token && gCompositorProxies) {
     for (cc::ProxyMain* proxy : *gCompositorProxies) {
       if (proxy->RecordReplayLocalSurfaceId().embed_token() == *embed_token) {
