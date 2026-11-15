@@ -263,6 +263,25 @@ char* PaintWhenDiverged(const char* mime_type, int jpeg_quality) {
   if (!gCurrentCompositorProxy) {
     return nullptr;
   }
+  if (gCompositorProxies &&
+      (!gCurrentCompositorProxy->RecordReplayHasRootLayer() ||
+       !gCurrentCompositorProxy->RecordReplayIsVisible())) {
+    // Says what there was to choose from when the page chosen can't be drawn
+    // as it is: every repaint that came back blank had one of these.
+    const base::UnguessableToken* embed_token = gSurfaceEmbedToken;
+    size_t index = 0;
+    for (cc::ProxyMain* proxy : *gCompositorProxies) {
+      Print("Repaint: compositor %zu of %zu%s: layers %d, visible %d, owns the "
+            "paint surface %d (a surface is owned %d).",
+            ++index, gCompositorProxies->size(),
+            proxy == gCurrentCompositorProxy ? " (chosen)" : "",
+            proxy->RecordReplayHasRootLayer(), proxy->RecordReplayIsVisible(),
+            embed_token &&
+                proxy->RecordReplayLocalSurfaceId().embed_token() ==
+                    *embed_token,
+            !!embed_token);
+    }
+  }
   gRepaintMimeType = mime_type;
   gRepaintJPEGQuality = jpeg_quality;
 
