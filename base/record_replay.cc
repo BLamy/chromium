@@ -319,6 +319,16 @@ BASE_EXPORT void MaybeFinishRecording() {
   DoFinishRecording();
 }
 
+// Whether the driver keeps this process the same on both sides by itself (an
+// Electron browser process). Declared where it's used: not in the header.
+BASE_EXPORT bool IsSameOnBothSides() {
+  int state = gState.load(std::memory_order_acquire);
+  if (state == 0) [[unlikely]] {
+    state = InitializeSlow();
+  }
+  return state == 3;
+}
+
 void SetMainThreadTaskRunner(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
   if (!Active() || gMainThreadTaskRunner) {
