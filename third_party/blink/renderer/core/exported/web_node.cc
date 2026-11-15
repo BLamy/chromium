@@ -32,6 +32,7 @@
 
 #include <ostream>
 
+#include "base/record_replay.h"
 #include "base/functional/callback_helpers.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -428,6 +429,16 @@ base::ScopedClosureRunner WebNode::AddEventListener(
                                           std::move(handler),
                                           /*use_capture=*/use_capture);
   listener->AddListener();
+  // [RecordReplay] Held weakly, removing the listener later happens only if
+  // the collector hasn't got to it yet, and a replay doesn't collect when the
+  // recording did: the autofill agent's listeners were removed on one side
+  // and already gone on the other, which is a different run of the page
+  // (dom/svg-load-listener-adds-svg-roots, now and then). Held strongly the
+  // listener lasts until the closure has run, on both sides.
+  if (recordreplay::IsRecordingOrReplaying()) {
+    return base::ScopedClosureRunner(BindOnce(
+        &EventListener::RemoveListener, WrapPersistent(listener.Get())));
+  }
   return base::ScopedClosureRunner(BindOnce(
       &EventListener::RemoveListener, WrapWeakPersistent(listener.Get())));
 }
