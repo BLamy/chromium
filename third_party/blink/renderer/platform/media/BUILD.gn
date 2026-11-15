@@ -56,6 +56,7 @@ blink_platform_sources("media") {
     "web_content_decryption_module_session_impl.cc",
     "web_content_decryption_module_session_impl.h",
     "web_encrypted_media_client_impl.cc",
+    "stub_web_media_player.cc",
     "web_media_player_builder.cc",
     "web_media_player_impl.cc",
     "web_media_player_impl.h",
