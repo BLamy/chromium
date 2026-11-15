@@ -7,6 +7,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/rand_util.h"
+#include "util/record_replay.h"
 
 namespace ipcz::metrics {
 
@@ -56,6 +57,13 @@ BlockAllocationSize BlockSizeToBucket(size_t block_size) {
 void RecordAllocateBlockResult(BlockAllocationSource source,
                                size_t block_size,
                                bool success) {
+  // An allocation is made outside the recording and skipped when replaying, so
+  // it can't draw from this thread's sampler: a browser process the driver
+  // re-runs would then draw one fewer time than it did when recorded, and
+  // sample different messages from there on.
+  if (recordreplay::IsAttached()) {
+    return;
+  }
   if (!base::ShouldRecordSubsampledMetric(kMetricsSubsampleRate)) {
     return;
   }
