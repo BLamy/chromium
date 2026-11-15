@@ -399,14 +399,8 @@ void SubmitCompositorFrame(const viz::LocalSurfaceId& local_surface_id,
           local_surface_id.child_sequence_number() ||
       gSurfaceId->embed_token() != local_surface_id.embed_token()) {
     gRepaintFramesForOtherSurface++;
-    Print("PaintDiag impl frame for another surface");
     return;
   }
-  Print("PaintDiag impl submit frame, %zu passes, %zu quads in the last",
-        frame.render_pass_list.size(),
-        frame.render_pass_list.empty()
-            ? size_t{0}
-            : frame.render_pass_list.back()->quad_list.size());
 
   viz::AggregatedRenderPassList render_passes;
   for (const auto& pass : frame.render_pass_list) {
@@ -484,12 +478,10 @@ void InitPaintCallback() {
 
 void OnCommitPaint() {
   gCurrentPaintBookmark = PaintStart();
-  Print("PaintDiag main commit-paint %zu", gCurrentPaintBookmark.load());
 }
 
 void OnReadyToCommit() {
   gLastCommitBookmark.store(gCurrentPaintBookmark, std::memory_order_relaxed);
-  Print("PaintDiag impl ready-to-commit %zu", gLastCommitBookmark.load());
 }
 
 void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
@@ -497,12 +489,6 @@ void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
   {
     base::AutoLock lock(ViewportSizeLock());
     ViewportSize() = viewport_size;
-  }
-  if (!HasDivergedFromRecording()) {
-    SkColor c = pixmap.getColor(pixmap.width() / 2, pixmap.height() / 2);
-    Print("PaintDiag impl paint-finished active %zu committed %zu centre %d,%d,%d",
-          gActiveBookmark, gCommittedBookmark, (int)SkColorGetR(c),
-          (int)SkColorGetG(c), (int)SkColorGetB(c));
   }
   if (HasDivergedFromRecording()) {
     // Probably a repaint, and nothing a recording has a point for either way.
@@ -523,12 +509,10 @@ void OnPaintFinished(const SkPixmap& pixmap, const gfx::Size& viewport_size) {
 
 void OnCommitOnImpl() {
   gCommittedBookmark = gLastCommitBookmark.load();
-  Print("PaintDiag impl commit %zu", gCommittedBookmark);
 }
 
 void OnActivateOnImpl() {
   gActiveBookmark = gCommittedBookmark;
-  Print("PaintDiag impl activate %zu", gActiveBookmark);
 }
 
 void OnRepaintFinished() {
