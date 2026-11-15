@@ -33,6 +33,8 @@ BASE_EXPORT void SetPaintCallback(char* (*callback)(const char* mime_type,
 // next frame submitted says which surface is drawn from then on.
 BASE_EXPORT void DoResetPaintSurface();
 BASE_EXPORT bool TakePaintSurfaceReset();
+// Whether a reset was asked for that no frame has taken yet.
+BASE_EXPORT bool IsPaintSurfaceResetPending();
 
 }  // namespace recordreplay
 
