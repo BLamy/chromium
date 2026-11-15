@@ -77,14 +77,7 @@ TimeDelta RecordReplayWaitLimit(
     const MessagePump::Delegate::NextWorkInfo& next_work_info) {
   TimeDelta delay = next_work_info.remaining_delay();
 #if !BUILDFLAG(IS_APPLE)
-  // Only the main thread: it is the one that finishes the recording. Every
-  // other thread with this pump woke each second as well, and a replay runs
-  // such a thread through its idle wake-ups without waiting for anything: it
-  // read the clock seconds ahead of where the main thread was paused (which
-  // is where a pause's clock continues from, evaluate/clock-at-pause), and a
-  // fork waited seconds for it to get as far as it could
-  // (render/repaint-at-checkpoints).
-  if (recordreplay::IsRecordingOrReplaying() && recordreplay::IsMainThread()) {
+  if (recordreplay::IsRecordingOrReplaying()) {
     delay = std::min(delay, Seconds(1));
   }
 #endif
