@@ -79,6 +79,10 @@
 #include "base/strings/utf_string_conversions.h"
 #endif
 
+namespace recordreplay {
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
+
 namespace sql {
 
 // When enabled, don't commit or rollback transactions if they have already been
@@ -531,7 +535,11 @@ Database::Database(Database::Tag tag) : Database(DatabaseOptions{}, tag) {}
 
 Database::Database(DatabaseOptions options, Database::Tag tag)
     : options_(options),
-      mmap_disabled_(!options.mmap_enabled_),
+      // A browser process the driver re-runs reads a mapped file as it was
+      // when it was mapped: what's written to the file afterwards isn't there
+      // when replaying, and SQLite then finds the database corrupt.
+      mmap_disabled_(!options.mmap_enabled_ ||
+                     recordreplay::IsSameOnBothSides()),
       histogram_tag_(tag.value),
       tracing_track_(
           perfetto::NamedTrack::FromPointer(perfetto::StaticString(tag.value),
