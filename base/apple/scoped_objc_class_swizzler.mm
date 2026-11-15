@@ -8,6 +8,11 @@
 
 #include "base/check.h"
 
+namespace recordreplay {
+// Declared here and not in the header: see base/record_replay.cc.
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
+
 namespace base::apple {
 
 ScopedObjCClassSwizzler::ScopedObjCClassSwizzler(Class target,
@@ -42,11 +47,15 @@ void ScopedObjCClassSwizzler::Init(Class target,
                                    SEL alternate) {
   old_selector_impl_ = class_getInstanceMethod(target, original);
   new_selector_impl_ = class_getInstanceMethod(source, alternate);
+  lookup_class_ = source;
   if (!old_selector_impl_ && !new_selector_impl_) {
     // Try class methods.
     old_selector_impl_ = class_getClassMethod(target, original);
     new_selector_impl_ = class_getClassMethod(source, alternate);
+    lookup_class_ = object_getClass(source);
   }
+  alternate_ = alternate;
+  sends_original_as_message_ = recordreplay::IsSameOnBothSides();
 
   DCHECK(old_selector_impl_);
   DCHECK(new_selector_impl_);
