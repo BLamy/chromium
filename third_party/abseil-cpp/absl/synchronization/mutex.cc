@@ -102,13 +102,38 @@ static void RecordReplayEndDisallowEvents() {
   }
 }
 
+// Whether the driver keeps this process the same on both sides by itself, by
+// running its threads one at a time (an Electron browser process). A thread
+// there waits with the driver's leave: a wait made with events disallowed is
+// one the driver passes straight through, and the thread then sleeps without
+// letting any other run. Electron 46's browser process stopped that way at
+// startup, in this mutex's slow path. Such a process needs nothing kept out
+// of its recording here, so nothing is.
+static bool RecordReplayIsSameOnBothSides() {
+  static int state;
+  if (!state) {
+    void* fnptr = LookupRecordReplaySymbol("RecordReplayIsSameOnBothSides");
+    state = fnptr != reinterpret_cast<void*>(1) &&
+                    reinterpret_cast<bool (*)()>(fnptr)()
+                ? 2
+                : 1;
+  }
+  return state == 2;
+}
+
 struct RecordReplayAutoDisallowEvents {
-  RecordReplayAutoDisallowEvents(const char* label) {
-    RecordReplayBeginDisallowEventsWithLabel(label);
+  RecordReplayAutoDisallowEvents(const char* label)
+      : active_(!RecordReplayIsSameOnBothSides()) {
+    if (active_) {
+      RecordReplayBeginDisallowEventsWithLabel(label);
+    }
   }
   ~RecordReplayAutoDisallowEvents() {
-    RecordReplayEndDisallowEvents();
+    if (active_) {
+      RecordReplayEndDisallowEvents();
+    }
   }
+  const bool active_;
 };
 
 using absl::base_internal::CurrentThreadIdentityIfPresent;

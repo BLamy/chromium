@@ -12,6 +12,11 @@
 #include "base/apple/scoped_cftyperef.h"
 #include "base/mac/scoped_ioobject.h"
 
+namespace recordreplay {
+// Declared here and not in the header: see base/record_replay.cc.
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
+
 namespace base {
 
 class BatteryLevelProviderMac : public BatteryLevelProvider {
@@ -35,6 +40,12 @@ std::unique_ptr<BatteryLevelProvider> BatteryLevelProvider::Create() {
 
 std::optional<BatteryLevelProviderMac::BatteryState>
 BatteryLevelProviderMac::GetBatteryStateImpl() {
+  // [RecordReplay] What the IORegistry says isn't in a recording, and a
+  // browser process the driver replays by itself went one way here when
+  // recording and another when replaying. Such a process has no battery.
+  if (recordreplay::IsSameOnBothSides()) {
+    return MakeBatteryState(/* battery_details=*/{});
+  }
   const base::mac::ScopedIOObject<io_service_t> service(
       IOServiceGetMatchingService(kIOMainPortDefault,
                                   IOServiceMatching("IOPMPowerSource")));
