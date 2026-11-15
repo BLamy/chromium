@@ -103,6 +103,28 @@ class ThreadSafeInterfaceEndpointClientProxy : public ThreadSafeProxy {
       : public base::RefCountedThreadSafe<SyncResponseInfo> {
     SyncResponseInfo() = default;
 
+    // [RecordReplay] The thread that made the sync call and the thread that
+    // delivers its response each hold one of these, and whichever lets go
+    // last destroys the response message with it, which closes what the
+    // message holds. Which thread that was differed on a replay
+    // (gc/atomics-wait-async-collected-context, once on Linux), so the count
+    // is ordered among threads. The destroying itself is outside the lock.
+    void AddRef() const {
+      recordreplay::AutoOrderedRefCount ordered;
+      base::RefCountedThreadSafe<SyncResponseInfo>::AddRef();
+    }
+    void Release() const {
+      bool last;
+      {
+        recordreplay::AutoOrderedRefCount ordered;
+        last = base::subtle::RefCountedThreadSafeBase::Release();
+      }
+      if (last) {
+        base::DefaultRefCountedThreadSafeTraits<SyncResponseInfo>::Destruct(
+            this);
+      }
+    }
+
     Message message;
     bool received = false;
     base::WaitableEvent event{base::WaitableEvent::ResetPolicy::MANUAL,
