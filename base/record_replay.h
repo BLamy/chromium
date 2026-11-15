@@ -99,6 +99,20 @@ struct AutoOrderedLock {
   int id_;
 };
 
+// Orders one reference count operation among threads. For the few kinds of
+// object whose last reference any of several threads can drop, and whose
+// destruction is something a recording notes (a task posted, a lock taken):
+// the thread that destroyed one when recording wasn't always the one that
+// did when replaying, and both then diverged. One lock serves all of them.
+// Nothing is ordered where events are disallowed or passed through.
+struct AutoOrderedRefCount {
+  AutoOrderedRefCount();
+  ~AutoOrderedRefCount();
+  AutoOrderedRefCount(const AutoOrderedRefCount&) = delete;
+  AutoOrderedRefCount& operator=(const AutoOrderedRefCount&) = delete;
+  int id_;
+};
+
 void InvalidateRecording(const char* why);
 void NewCheckpoint();
 // V8 calls this side of things ready: checkpoints are taken from here on.

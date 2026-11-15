@@ -144,8 +144,31 @@ inline bool Active() {
 
 }  // namespace
 
+// The lock AutoOrderedRefCount takes. Made on the main thread as the process
+// starts, before any other thread exists.
+static int gRefCountLock;
+
 void Initialize() {
-  Active();
+  if (Active() && !gRefCountLock) {
+    gRefCountLock = gRecordReplayCreateOrderedLock("ref counts");
+  }
+}
+
+AutoOrderedRefCount::AutoOrderedRefCount()
+    : id_(Active() && gRefCountLock && !gRecordReplayAreEventsDisallowed() &&
+                  !gRecordReplayAreEventsPassedThrough() &&
+                  !gRecordReplayHasDivergedFromRecording()
+              ? gRefCountLock
+              : 0) {
+  if (id_) {
+    gRecordReplayOrderedLock(id_);
+  }
+}
+
+AutoOrderedRefCount::~AutoOrderedRefCount() {
+  if (id_) {
+    gRecordReplayOrderedUnlock(id_);
+  }
 }
 
 bool IsRecordingOrReplaying(const char* feature, const char* subfeature) {
