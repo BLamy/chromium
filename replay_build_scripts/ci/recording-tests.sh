@@ -112,8 +112,30 @@ if [ -n "${RECORDING_DIAG_GREP:-}" ]; then
             for t in /proc/$pid/task/*; do
               echo "$(basename "$t") $(cat "$t/comm" 2> /dev/null) $(awk '{print $3}' "$t/stat" 2> /dev/null) syscall: $(cat "$t/syscall" 2> /dev/null)"
             done > "$d/threads-$pid.txt" 2>&1
+            # What the driver logged for it: the browser says there where its main thread was last seen.
+            cp "/w/logs/driver/recording-$pid.log" "$d/" 2> /dev/null || true
             if [ "$dumps" -le 6 ]; then
-              timeout 600 gdb -batch -nx -p "$pid" -ex "set pagination off" -ex "thread apply all bt 60" > "$d/bt-$pid.txt" 2>&1 || true
+              # gdb cannot unwind through the driver's call stubs, so the main thread's frame pointers are
+              # walked as well: the browser keeps them.
+              cat > /tmp/fpwalk.gdb <<'GDB'
+set pagination off
+thread 1
+info registers rip rsp rbp
+set $fp = (unsigned long)$rbp
+set $i = 0
+while $i < 80 && $fp > 0x1000
+  printf "FP %d: ", $i
+  info symbol *(unsigned long*)($fp + 8)
+  set $next = *(unsigned long*)$fp
+  if $next <= $fp
+    set $i = 1000
+  end
+  set $fp = $next
+  set $i = $i + 1
+end
+thread apply all bt 40
+GDB
+              timeout 600 gdb -batch -nx -p "$pid" -x /tmp/fpwalk.gdb > "$d/bt-$pid.txt" 2>&1 || true
             fi
             for r in /w/backend/test/chromium-recording/test-results/*/recording/recordings.log; do
               if grep -q writeStarted "$r" 2> /dev/null; then echo "== $r"; cat "$r"; fi
@@ -128,9 +150,12 @@ if [ -n "${RECORDING_DIAG_GREP:-}" ]; then
   ) &
   watcher=$!
   code=0
+  mkdir -p /w/logs/driver
+  chmod 700 /w/logs/driver
   env RECORD_REPLAY_DRIVER=/w/backend/out/linux-recordreplay.so \
       REPLAY_CHROMIUM_EXECUTABLE_PATH=/w/browser/replay-chromium/chrome \
       REPLAY_LINKER_PATH=/w/backend/out/linker \
+      RECORD_REPLAY_LOG_DIRECTORY=/w/logs/driver \
       PLAYWRIGHT_JSON_OUTPUT_FILE=/w/logs/results-diag.json \
       npx playwright test --config=playwright.config.ts --reporter=line,json --workers=2 \
       --timeout=900000 --repeat-each="${RECORDING_DIAG_REPEAT:-12}" -g "$RECORDING_DIAG_GREP" \
@@ -139,7 +164,7 @@ if [ -n "${RECORDING_DIAG_GREP:-}" ]; then
   grep -E "^  [0-9]+\) \[|^    Error|^    ErrorChain|^  [0-9]+ (passed|failed|flaky|skipped)" /w/logs/playwright-diag.log | cut -c1-300 | tail -60
   ls /w/logs/diag
   tar -cJf /w/logs/diag.tar.xz -C /w/logs diag
-  rm -rf /w/logs/diag
+  rm -rf /w/logs/diag /w/logs/driver
   echo "diagnostic pass exit $code"
   if [ -n "${RECORDING_SKIP_SUITES:-}" ]; then exit "$code"; fi
   # The suites run with Playwright as it is.
@@ -162,6 +187,11 @@ run_suite() {
   grep -E "^  [0-9]+\) \[|^    Error|^    ErrorChain|^    \+   \"|Tearing down|^  [0-9]+ (passed|failed|flaky|skipped)" "/w/logs/playwright-$name.log" | cut -c1-300 | tail -80
   if [ -d test-results ]; then
     find test-results -name mcp-sweep.json | tar -cJf "/w/logs/mcp-sweeps-$name.tar.xz" -T - 2> /dev/null || true
+  fi
+  # What a failed replay left: the crash reports say which assertion or call differed, with both stacks.
+  if [ -d /w/backend/tmp/crashes ]; then
+    tar -cJf "/w/logs/crashes-$name.tar.xz" -C /w/backend/tmp crashes 2> /dev/null || true
+    rm -rf /w/backend/tmp/crashes
   fi
   return "$code"
 }
