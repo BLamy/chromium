@@ -14,7 +14,7 @@
 #   RECORDING_WORKERS    Playwright workers (default 1, the suite's own setting:
 #                        a repaint has 2 s, and with two workers it ran out)
 #   RECORDING_DIAG_GREP  cases to run first, many times over, with the stacks of
-#                        any browser still alive after 25 s written to diag/
+#                        any renderer that outlives its browser written to diag/
 #   RECORDING_DIAG_REPEAT  how many times each (default 12)
 #   RECORDING_SKIP_SUITES  1 to stop after the diagnostic pass
 #
@@ -77,8 +77,7 @@ status=0
 # A browser that hangs while closing is killed by Playwright after 30 s, and
 # the case then fails on its unfinished recording with nothing to say why. This
 # pass runs the named cases with that limit lifted, and a watcher that writes
-# the stacks of every process of a browser that has lived too long (these cases
-# take a few seconds) and then kills it.
+# the stacks of a renderer that has outlived its browser and then kills it.
 if [ -n "${RECORDING_DIAG_GREP:-}" ]; then
   echo "--- diagnostic pass: $RECORDING_DIAG_GREP"
   apt-get install -y -qq gdb > /w/logs/apt-gdb.log 2>&1
@@ -90,41 +89,41 @@ if [ -n "${RECORDING_DIAG_GREP:-}" ]; then
   done
   echo "close limit lifted in $n places"
   (
-    seen=" "
+    # A renderer whose browser has gone and that is still there on the next look: it is what leaves a
+    # recording unfinished. Its stacks are written, and it is killed so the case goes on to fail as usual.
+    orphans=" "
     dumps=0
     while :; do
-      old=""
+      now=" "
       for pid in $(pgrep -x chrome || true); do
-        age=$(ps -o etimes= -p "$pid" 2> /dev/null | tr -d " " || true)
-        if [ -n "$age" ] && [ "$age" -gt 25 ]; then old="$old $pid"; fi
+        args=$(tr "\0" " " < "/proc/$pid/cmdline" 2> /dev/null || true)
+        case "$args" in *--type=renderer*) ;; *) continue ;; esac
+        ppid=$(awk '{print $4}' "/proc/$pid/stat" 2> /dev/null || true)
+        pcomm=$(cat "/proc/$ppid/comm" 2> /dev/null || true)
+        if [ "$pcomm" = "chrome" ]; then continue; fi
+        now="$now$pid "
+        case "$orphans" in
+          *" $pid "*)
+            dumps=$((dumps + 1))
+            d=/w/logs/diag/orphan-$dumps
+            mkdir -p "$d"
+            ps -eo pid,ppid,pgid,etimes,stat,pcpu,rss,args | cut -c1-300 > "$d/ps.txt"
+            printf '%s\n' "$args" | cut -c1-800 > "$d/cmdline-$pid.txt"
+            for t in /proc/$pid/task/*; do
+              echo "$(basename "$t") $(cat "$t/comm" 2> /dev/null) $(awk '{print $3}' "$t/stat" 2> /dev/null) syscall: $(cat "$t/syscall" 2> /dev/null)"
+            done > "$d/threads-$pid.txt" 2>&1
+            if [ "$dumps" -le 6 ]; then
+              timeout 600 gdb -batch -nx -p "$pid" -ex "set pagination off" -ex "thread apply all bt 60" > "$d/bt-$pid.txt" 2>&1 || true
+            fi
+            for r in /w/backend/test/chromium-recording/test-results/*/recording/recordings.log; do
+              if grep -q writeStarted "$r" 2> /dev/null; then echo "== $r"; cat "$r"; fi
+            done > "$d/recordings-log.txt" 2>&1
+            kill -9 "$pid" 2> /dev/null || true
+            ;;
+        esac
       done
-      if [ -n "$old" ]; then
-        dumps=$((dumps + 1))
-        d=/w/logs/diag/hang-$dumps
-        mkdir -p "$d"
-        ps -eo pid,ppid,pgid,etimes,stat,pcpu,rss,args | cut -c1-400 > "$d/ps.txt"
-        find /w/backend/test/chromium-recording/test-results -name recordings.log -exec sh -c 'echo "== $1"; cat "$1"' _ {} \; > "$d/recordings-log.txt" 2>&1 || true
-        if [ "$dumps" -le 3 ]; then
-          # Renderers first: it is their recording that is left unfinished.
-          ordered=""
-          for kind in renderer "" gpu-process utility; do
-            for pid in $old; do
-              args=$(tr "\0" " " < "/proc/$pid/cmdline" 2> /dev/null || true)
-              case "$args" in *--type=zygote*) continue ;; esac
-              t=$(printf '%s' "$args" | sed -n 's/.*--type=\([a-z-]*\).*/\1/p')
-              if [ "$t" = "$kind" ]; then ordered="$ordered $pid"; fi
-            done
-          done
-          for pid in $ordered; do
-            case "$seen" in *" $pid "*) continue ;; esac
-            seen="$seen$pid "
-            tr "\0" " " < "/proc/$pid/cmdline" | cut -c1-600 > "$d/cmdline-$pid.txt" 2> /dev/null || true
-            timeout 300 gdb -batch -nx -p "$pid" -ex "set pagination off" -ex "thread apply all bt 48" > "$d/bt-$pid.txt" 2>&1 || true
-          done
-        fi
-        for pid in $old; do kill -9 "$pid" 2> /dev/null || true; done
-      fi
-      sleep 2
+      orphans="$now"
+      sleep 3
     done
   ) &
   watcher=$!

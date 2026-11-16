@@ -102,9 +102,8 @@ steps:
       REPLAY_TEST_MCP: "1"
       RECORDING_WORKERS: "1"
       # While the cases that hang at close are being run down.
-      RECORDING_DIAG_GREP: "after-popup|repaint-after-gpu-process-crash|repaint-after-dom-change"
-      RECORDING_DIAG_REPEAT: "12"
-      RECORDING_SKIP_SUITES: "1"
+      RECORDING_DIAG_GREP: "after-popup"
+      RECORDING_DIAG_REPEAT: "30"
     agents:
       - "2xlarge=true"
       - "build-runtime=true"
