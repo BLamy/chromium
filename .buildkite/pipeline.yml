@@ -103,8 +103,8 @@ steps:
       RECORDING_WORKERS: "1"
       # While the cases that hang at close are being run down.
       # One replay mismatch was seen in the webaudio case (build 41); the popup cases stay as a check.
-      RECORDING_DIAG_GREP: "audio-worklet-module-loaded-twice|after-popup"
-      RECORDING_DIAG_REPEAT: "40"
+      RECORDING_DIAG_GREP: "audio-worklet-module-loaded-twice|after-popup|idle-deadline-polled-during-input|worklet-render-across-suspend-resume|eval-after-popups-left-open|lifecycle-observers-collected-before-frame-removed|data-channels-collected"
+      RECORDING_DIAG_REPEAT: "20"
     agents:
       - "2xlarge=true"
       - "build-runtime=true"
