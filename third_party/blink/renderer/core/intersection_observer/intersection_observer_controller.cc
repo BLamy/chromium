@@ -193,6 +193,7 @@ void IntersectionObserverController::ComputeIntersections(
                  observer->root()->GetDocument().GetFrame() !=
                      &frame_view.GetFrame();
         });
+    ReplayDropUntrackedExplicitRootObservers();
   }
   for (auto& observer : tracked_explicit_root_observers_) {
     DCHECK(!observer->RootIsImplicit());
@@ -205,6 +206,7 @@ void IntersectionObserverController::ComputeIntersections(
     tracked_explicit_root_observers_.erase_if([](const auto& observer) {
       return !observer->root() || !observer->root()->isConnected();
     });
+    ReplayDropUntrackedExplicitRootObservers();
   }
 
   for (auto& [observer, observations] : tracked_implicit_root_observations_) {
@@ -335,6 +337,21 @@ IntersectionObserverController::GetTrackedObservationCountForTesting() const {
     count += observations.size();
   }
   return count;
+}
+
+// What the strong set holds that is no longer tracked: 108 erased from both
+// sets in one loop, and 158's erase_if only knows the tracked one.
+void IntersectionObserverController::ReplayDropUntrackedExplicitRootObservers() {
+  if (replay_strong_tracked_explicit_root_observers_.empty()) {
+    return;
+  }
+  HeapVector<Member<IntersectionObserver>> gone;
+  for (const auto& observer : replay_strong_tracked_explicit_root_observers_) {
+    if (!tracked_explicit_root_observers_.Contains(observer)) {
+      gone.push_back(observer);
+    }
+  }
+  replay_strong_tracked_explicit_root_observers_.RemoveAll(gone);
 }
 
 void IntersectionObserverController::Trace(Visitor* visitor) const {

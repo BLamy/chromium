@@ -252,7 +252,14 @@ bool RTCDataChannel::Observer::is_registered() const {
 
 void RTCDataChannel::Observer::Unregister() {
   DCHECK(main_thread_->BelongsToCurrentThread());
-  webrtc_channel_->UnregisterObserver();
+  // Avoid changing channel observers non-deterministically: this is reached
+  // from RTCDataChannel's pre-finalizer, in a collection. 108 let go of the
+  // channel there; the reference is const here, and the constructor's AddRef()
+  // already keeps the channel alive, so the call is all there is to leave out.
+  if (!recordreplay::AreEventsDisallowed(
+          "RTCDataChannel::Observer::Unregister")) {
+    webrtc_channel_->UnregisterObserver();
+  }
   blink_channel_ = nullptr;
 }
 

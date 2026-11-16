@@ -215,6 +215,13 @@ void ImageResourceContent::RemoveObserver(ImageResourceObserver* observer) {
   if (it != observers_.end()) {
     fully_erased = observers_.erase(it) && finished_observers_.find(observer) ==
                                                finished_observers_.end();
+
+    if (recordreplay::EnterLeakMemory("ImageResourceContent")) {
+      auto strong = replay_strong_observers_.find(observer);
+      if (strong != replay_strong_observers_.end()) {
+        replay_strong_observers_.erase(strong);
+      }
+    }
   } else {
     it = finished_observers_.find(observer);
     CHECK(it != finished_observers_.end());

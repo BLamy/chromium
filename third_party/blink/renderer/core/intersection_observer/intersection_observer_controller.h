@@ -111,6 +111,7 @@ class CORE_EXPORT IntersectionObserverController
                   IntersectionObserver>>
       tracked_implicit_root_observations_;
 
+  void ReplayDropUntrackedExplicitRootObservers();
   HeapHashSet<Member<IntersectionObserver>> replay_strong_tracked_explicit_root_observers_;
   HeapHashSet<Member<IntersectionObservation>> replay_strong_tracked_implicit_root_observations_;
 

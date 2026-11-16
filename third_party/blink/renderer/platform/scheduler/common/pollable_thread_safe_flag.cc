@@ -23,5 +23,6 @@ void PollableThreadSafeFlag::SetWhileLocked(bool value) {
 }
 
 bool PollableThreadSafeFlag::IsSet() const {
+  recordreplay::AutoOrderedLock ordered(ordered_lock_id_);
   return flag_.load(std::memory_order_acquire);
 }
