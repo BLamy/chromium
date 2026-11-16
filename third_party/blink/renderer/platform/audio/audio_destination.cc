@@ -90,6 +90,20 @@ bool BypassOutputBuffer() {
   return RuntimeEnabledFeatures::WebAudioBypassOutputBufferingEnabled();
 }
 
+
+// [RecordReplay] The session's number is bumped on the main thread
+// (SetDeviceState) and read with no lock on the audio and worklet threads,
+// which then decide by it whether to render and whether to signal the audio
+// callback. A replay could read it on the other side of a bump than the
+// recording did: the worklet thread then skipped a Signal() the recording had
+// made (webaudio/audio-worklet-module-loaded-twice, about one run in ten in
+// CI). This code is newer than the 108 fork. What each read saw is recorded.
+uint32_t RecordReplaySessionId(const std::atomic<uint32_t>& session_id,
+                               std::memory_order order) {
+  return static_cast<uint32_t>(recordreplay::RecordReplayValueIfAllowed(
+      "AudioDestination::session_id_", session_id.load(order)));
+}
+
 }  // namespace
 
 void AudioDestinationTraits::Destruct(const AudioDestination* destination) {
@@ -188,7 +202,7 @@ int AudioDestination::Render(base::TimeDelta delay,
       // Use the dual-thread rendering if the AudioWorklet is activated.
       output_buffer_bypass_wait_event_.Reset();
       const uint32_t current_session_id =
-          session_id_.load(std::memory_order_relaxed);
+          RecordReplaySessionId(session_id_, std::memory_order_relaxed);
       const bool posted_successfully = PostCrossThreadTask(
           *worklet_task_runner_, FROM_HERE,
           CrossThreadBindOnce(
@@ -225,7 +239,7 @@ int AudioDestination::Render(base::TimeDelta delay,
         size_t signaled_index = base::WaitableEvent::WaitMany(events);
         if (signaled_index == 1 ||
             current_session_id !=
-                session_id_.load(std::memory_order_acquire)) {
+                RecordReplaySessionId(session_id_, std::memory_order_acquire)) {
           // The stop event was signaled (e.g., Pause() or Stop() was called
           // on the main thread) or the session changed during wait. We treat
           // this as an expected state change underrun.
@@ -247,7 +261,7 @@ int AudioDestination::Render(base::TimeDelta delay,
               number_of_frames, frames_to_render, delay, delay_timestamp,
               glitch_info,
               /*request_timestamp=*/base::TimeTicks::Now(),
-              session_id_.load(std::memory_order_relaxed))) {
+              RecordReplaySessionId(session_id_, std::memory_order_relaxed))) {
         is_state_change_underrun_in_bypass_mode_.store(
             true, std::memory_order_relaxed);
       }
@@ -262,8 +276,10 @@ int AudioDestination::Render(base::TimeDelta delay,
       // recover by zeroing the output and pulling whatever is left.
       DCHECK(is_state_change_underrun_in_bypass_mode_.load(
           std::memory_order_relaxed));
-      if (!is_state_change_underrun_in_bypass_mode_.load(
-              std::memory_order_relaxed)) {
+      if (!recordreplay::RecordReplayValueIfAllowed(
+              "AudioDestination::is_state_change_underrun_in_bypass_mode_",
+              is_state_change_underrun_in_bypass_mode_.load(
+                  std::memory_order_relaxed))) {
         has_unexpected_fifo_underrun_occurred_ = true;
       }
       output_bus_->Zero();
@@ -308,7 +324,7 @@ int AudioDestination::Render(base::TimeDelta delay,
                             result.frames_to_render, delay, delay_timestamp,
                             combined_glitch_info,
                             /*request_timestamp=*/base::TimeTicks::Now(),
-                            session_id_.load(std::memory_order_relaxed),
+                            RecordReplaySessionId(session_id_, std::memory_order_relaxed),
                             /*has_unexpected_fifo_underrun_occurred=*/false,
                             has_fifo_underrun_occurred));
   } else {
@@ -322,7 +338,7 @@ int AudioDestination::Render(base::TimeDelta delay,
         number_of_frames, web_audio_device_->SampleRate());
     RequestRender(number_of_frames, frames_to_render, delay, delay_timestamp,
                   glitch_info, /*request_timestamp=*/base::TimeTicks::Now(),
-                  session_id_.load(std::memory_order_relaxed));
+                  RecordReplaySessionId(session_id_, std::memory_order_relaxed));
   }
   return number_of_frames;
 }
@@ -643,7 +659,7 @@ void AudioDestination::RequestRenderWait(
     uint32_t session_id,
     bool has_unexpected_fifo_underrun_occurred) {
   bool success = false;
-  if (session_id == session_id_.load(std::memory_order_acquire)) {
+  if (session_id == RecordReplaySessionId(session_id_, std::memory_order_acquire)) {
     success = RequestRender(frames_requested, frames_to_render, delay,
                             delay_timestamp, glitch_info, request_timestamp,
                             session_id, has_unexpected_fifo_underrun_occurred);
@@ -654,7 +670,7 @@ void AudioDestination::RequestRenderWait(
   // RequestRender was executing. If it changed, we must treat this as a
   // state-change underrun and avoid signaling to prevent waking up subsequent
   // sessions early.
-  if (session_id != session_id_.load(std::memory_order_acquire)) {
+  if (session_id != RecordReplaySessionId(session_id_, std::memory_order_acquire)) {
     is_state_change_underrun_in_bypass_mode_.store(true,
                                                    std::memory_order_relaxed);
   } else {
@@ -688,7 +704,7 @@ bool AudioDestination::RequestRender(
   }
 
   // Discard tasks from previous play/pause or suspend/resume sessions.
-  if (session_id != session_id_.load(std::memory_order_relaxed)) {
+  if (session_id != RecordReplaySessionId(session_id_, std::memory_order_relaxed)) {
     return false;
   }
 
