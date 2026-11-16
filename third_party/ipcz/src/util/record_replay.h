@@ -83,6 +83,11 @@ inline const Driver& GetDriver() {
 
 }  // namespace internal
 
+// Whether the driver is in this process at all, whatever this thread is doing.
+inline bool IsAttached() {
+  return internal::GetDriver().active;
+}
+
 // Whether this process is being recorded or replayed, and this thread's calls
 // are part of the recording right now.
 inline bool IsRecordingOrReplaying() {

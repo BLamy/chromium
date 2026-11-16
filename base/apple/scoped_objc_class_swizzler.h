@@ -5,6 +5,7 @@
 #ifndef BASE_APPLE_SCOPED_OBJC_CLASS_SWIZZLER_H_
 #define BASE_APPLE_SCOPED_OBJC_CLASS_SWIZZLER_H_
 
+#import <objc/message.h>
 #import <objc/runtime.h>
 
 #include "base/base_export.h"
@@ -39,6 +40,20 @@ class BASE_EXPORT ScopedObjCClassSwizzler {
   // function or to casting the result of GetOriginalImplementation() yourself.
   template <typename Ret, typename... Args>
   Ret InvokeOriginal(id receiver, SEL selector, Args... args) const {
+#if defined(__arm64__)
+    if (sends_original_as_message_) {
+      // [RecordReplay] In a browser process the driver re-runs, the original
+      // is sent as a message, which is a call the recording has. Called
+      // through its pointer it isn't one, and replaying would run the
+      // system's method on an instance that is only this process's memory.
+      // While the swizzle is in effect the original is what |alternate_| finds
+      // in |lookup_class_|.
+      struct objc_super super = {receiver, lookup_class_};
+      auto send = reinterpret_cast<Ret (*)(struct objc_super*, SEL, Args...)>(
+          objc_msgSendSuper);
+      return send(&super, alternate_, args...);
+    }
+#endif
     auto func = reinterpret_cast<Ret (*)(id, SEL, Args...)>(
         GetOriginalImplementation());
     return func(receiver, selector, args...);
@@ -50,6 +65,11 @@ class BASE_EXPORT ScopedObjCClassSwizzler {
 
   Method old_selector_impl_;
   Method new_selector_impl_;
+
+  // [RecordReplay] See InvokeOriginal.
+  bool sends_original_as_message_ = false;
+  Class lookup_class_ = nullptr;
+  SEL alternate_ = nullptr;
 };
 
 }  // namespace base::apple

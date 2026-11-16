@@ -428,9 +428,7 @@ void MessagePumpCFRunLoopBase::RunWorkSource(void* info) {
   // A checkpoint each time the run loop gets to its work, which is what a
   // replay is moved through by. The driver takes them on the thread it attached
   // on only.
-  if (recordreplay::IsMainThread()) {
-    recordreplay::NewCheckpoint();
-  }
+  recordreplay::NewCheckpoint();
 
   MessagePumpCFRunLoopBase* self = static_cast<MessagePumpCFRunLoopBase*>(info);
   CallWithEHFrameUnlessRecordReplay(^{

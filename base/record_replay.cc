@@ -99,7 +99,14 @@ ForEachDriverSymbol(DeclareDriverSymbol)
 #undef DeclareDriverSymbol
 
 // 0 before the first look, 1 when this process is neither recording nor
-// replaying, 2 when it is.
+// replaying, 2 when it is, and 3 when it is and the driver keeps it the same
+// on both sides by itself.
+//
+// That last one is an Electron browser process. The driver runs its recorded
+// threads one at a time and keeps its heap at the same addresses, so it needs
+// none of Chromium's annotations and behaves as a stock browser process does:
+// as far as they're concerned it isn't recording. All it has of this file is
+// what makes a recording, which is checkpoints and finishing it.
 std::atomic<int> gState{0};
 
 pthread_t gMainThread;
@@ -130,8 +137,10 @@ int InitializeSlow() {
   gMainThread = pthread_self();
   gHasAsserts = !!getenv("RECORD_REPLAY_ENABLE_ASSERTS");
   gDependencyGraphAsserts = !!getenv("RECORD_REPLAY_DEPENDENCY_GRAPH_ASSERTS");
-  gState.store(2, std::memory_order_release);
-  return 2;
+  void* same = dlsym(RTLD_DEFAULT, "RecordReplayIsSameOnBothSides");
+  int state = same && reinterpret_cast<bool (*)()>(same)() ? 3 : 2;
+  gState.store(state, std::memory_order_release);
+  return state;
 }
 
 inline bool Active() {
@@ -140,6 +149,20 @@ inline bool Active() {
     state = InitializeSlow();
   }
   return state == 2;
+}
+
+// The thread the driver attached on, whatever the annotations are told.
+inline bool OnAttachThread() {
+  return pthread_equal(gMainThread, pthread_self());
+}
+
+// Whether the driver is here at all, annotations or not.
+inline bool Attached() {
+  int state = gState.load(std::memory_order_acquire);
+  if (state == 0) [[unlikely]] {
+    state = InitializeSlow();
+  }
+  return state >= 2;
 }
 
 }  // namespace
@@ -209,7 +232,9 @@ void DoFinishRecording() {
     // replaying it decides what happens next, and exiting would take it along,
     // so this thread stops here, as every other does when its part of the
     // recording runs out.
-    AutoPassThroughEvents pass_through;
+    if (gRecordReplayBeginPassThroughEvents) {
+      gRecordReplayBeginPassThroughEvents();
+    }
     for (;;) {
       sleep(UINT32_MAX);
     }
@@ -294,6 +319,16 @@ BASE_EXPORT void MaybeFinishRecording() {
   DoFinishRecording();
 }
 
+// Whether the driver keeps this process the same on both sides by itself (an
+// Electron browser process). Declared where it's used: not in the header.
+BASE_EXPORT bool IsSameOnBothSides() {
+  int state = gState.load(std::memory_order_acquire);
+  if (state == 0) [[unlikely]] {
+    state = InitializeSlow();
+  }
+  return state == 3;
+}
+
 void SetMainThreadTaskRunner(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
   if (!Active() || gMainThreadTaskRunner) {
@@ -314,11 +349,16 @@ BASE_EXPORT void SetFinishRecordingInterrupter(void (*interrupter)()) {
 }
 
 void FinishRecording() {
-  if (!Active() || !gRecordReplayFinishRecording) {
+  if (!Attached() || !gRecordReplayFinishRecording) {
     return;
   }
-  if (IsMainThread()) {
+  if (OnAttachThread()) {
     DoFinishRecording();
+  }
+  if (!Active()) {
+    // Handing over to the main thread takes a recorded value, which a process
+    // with no annotations doesn't have. Its main thread finishes by itself.
+    return;
   }
   // The driver flushes the recording from the main thread only. A renderer
   // usually ends on its IO thread, when the channel to the browser closes, so
@@ -540,13 +580,13 @@ void InvalidateRecording(const char* why) {
 static bool gCheckpointsAllowed;
 
 void OnV8Initialized() {
-  if (Active() && IsMainThread()) {
+  if (Attached() && OnAttachThread()) {
     gCheckpointsAllowed = true;
   }
 }
 
 void NewCheckpoint() {
-  if (Active() && gCheckpointsAllowed && IsMainThread() &&
+  if (Attached() && gCheckpointsAllowed && OnAttachThread() &&
       !gRecordReplayAreEventsDisallowed()) {
     gRecordReplayNewCheckpoint();
   }
