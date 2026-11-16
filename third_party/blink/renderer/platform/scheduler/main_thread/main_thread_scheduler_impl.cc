@@ -577,8 +577,12 @@ MainThreadSchedulerImpl::MainThreadOnly::MainThreadOnly(
           RenderingPrioritizationStateToString),
       last_frame_time(now),
       agent_group_schedulers(
+          MakeGarbageCollected<GCedHeapHashSet<
+              WeakMember<AgentGroupSchedulerImpl>,
+              WeakMemberHashTraitsRecordReplayId<AgentGroupSchedulerImpl>>>()),
+      replay_agent_group_schedulers_strong(
           MakeGarbageCollected<
-              GCedHeapHashSet<WeakMember<AgentGroupSchedulerImpl>>>()),
+              GCedHeapHashSet<Member<AgentGroupSchedulerImpl>>>()),
       message_pump(
           main_thread_scheduler_impl->sequence_manager_->GetMessagePump()) {}
 
@@ -2546,6 +2550,11 @@ base::TimeTicks MainThreadSchedulerImpl::NowTicks() const {
 
 void MainThreadSchedulerImpl::AddAgentGroupScheduler(
     AgentGroupSchedulerImpl* agent_group_scheduler) {
+  if (recordreplay::IsRecordingOrReplaying("leak-references",
+                                           "AgentGroupSchedulerImpl")) {
+    main_thread_only().replay_agent_group_schedulers_strong->insert(
+        agent_group_scheduler);
+  }
   bool is_new_entry = main_thread_only()
                           .agent_group_schedulers->insert(agent_group_scheduler)
                           .is_new_entry;

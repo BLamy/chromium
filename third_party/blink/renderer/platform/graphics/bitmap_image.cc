@@ -582,6 +582,8 @@ PaintImage BitmapImage::PaintImageForCurrentFrameWithInfo(
     }
   }
 
+  recordreplay::Assert("[RUN-1975-2225] BitmapImage::PaintImageForCurrentFrame %d",
+                       paint_id);
   PaintImage new_frame =
       CreatePaintImage(paint_id, sync_animation_target_id, sync_sequence,
                        reset_animation_sequence_id, expected_repetition_count);

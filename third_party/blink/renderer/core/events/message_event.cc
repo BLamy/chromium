@@ -159,6 +159,11 @@ MessageEvent::MessageEvent(
       ports_(ports),
       user_activation_(user_activation),
       delegated_capability_(delegated_capability) {
+  recordreplay::Assert(
+      "[RUN-2037-2901] MessageEvent::MessageEvent A %d %d %s",
+      source ? source->RecordReplayId() : -1,
+      data ? (int)data->DataLengthInBytes() : -1,
+      last_event_id.Utf8().c_str());
   DCHECK(IsValidSource(source_.Get()));
   serialized_data_memory_accounter_.Increase(v8::Isolate::GetCurrent(),
                                              SizeOfExternalMemoryInBytes());

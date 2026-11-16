@@ -125,6 +125,7 @@ void DOMScheduler::Trace(Visitor* visitor) const {
   visitor->Trace(signal_to_task_queue_map_);
   visitor->Trace(signal_to_continuation_queue_map_);
   visitor->Trace(replay_strong_signal_);
+  visitor->Trace(replay_strong_task_queues_);
   ScriptWrappable::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
   Supplement<ExecutionContext>::Trace(visitor);
@@ -317,6 +318,7 @@ DOMScheduler::DOMTaskQueue* DOMScheduler::CreateDynamicPriorityTaskQueue(
       MakeGarbageCollected<DOMTaskQueue>(std::move(task_queue), priority);
   if (recordreplay::EnterLeakMemory("DOMScheduler")) {
     replay_strong_signal_.insert(signal);
+    replay_strong_task_queues_.insert(dom_task_queue);
   }
   auto* handle = signal->AddPriorityChangeAlgorithm(BindRepeating(
       &DOMScheduler::OnPriorityChange, WrapWeakPersistent(this),

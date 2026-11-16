@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/record_replay.h"
 #include "base/auto_reset.h"
 #include "base/check_deref.h"
 #include "base/debug/crash_logging.h"
@@ -331,6 +332,7 @@ void AbortSignal::RunAbortSteps() {
                             static_cast<int>(abort_algorithms_.size()));
     CHECK(handle);
     CHECK(handle->GetAlgorithm());
+    recordreplay::Assert("[RUN-1182] AbortSignal::SignalAbort #4");
     handle->GetAlgorithm()->Run();
   }
 

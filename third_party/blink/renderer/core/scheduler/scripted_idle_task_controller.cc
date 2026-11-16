@@ -318,6 +318,9 @@ void ScriptedIdleTaskController::RunIdleTask(
     IdleDeadline::CallbackType callback_type) {
   DCHECK(!paused_);
 
+  recordreplay::Assert("[RUN-2419] ScriptedIdleTaskController::RunCallback A %d",
+                       id);
+
   recordreplay::AutoDependencyExecution record_replay_execute(
       recordreplay::NewDependencyGraphNode("{\"kind\":\"executeIdleCallback\"}"));
 

@@ -192,6 +192,7 @@ class CORE_EXPORT DOMScheduler : public ScriptWrappable,
   // Same as `signal_to_task_queue_map_` but for continuation queues.
   SignalToTaskQueueMap signal_to_continuation_queue_map_;
   HeapHashSet<Member<DOMTaskSignal>> replay_strong_signal_;
+  HeapHashSet<Member<DOMTaskQueue>> replay_strong_task_queues_;
 };
 
 }  // namespace blink
