@@ -288,6 +288,8 @@ DiscardableSharedMemory::LockResult DiscardableSharedMemory::Lock(
       recordreplay::Assert("[RUN-1877-3208] DiscardableSharedMemory::Lock B %d", !last_known_usage_.is_null());
       return FAILED;
     }
+
+    recordreplay::Assert("[RUN-1877-3208] DiscardableSharedMemory::Lock C");
   }
 
   // Zero for length means "everything onward".
@@ -319,6 +321,8 @@ DiscardableSharedMemory::LockResult DiscardableSharedMemory::Lock(
     return PURGED;
   }
 
+  recordreplay::Assert("[RUN-1877-2453] DiscardableSharedMemory::Lock Done");
+
 #if BUILDFLAG(IS_ANDROID)
   // Ensure that the platform won't discard the required pages.
   return LockPages(shared_memory_region_, SharedMemoryHeaderSize() + offset,
@@ -348,6 +352,8 @@ DiscardableSharedMemory::LockResult DiscardableSharedMemory::Lock(
 void DiscardableSharedMemory::Unlock(size_t offset, size_t length) {
   DCHECK_EQ(AlignToPageSize(offset), offset);
   DCHECK_EQ(AlignToPageSize(length), length);
+
+  recordreplay::Assert("[RUN-1877-2481] DiscardableSharedMemory::Unlock A");
 
   // Calls to this function must be synchronized properly.
   DFAKE_SCOPED_LOCK(thread_collision_warner_);
