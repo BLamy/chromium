@@ -9,6 +9,7 @@
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
+#include "base/record_replay.h"
 #include "base/task/task_features.h"
 #include "base/task/thread_pool/task_tracker.h"
 
@@ -66,6 +67,18 @@ void TaskSource::SetDelayedHeapHandle(const HeapHandle& handle) {
 
 void TaskSource::ClearDelayedHeapHandle() {
   delayed_pq_heap_handle_ = HeapHandle();
+}
+
+ThreadType TaskSource::thread_type_racy() const {
+  // Record/replay the value instead of ordering reads/writes, as 108 does for
+  // priority_racy(): a thread that reads it while another is in
+  // Transaction::UpdatePriority() sees either value.
+  ThreadType thread_type = thread_type_racy_.load(std::memory_order_relaxed);
+  if (recordreplay::AreEventsDisallowed()) {
+    return thread_type;
+  }
+  return static_cast<ThreadType>(recordreplay::RecordReplayValue(
+      "TaskSource::thread_type_racy", static_cast<uintptr_t>(thread_type)));
 }
 
 TaskSource::TaskSource(const TaskTraits& traits,
