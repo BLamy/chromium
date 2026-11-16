@@ -43,6 +43,10 @@ echo "--- browser"
 mkdir -p "$work/browser" "$work/logs"
 tar -C "$work/browser" -xJf "$artifacts"/*.tar.xz
 test -x "$work/browser/replay-chromium/chrome"
+# Two cases start the browser through `unshare`, as a user that is not root:
+# mktemp makes the directory for its owner only, and the browser was not found.
+chmod 755 "$work"
+chmod -R a+rX "$work/browser"
 
 cat > "$work/inner.sh" <<'INNER'
 set -euo pipefail
