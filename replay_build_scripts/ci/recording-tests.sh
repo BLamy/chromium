@@ -115,24 +115,11 @@ if [ -n "${RECORDING_DIAG_GREP:-}" ]; then
             # What the driver logged for it: the browser says there where its main thread was last seen.
             cp "/w/logs/driver/recording-$pid.log" "$d/" 2> /dev/null || true
             if [ "$dumps" -le 3 ]; then
-              # gdb cannot unwind through the driver's call stubs, so the main thread's frame pointers are
-              # walked as well: the browser keeps them.
+              # gdb cannot unwind through the driver's call stubs, so each stack's own words are printed too.
               cat > /tmp/fpwalk.gdb <<'GDB'
 set pagination off
 thread 1
 info registers rip rsp rbp
-set $fp = (unsigned long)$rbp
-set $i = 0
-while $i < 80 && $fp > 0x1000
-  printf "FP %d: ", $i
-  info symbol *(unsigned long*)($fp + 8)
-  set $next = *(unsigned long*)$fp
-  if $next <= $fp
-    set $i = 1000
-  end
-  set $fp = $next
-  set $i = $i + 1
-end
 thread apply all bt 40
 # The words of each stack that are addresses in a binary: not a backtrace (old frames show too), but it names
 # what the thread is inside when the unwinder cannot get past a call stub.
