@@ -15,6 +15,9 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <vector>
+
+#include "base/base_export.h"
 
 #include "base/apple/bridging.h"
 #import "base/apple/foundation_util.h"
@@ -86,6 +89,12 @@ CG_EXTERN CGError CGSSetWindowCaptureExcludeShape(CGSConnectionID cid,
                                                   CGRegionRef region);
 CG_EXTERN CGRegionRef CGRegionCreateWithRect(CGRect rect);
 #endif
+
+namespace recordreplay {
+// Whether the driver keeps this process the same when replaying by re-running
+// it (an Electron browser process). Declared here: it is not in the header.
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
 
 namespace remote_cocoa {
 
@@ -1685,6 +1694,29 @@ void NativeWidgetNSWindowBridge::SortSubviews(
   for (uint64_t subview_id : attached_subview_ids) {
     if (NSView* subview = remote_cocoa::GetNSViewFromId(subview_id))
       rank[subview] = rank.size() + 1;
+  }
+  // [RecordReplay] In a browser process the driver re-runs when replaying,
+  // AppKit would call SubviewSorter as code nothing records: the replay has no
+  // AppKit to make the calls, and the recording ran them on a thread the
+  // driver was not coordinating. The same order is worked out here, by the
+  // same function, and given to the view.
+  if (recordreplay::IsSameOnBothSides()) {
+    std::vector<NSView*> sorted;
+    for (NSView* subview in [bridged_view_ subviews]) {
+      sorted.push_back(subview);
+    }
+    std::stable_sort(sorted.begin(), sorted.end(),
+                     [&rank](NSView* lhs, NSView* rhs) {
+                       return lhs != rhs && SubviewSorter(lhs, rhs, &rank) ==
+                                                NSOrderedAscending;
+                     });
+    NSMutableArray<NSView*>* subviews =
+        [NSMutableArray arrayWithCapacity:sorted.size()];
+    for (NSView* subview : sorted) {
+      [subviews addObject:subview];
+    }
+    [bridged_view_ setSubviews:subviews];
+    return;
   }
   [bridged_view_ sortSubviewsUsingFunction:&SubviewSorter context:&rank];
 }
