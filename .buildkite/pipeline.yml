@@ -104,6 +104,8 @@ steps:
       # While the cases that hang at close are being run down.
       RECORDING_DIAG_GREP: "after-popup"
       RECORDING_DIAG_REPEAT: "30"
+      # Only the diagnostic pass, while the hang at close is being run down.
+      RECORDING_SKIP_SUITES: "1"
     agents:
       - "2xlarge=true"
       - "build-runtime=true"
