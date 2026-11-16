@@ -153,6 +153,11 @@ GDB
   kill "$watcher" 2> /dev/null || true
   grep -E "^  [0-9]+\) \[|^    Error|^    ErrorChain|^  [0-9]+ (passed|failed|flaky|skipped)" /w/logs/playwright-diag.log | cut -c1-300 | tail -60
   ls /w/logs/diag
+  # What a failed replay left, as for the suites.
+  if [ -d /w/backend/tmp/crashes ]; then
+    cp -r /w/backend/tmp/crashes /w/logs/diag/crashes
+    rm -rf /w/backend/tmp/crashes
+  fi
   tar -cJf /w/logs/diag.tar.xz -C /w/logs diag
   rm -rf /w/logs/diag /w/logs/driver
   echo "diagnostic pass exit $code"

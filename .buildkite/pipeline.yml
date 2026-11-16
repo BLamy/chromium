@@ -102,8 +102,9 @@ steps:
       REPLAY_TEST_MCP: "1"
       RECORDING_WORKERS: "1"
       # While the cases that hang at close are being run down.
-      RECORDING_DIAG_GREP: "after-popup"
-      RECORDING_DIAG_REPEAT: "30"
+      # One replay mismatch was seen in the webaudio case (build 41); the popup cases stay as a check.
+      RECORDING_DIAG_GREP: "audio-worklet-module-loaded-twice|after-popup"
+      RECORDING_DIAG_REPEAT: "40"
     agents:
       - "2xlarge=true"
       - "build-runtime=true"
