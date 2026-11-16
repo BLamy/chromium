@@ -11,7 +11,12 @@
 #
 #   REPLAY_BACKEND_REF   the branch or commit of replayio/backend to test with
 #   REPLAY_TEST_MCP      1 to also call the MCP tools on every case's recording
-#   RECORDING_WORKERS    Playwright workers (default 2)
+#   RECORDING_WORKERS    Playwright workers (default 1, the suite's own setting:
+#                        a repaint has 2 s, and with two workers it ran out)
+#   RECORDING_DIAG_GREP  cases to run first, many times over, with the stacks of
+#                        any browser still alive after 25 s written to diag/
+#   RECORDING_DIAG_REPEAT  how many times each (default 12)
+#   RECORDING_SKIP_SUITES  1 to stop after the diagnostic pass
 #
 # Everything runs in one container with a memory and CPU limit, so that a suite
 # that goes wrong cannot take the agent with it. It is privileged because two
@@ -69,6 +74,80 @@ done
 ls -la /w/backend/out/linker /w/backend/out/linux-recordreplay.so
 cd test/chromium-recording
 status=0
+# A browser that hangs while closing is killed by Playwright after 30 s, and
+# the case then fails on its unfinished recording with nothing to say why. This
+# pass runs the named cases with that limit lifted, and a watcher that writes
+# the stacks of every process of a browser that has lived too long (these cases
+# take a few seconds) and then kills it.
+if [ -n "${RECORDING_DIAG_GREP:-}" ]; then
+  echo "--- diagnostic pass: $RECORDING_DIAG_GREP"
+  apt-get install -y -qq gdb > /w/logs/apt-gdb.log 2>&1
+  mkdir -p /w/logs/diag
+  n=0
+  for f in $(find /w/backend/node_modules -path "*playwright-core/lib/coreBundle.js"); do
+    sed -i 's/closeOrKill(options.__testHookBrowserCloseTimeout || DEFAULT_PLAYWRIGHT_TIMEOUT)/closeOrKill(9e5)/' "$f"
+    n=$((n + $(grep -c "closeOrKill(9e5)" "$f")))
+  done
+  echo "close limit lifted in $n places"
+  (
+    seen=" "
+    dumps=0
+    while :; do
+      old=""
+      for pid in $(pgrep -x chrome || true); do
+        age=$(ps -o etimes= -p "$pid" 2> /dev/null | tr -d " " || true)
+        if [ -n "$age" ] && [ "$age" -gt 25 ]; then old="$old $pid"; fi
+      done
+      if [ -n "$old" ]; then
+        dumps=$((dumps + 1))
+        d=/w/logs/diag/hang-$dumps
+        mkdir -p "$d"
+        ps -eo pid,ppid,pgid,etimes,stat,pcpu,rss,args | cut -c1-400 > "$d/ps.txt"
+        find /w/backend/test/chromium-recording/test-results -name recordings.log -exec sh -c 'echo "== $1"; cat "$1"' _ {} \; > "$d/recordings-log.txt" 2>&1 || true
+        if [ "$dumps" -le 3 ]; then
+          # Renderers first: it is their recording that is left unfinished.
+          ordered=""
+          for kind in renderer "" gpu-process utility; do
+            for pid in $old; do
+              args=$(tr "\0" " " < "/proc/$pid/cmdline" 2> /dev/null || true)
+              case "$args" in *--type=zygote*) continue ;; esac
+              t=$(printf '%s' "$args" | sed -n 's/.*--type=\([a-z-]*\).*/\1/p')
+              if [ "$t" = "$kind" ]; then ordered="$ordered $pid"; fi
+            done
+          done
+          for pid in $ordered; do
+            case "$seen" in *" $pid "*) continue ;; esac
+            seen="$seen$pid "
+            tr "\0" " " < "/proc/$pid/cmdline" | cut -c1-600 > "$d/cmdline-$pid.txt" 2> /dev/null || true
+            timeout 300 gdb -batch -nx -p "$pid" -ex "set pagination off" -ex "thread apply all bt 48" > "$d/bt-$pid.txt" 2>&1 || true
+          done
+        fi
+        for pid in $old; do kill -9 "$pid" 2> /dev/null || true; done
+      fi
+      sleep 2
+    done
+  ) &
+  watcher=$!
+  code=0
+  env RECORD_REPLAY_DRIVER=/w/backend/out/linux-recordreplay.so \
+      REPLAY_CHROMIUM_EXECUTABLE_PATH=/w/browser/replay-chromium/chrome \
+      REPLAY_LINKER_PATH=/w/backend/out/linker \
+      PLAYWRIGHT_JSON_OUTPUT_FILE=/w/logs/results-diag.json \
+      npx playwright test --config=playwright.config.ts --reporter=line,json --workers=2 \
+      --timeout=900000 --repeat-each="${RECORDING_DIAG_REPEAT:-12}" -g "$RECORDING_DIAG_GREP" \
+      > /w/logs/playwright-diag.log 2>&1 || code=$?
+  kill "$watcher" 2> /dev/null || true
+  grep -E "^  [0-9]+\) \[|^    Error|^    ErrorChain|^  [0-9]+ (passed|failed|flaky|skipped)" /w/logs/playwright-diag.log | cut -c1-300 | tail -60
+  ls /w/logs/diag
+  tar -cJf /w/logs/diag.tar.xz -C /w/logs diag
+  rm -rf /w/logs/diag
+  echo "diagnostic pass exit $code"
+  if [ -n "${RECORDING_SKIP_SUITES:-}" ]; then exit "$code"; fi
+  # The suites run with Playwright as it is.
+  for f in $(find /w/backend/node_modules -path "*playwright-core/lib/coreBundle.js"); do
+    sed -i 's/closeOrKill(9e5)/closeOrKill(options.__testHookBrowserCloseTimeout || DEFAULT_PLAYWRIGHT_TIMEOUT)/' "$f"
+  done
+fi
 # One pass of the suite as it is, then one with every recording also read
 # through the MCP tools, so a failure can be told from the other kind.
 run_suite() {
@@ -79,7 +158,7 @@ run_suite() {
       REPLAY_LINKER_PATH=/w/backend/out/linker \
       REPLAY_TEST_MCP="$mcp" \
       PLAYWRIGHT_JSON_OUTPUT_FILE="/w/logs/results-$name.json" \
-      npx playwright test --config=playwright.config.ts --reporter=line,json --workers="${RECORDING_WORKERS:-2}" \
+      npx playwright test --config=playwright.config.ts --reporter=line,json --workers="${RECORDING_WORKERS:-1}" \
       > "/w/logs/playwright-$name.log" 2>&1 || code=$?
   grep -E "^  [0-9]+\) \[|^    Error|^    ErrorChain|^    \+   \"|Tearing down|^  [0-9]+ (passed|failed|flaky|skipped)" "/w/logs/playwright-$name.log" | cut -c1-300 | tail -80
   if [ -d test-results ]; then
@@ -97,7 +176,9 @@ INNER
 status=0
 docker run --rm --name "$name" --privileged --security-opt seccomp=unconfined \
   --memory=22g --memory-swap=22g --cpus=7 --pids-limit=4096 --shm-size=2g \
-  -e BACKEND_REV="$rev" -e REPLAY_TEST_MCP="${REPLAY_TEST_MCP:-}" -e RECORDING_WORKERS="${RECORDING_WORKERS:-2}" \
+  -e BACKEND_REV="$rev" -e REPLAY_TEST_MCP="${REPLAY_TEST_MCP:-}" -e RECORDING_WORKERS="${RECORDING_WORKERS:-1}" \
+  -e RECORDING_DIAG_GREP="${RECORDING_DIAG_GREP:-}" -e RECORDING_DIAG_REPEAT="${RECORDING_DIAG_REPEAT:-}" \
+  -e RECORDING_SKIP_SUITES="${RECORDING_SKIP_SUITES:-}" \
   -v "$work:/w" "node:${node_version}-bookworm" bash /w/inner.sh || status=$?
 mkdir -p "$out"
 cp -r "$work/logs/." "$out/" 2> /dev/null || true
