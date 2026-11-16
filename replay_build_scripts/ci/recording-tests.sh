@@ -63,19 +63,29 @@ for target in linker driver; do
     grep -E " error|Error " "/w/logs/$target-build.log" | head -40; exit 1; }
 done
 ls -la /w/backend/out/linker /w/backend/out/linux-recordreplay.so
-echo "--- chromium-recording (MCP sweep: ${REPLAY_TEST_MCP:-off})"
 cd test/chromium-recording
 status=0
-env RECORD_REPLAY_DRIVER=/w/backend/out/linux-recordreplay.so \
-    REPLAY_CHROMIUM_EXECUTABLE_PATH=/w/browser/replay-chromium/chrome \
-    REPLAY_LINKER_PATH=/w/backend/out/linker \
-    PLAYWRIGHT_JSON_OUTPUT_FILE=/w/logs/results.json \
-    npx playwright test --config=playwright.config.ts --reporter=line,json --workers="${RECORDING_WORKERS:-2}" \
-    > /w/logs/playwright.log 2>&1 || status=$?
-grep -v '^        at \|^      at ' /w/logs/playwright.log | grep -v '^$' | tail -60 | cut -c1-300
-# What every MCP tool returned for every case.
-if [ -d test-results ]; then
-  find test-results -name mcp-sweep.json | tar -cJf /w/logs/mcp-sweeps.tar.xz -T - 2> /dev/null || true
+# One pass of the suite as it is, then one with every recording also read
+# through the MCP tools, so a failure can be told from the other kind.
+run_suite() {
+  local name=$1 mcp=$2 code=0
+  echo "--- chromium-recording: $name"
+  env RECORD_REPLAY_DRIVER=/w/backend/out/linux-recordreplay.so \
+      REPLAY_CHROMIUM_EXECUTABLE_PATH=/w/browser/replay-chromium/chrome \
+      REPLAY_LINKER_PATH=/w/backend/out/linker \
+      REPLAY_TEST_MCP="$mcp" \
+      PLAYWRIGHT_JSON_OUTPUT_FILE="/w/logs/results-$name.json" \
+      npx playwright test --config=playwright.config.ts --reporter=line,json --workers="${RECORDING_WORKERS:-2}" \
+      > "/w/logs/playwright-$name.log" 2>&1 || code=$?
+  grep -E "^  [0-9]+\) \[|^    Error|^    ErrorChain|^    \+   \"|Tearing down|^  [0-9]+ (passed|failed|flaky|skipped)" "/w/logs/playwright-$name.log" | cut -c1-300 | tail -80
+  if [ -d test-results ]; then
+    find test-results -name mcp-sweep.json | tar -cJf "/w/logs/mcp-sweeps-$name.tar.xz" -T - 2> /dev/null || true
+  fi
+  return "$code"
+}
+run_suite plain "" || status=$?
+if [ -n "${REPLAY_TEST_MCP:-}" ]; then
+  run_suite mcp 1 || status=$?
 fi
 exit "$status"
 INNER
