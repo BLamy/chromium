@@ -1,0 +1,91 @@
+#!/bin/bash
+# Run the backend's chromium-recording suite on the browser this build made.
+#
+#   recording-tests.sh <dir with the build's .tar.xz> <out dir for logs>
+#
+# It stands in for upstream's "Chromium Recording Tests" step (replayio/chromium
+# .buildkite/pipeline.yml), which takes the browser from S3 by build ID and the
+# engine from a released linker. This pipeline has neither: the browser is the
+# build step's Buildkite artifact, and the engine and driver are built here
+# from the backend branch under test.
+#
+#   REPLAY_BACKEND_REF   the branch or commit of replayio/backend to test with
+#   REPLAY_TEST_MCP      1 to also call the MCP tools on every case's recording
+#   RECORDING_WORKERS    Playwright workers (default 2)
+#
+# Everything runs in one container with a memory and CPU limit, so that a suite
+# that goes wrong cannot take the agent with it. It is privileged because two
+# cases make a time namespace with `unshare`.
+set -euo pipefail
+artifacts=$(readlink -f "$1")
+out=$(readlink -f "$2")
+: "${REPLAY_BACKEND_REF:?}"
+work=$(mktemp -d /tmp/crt158.XXXXXX)
+name="chromium158-recording-${BUILDKITE_JOB_ID:-$$}"
+cleanup() {
+  docker rm -f "$name" > /dev/null 2>&1 || true
+  # Files in it were made by root in the container.
+  docker run --rm -v "$work:/w" debian:bookworm-slim sh -c 'rm -rf /w/* /w/.[!.]*' > /dev/null 2>&1 || true
+  rm -rf "$work"
+}
+trap cleanup EXIT
+
+echo "--- backend at $REPLAY_BACKEND_REF"
+git init -q "$work/backend"
+git -C "$work/backend" remote add origin git@github.com:replayio/backend.git
+git -C "$work/backend" fetch -q --depth 1 origin "$REPLAY_BACKEND_REF"
+git -C "$work/backend" checkout -q FETCH_HEAD
+rev=$(git -C "$work/backend" rev-parse --short=12 HEAD)
+node_version=$(sed 's/^v//' "$work/backend/.nvmrc")
+echo "backend $rev, node $node_version"
+
+echo "--- browser"
+mkdir -p "$work/browser" "$work/logs"
+tar -C "$work/browser" -xJf "$artifacts"/*.tar.xz
+test -x "$work/browser/replay-chromium/chrome"
+
+cat > "$work/inner.sh" <<'INNER'
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive HOME=/root CI=1 PLAYWRIGHT_HEADLESS=true TZ=UTC
+echo "--- packages"
+apt-get update -qq > /dev/null
+apt-get install -y -qq build-essential zlib1g-dev python3 xz-utils procps util-linux git > /w/logs/apt.log 2>&1
+cd /w/backend
+echo "--- pnpm install"
+npx --yes pnpm@10.11.0 install --frozen-lockfile > /w/logs/pnpm-install.log 2>&1 || { tail -30 /w/logs/pnpm-install.log; exit 1; }
+# The libraries a Chromium needs, as Playwright lists them for this distribution.
+(cd test/chromium-recording && npx playwright install-deps chromium > /w/logs/install-deps.log 2>&1) || { tail -20 /w/logs/install-deps.log; exit 1; }
+echo "--- engine and driver"
+mkdir -p /w/backend/out
+printf '#include "recording/Recording.h"\nconst char recordreplay::gLinkerVersion[] = "linker-linux-26552-%s";\n' "$BACKEND_REV" > /w/backend/out/LinkerVersion.cpp
+for target in linker driver; do
+  make -C src/cpp "$target" CXX=g++ PLATFORM=linux OUT_DIR=/w/backend/out -j"$(nproc)" EXTRA_CXXFLAGS=-Wformat-nonliteral > "/w/logs/$target-build.log" 2>&1 || {
+    grep -E " error|Error " "/w/logs/$target-build.log" | head -40; exit 1; }
+done
+ls -la /w/backend/out/linker /w/backend/out/linux-recordreplay.so
+echo "--- chromium-recording (MCP sweep: ${REPLAY_TEST_MCP:-off})"
+cd test/chromium-recording
+status=0
+env RECORD_REPLAY_DRIVER=/w/backend/out/linux-recordreplay.so \
+    REPLAY_CHROMIUM_EXECUTABLE_PATH=/w/browser/replay-chromium/chrome \
+    REPLAY_LINKER_PATH=/w/backend/out/linker \
+    PLAYWRIGHT_JSON_OUTPUT_FILE=/w/logs/results.json \
+    npx playwright test --config=playwright.config.ts --reporter=line,json --workers="${RECORDING_WORKERS:-2}" \
+    > /w/logs/playwright.log 2>&1 || status=$?
+grep -v '^        at \|^      at ' /w/logs/playwright.log | grep -v '^$' | tail -60 | cut -c1-300
+# What every MCP tool returned for every case.
+if [ -d test-results ]; then
+  find test-results -name mcp-sweep.json | tar -cJf /w/logs/mcp-sweeps.tar.xz -T - 2> /dev/null || true
+fi
+exit "$status"
+INNER
+
+status=0
+docker run --rm --name "$name" --privileged --security-opt seccomp=unconfined \
+  --memory=22g --memory-swap=22g --cpus=7 --pids-limit=4096 --shm-size=2g \
+  -e BACKEND_REV="$rev" -e REPLAY_TEST_MCP="${REPLAY_TEST_MCP:-}" -e RECORDING_WORKERS="${RECORDING_WORKERS:-2}" \
+  -v "$work:/w" "node:${node_version}-bookworm" bash /w/inner.sh || status=$?
+mkdir -p "$out"
+cp -r "$work/logs/." "$out/" 2> /dev/null || true
+gzip -f "$out"/*.log 2> /dev/null || true
+exit "$status"

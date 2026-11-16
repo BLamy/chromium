@@ -83,3 +83,42 @@ steps:
       "$$SCRIPTS/ci/package-artifacts.sh" "$$OUT/build_id/linux/x86_64"
       ( cd "$$OUT" && buildkite-agent artifact upload "logs/**;build_id/linux/x86_64/**" )
       df -h "$$HOME"
+
+  # The backend's chromium-recording suite on the browser just built, with the
+  # engine and driver built from the backend branch under test, and every
+  # case's recording also read through the MCP tools (REPLAY_TEST_MCP). It
+  # stands in for upstream's "Chromium Recording Tests" step: see
+  # replay_build_scripts/ci/recording-tests.sh.
+  - label: "📝 Chromium 158 recording tests + MCP sweep (linux-x86_64)"
+    key: "chromium-recording-linux-x86_64"
+    depends_on:
+      - "build-chromium-linux-x86_64"
+    timeout_in_minutes: 180
+    plugins:
+      - thedyrt/skip-checkout#v0.1.1: ~
+    env:
+      # replayio/backend: the tests PR stacked on the linker PR.
+      REPLAY_BACKEND_REF: "chromium-158-tests"
+      REPLAY_TEST_MCP: "1"
+      RECORDING_WORKERS: "2"
+    agents:
+      - "2xlarge=true"
+      - "build-runtime=true"
+      - "os=linux"
+      - "queue=default"
+    concurrency: 1
+    concurrency_group: "chromium-158/linux-x86_64"
+    command: |
+      set -euo pipefail
+      curl -fsS "https://raw.githubusercontent.com/BLamy/chromium/$$BUILDKITE_COMMIT/replay_build_scripts/ci/bootstrap.sh" -o ci-bootstrap.sh
+      bash ci-bootstrap.sh
+      SCRIPTS=.ci-boot/replay_build_scripts
+      IN="recording-in-$$BUILDKITE_JOB_ID"
+      OUT="recording-out-$$BUILDKITE_JOB_ID"
+      mkdir -p "$$IN" "$$OUT/recording-logs"
+      buildkite-agent artifact download "build_id/linux/x86_64/*" "$$IN/" --step "build-chromium-linux-x86_64"
+      status=0
+      "$$SCRIPTS/ci/recording-tests.sh" "$$IN/build_id/linux/x86_64" "$$OUT/recording-logs" || status=$$?
+      ( cd "$$OUT" && buildkite-agent artifact upload "recording-logs/**" ) || true
+      rm -rf "$$IN" "$$OUT"
+      exit "$$status"
