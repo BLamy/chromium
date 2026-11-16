@@ -17,6 +17,11 @@
 #include "base/power_monitor/power_monitor.h"
 #include "base/power_monitor/power_monitor_source.h"
 
+namespace recordreplay {
+// Declared here and not in the header: see base/record_replay.cc.
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
+
 namespace base {
 
 PowerThermalObserver::DeviceThermalState
@@ -50,6 +55,21 @@ void PowerMonitorDeviceSource::OnBatteryStateReceived(
 }
 
 void PowerMonitorDeviceSource::PlatformInit() {
+  // [RecordReplay] In a browser process the driver re-runs when replaying,
+  // IOKit's sleep/wake and power-source callbacks are plain C functions it
+  // calls from the run loop: nothing records them, so what they do (read the
+  // battery, tell the observers, post tasks) happened when recording and never
+  // in a replay. Such a process already has no battery (see
+  // battery_level_provider_mac.mm), and it is not told of sleep or of a change
+  // of power source either.
+  if (recordreplay::IsSameOnBothSides()) {
+    battery_level_provider_ = BatteryLevelProvider::Create();
+    GetBatteryState();
+    thermal_state_observer_ = std::make_unique<ThermalStateObserverMac>(
+        BindRepeating(&PowerMonitorSource::ProcessThermalEvent),
+        BindRepeating(&PowerMonitorSource::ProcessSpeedLimitEvent));
+    return;
+  }
   power_manager_port_ = IORegisterForSystemPower(
       this,
       mac::ScopedIONotificationPortRef::Receiver(notification_port_).get(),
