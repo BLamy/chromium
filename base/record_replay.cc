@@ -26,7 +26,9 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/json/json_writer.h"
 #include "base/values.h"
 
@@ -348,6 +350,17 @@ BASE_EXPORT void SetFinishRecordingInterrupter(void (*interrupter)()) {
   gFinishRecordingInterrupter.store(interrupter, std::memory_order_release);
 }
 
+namespace {
+
+void ReportUnfinishedRecording() {
+  Print("[RuntimeError] The recording wasn't finished: main thread phase %d, "
+        "looks %d, not allowed %d, off the main thread %d.",
+        gMainThreadPhase.load(), gFinishLooks.load(),
+        gFinishLooksNotAllowed.load(), gFinishLooksNotMain.load());
+}
+
+}  // namespace
+
 void FinishRecording() {
   if (!Attached() || !gRecordReplayFinishRecording) {
     return;
@@ -387,13 +400,25 @@ void FinishRecording() {
     // flushed.
     return;
   }
-  // The main thread ends the process when it has finished the recording. If
-  // it hasn't after a while, say where it was last seen.
+  // The main thread ends the process when it has finished the recording.
+  // Until then this thread goes on serving its queue where it has one, and
+  // does not just sleep, as it did and as 108 does. It is usually the IO
+  // thread, and the main thread can be waiting, through another thread, for
+  // something only this one delivers: closing a popup's frame waits for the
+  // compositor thread to let go of its frame sink, the compositor thread was
+  // in a synchronous Flush to the GPU channel, and that call's reply or its
+  // disconnection arrives here. With this thread asleep the three waited on
+  // each other and the renderer outlived its browser, recording unfinished.
+  if (base::RunLoop::IsRunningOnCurrentThread() &&
+      base::SingleThreadTaskRunner::HasCurrentDefault()) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&ReportUnfinishedRecording),
+        base::Seconds(3));
+    base::RunLoop(base::RunLoop::Type::kNestableTasksAllowed).Run();
+  }
+  // If it hasn't after a while, say where it was last seen.
   sleep(3);
-  Print("[RuntimeError] The recording wasn't finished: main thread phase %d, "
-        "looks %d, not allowed %d, off the main thread %d.",
-        gMainThreadPhase.load(), gFinishLooks.load(),
-        gFinishLooksNotAllowed.load(), gFinishLooksNotMain.load());
+  ReportUnfinishedRecording();
   sleep(UINT32_MAX);
 }
 
