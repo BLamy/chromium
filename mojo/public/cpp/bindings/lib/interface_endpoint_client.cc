@@ -1019,6 +1019,8 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
   const bool leaked =
       RecordReplayLeaked("InterfaceEndpointClient::HandleValidatedMessage leaked");
   if (message->has_flag(Message::kFlagExpectsResponse)) {
+    recordreplay::Assert(
+        "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage B");
     has_response = true;
     if (!mojo::internal::ControlMessageHandler::IsControlMessage(message) &&
         leaked) {
@@ -1029,6 +1031,8 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
     auto responder = std::make_unique<internal::ResponderThunk>(
         weak_ptr_factory_.GetWeakPtr(), task_runner_);
     if (mojo::internal::ControlMessageHandler::IsControlMessage(message)) {
+      recordreplay::Assert(
+          "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage C");
       return control_message_handler_.AcceptWithResponder(message,
                                                           std::move(responder));
     } else {
@@ -1046,6 +1050,9 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
 
     if (message->has_flag(Message::kFlagIsSync)) {
       auto it = sync_responses_.find(request_id);
+      recordreplay::Assert(
+          "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage E %d",
+          it == sync_responses_.end());
       if (it == sync_responses_.end()) {
         return false;
       }
@@ -1062,6 +1069,8 @@ bool InterfaceEndpointClient::HandleValidatedMessage(Message* message) {
 
         it->second->response = std::move(*message);
         *it->second->response_received = true;
+        recordreplay::Assert(
+            "[RUN-2229-2231] InterfaceEndpointClient::HandleValidatedMessage H");
         return true;
       }
 

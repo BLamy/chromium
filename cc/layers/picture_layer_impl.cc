@@ -656,11 +656,18 @@ void PictureLayerImpl::UpdateRasterSourceInternal(
     tilings_->UpdateTilingsToCurrentRasterSourceForActivation(
         raster_source_, pending_set, invalidation_, MinimumContentsScale(),
         MaximumContentsScale());
+    recordreplay::Assert(
+        "[RUN-2104-2296] PictureLayerImpl::UpdateRasterSource D %d",
+        raster_source_->HasOneRef());
   } else {
     tilings_->UpdateTilingsToCurrentRasterSourceForCommit(
         raster_source_, invalidation_, MinimumContentsScale(),
         MaximumContentsScale());
   }
+
+  recordreplay::Assert(
+      "[RUN-2104-2296] PictureLayerImpl::UpdateRasterSource E %d",
+      raster_source_->HasOneRef());
 }
 
 void PictureLayerImpl::SetRasterSourceForTesting(

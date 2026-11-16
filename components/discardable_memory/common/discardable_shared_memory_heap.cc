@@ -428,6 +428,9 @@ void DiscardableSharedMemoryHeap::RegisterSpan(Span* span) {
 
 void DiscardableSharedMemoryHeap::UnregisterSpan(Span* span) {
   CHECK_EQ(spans_[SpanBeginKey(*span)], span);
+  recordreplay::Assert(
+      "[TT-1252-1255] DiscardableSharedMemoryHeap::UnregisterSpan %d",
+      span->RecordReplayId());
   spans_.erase(SpanBeginKey(*span));
   if (span->num_blocks_ > 1u) {
     CHECK_EQ(spans_[SpanEndKey(*span)], span);
