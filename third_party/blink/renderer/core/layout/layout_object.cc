@@ -5438,10 +5438,16 @@ void LayoutObject::SetShouldCheckForPaintInvalidation() {
 }
 
 void LayoutObject::SetShouldCheckForPaintInvalidationWithoutLayoutChange() {
+  recordreplay::Assert(
+      "[RUN-2300] LayoutObject::SetShouldCheckForPaintInvalidationWithoutGeometryChange %d",
+      RecordReplayId());
   NOT_DESTROYED();
   if (ShouldCheckForPaintInvalidation()) {
     return;
   }
+  recordreplay::Assert(
+      "[RUN-2300] LayoutObject::SetShouldCheckForPaintInvalidationWithoutGeometryChange #1 %d",
+      RecordReplayId());
   GetFrameView()->ScheduleVisualUpdateForPaintInvalidationIfNeeded();
 
   should_check_for_paint_invalidation_ = true;

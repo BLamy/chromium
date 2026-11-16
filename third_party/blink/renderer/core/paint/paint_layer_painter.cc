@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/record_replay.h"
 #include "cc/layers/view_transition_content_layer.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -707,6 +708,7 @@ PaintResult PaintLayerPainter::PaintChildren(
     }
   }
 
+  recordreplay::Assert("[RUN-1975-2008] PaintLayerPainter::PaintChildren C");
   return result;
 }
 

@@ -243,6 +243,8 @@ void AnimationTimeline::MarkAnimationsCompositorPending(bool source_changed) {
   for (const auto& animation : animations_) {
     animation->SetCompositorPending(reason);
   }
+  recordreplay::Assert(
+      "[RUN-1641] AnimationTimeline::MarkAnimationsCompositorPending Done");
 }
 
 void AnimationTimeline::MarkPendingIfCompositorPropertyAnimationChanges(

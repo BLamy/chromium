@@ -2331,6 +2331,14 @@ OutOfFlowLayoutPart::TryCalculateOffset(
   const PhysicalSize container_physical_content_size =
       ToPhysicalSize(container_rect.size,
                      node_info.default_writing_direction.GetWritingMode());
+  recordreplay::Assert(
+      "[RUN-1239-1435] NGOutOfFlowLayoutPart::TryCalculateOffset %d %d %d %s",
+      container_physical_content_size.width.RawValue(),
+      container_physical_content_size.height.RawValue(),
+      ToLogicalSize(container_physical_content_size,
+                    candidate_writing_direction.GetWritingMode())
+          .block_size.RawValue(),
+      node_info.node.ToString().Utf8().c_str());
 
   // Create a constraint space to resolve border/padding/insets.
   const ConstraintSpace space = ([&]() -> ConstraintSpace {

@@ -28,6 +28,7 @@
 
 #include "third_party/blink/renderer/core/layout/layout_image_resource.h"
 
+#include "base/record_replay.h"
 #include "third_party/blink/public/resources/grit/blink_image_resources.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/layout/layout_image.h"
@@ -234,6 +235,7 @@ scoped_refptr<Image> LayoutImageResource::GetImage(
                                     .ResolveColorSchemeForEmbedding(&style);
   const SVGImageViewInfo* view_info = SVGImageForContainer::CreateViewInfo(
       *svg_image, layout_object_->GetNode());
+  recordreplay::Assert("[RUN-658-1901] LayoutImageResource::GetImage D");
   return SVGImageForContainer::Create(*svg_image, container_size,
                                       style.EffectiveZoom(), view_info,
                                       preferred_color_scheme);
