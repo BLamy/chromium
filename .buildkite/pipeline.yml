@@ -98,11 +98,16 @@ steps:
     priority: 1
     plugins:
       - thedyrt/skip-checkout#v0.1.1: ~
+    # The Chromium 108 pipeline's build agent, the one job of this pipeline
+    # that runs there: its AWS role is the one that may write to the build
+    # buckets (the 158 build agent's, buildkite-deploy, is refused: build 52).
+    # The job downloads one archive and uploads it; it builds nothing and
+    # touches no checkout on that agent.
     agents:
-      - "2xlarge=true"
       - "build-runtime=true"
+      - "runtimeType=chromiumbuild"
       - "os=linux"
-      - "queue=default"
+      - "queue=runtime"
     command: |
       set -euo pipefail
       curl -fsS "https://raw.githubusercontent.com/BLamy/chromium/$$BUILDKITE_COMMIT/replay_build_scripts/ci/bootstrap.sh" -o ci-bootstrap.sh
