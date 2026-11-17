@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/record_replay.h"
 #include "base/task/sequence_manager/thread_controller.h"
 
 #include <atomic>
@@ -125,6 +126,16 @@ void ThreadController::EnableMessagePumpTimeKeeperMetrics(
     bool wall_time_based_metrics_enabled_for_testing) {
   // MessagePump runs too fast, a low-res clock would result in noisy metrics.
   if (!base::TimeTicks::IsHighResolution()) {
+    return;
+  }
+
+  // Not when recording or replaying. Once on, the pump reads the clock at the
+  // end of each phase, and a browser process turns it on from its first idle:
+  // on the UI thread there, and on the IO thread by a task posted from there.
+  // The first idle of a Cocoa pump can come where nothing is recorded, and
+  // then that task runs on the IO thread when it is noticed, at one point of
+  // the thread's recorded calls when recording and another when replaying.
+  if (recordreplay::IsRecordingOrReplaying()) {
     return;
   }
 
