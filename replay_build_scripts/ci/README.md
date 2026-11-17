@@ -46,6 +46,13 @@ step checks the repository out: a clone is tens of GB. The build step then:
    `replay_build_scripts/linux_args.gn`, runs `gn gen` and builds `chrome`.
 5. `package-artifacts.sh`: archives the browser as `<build id>.tar.xz`.
 
+A second step, which waits only for the build, runs `publish-artifacts.sh`:
+it copies the archive to Replay's S3 buckets with the commands upstream's
+`upload_build_artifacts.mjs` runs, which puts it at
+`https://static.replay.io/downloads/<build id>.tar.xz`, and, when the agent
+has a `GITHUB_TOKEN`, attaches it to a GitHub release on this repository
+tagged with the build id. The links are in the build's annotation.
+
 The artifacts are `build_id/linux/x86_64/build_id`,
 `build_id/linux/x86_64/<build id>.tar.xz`, and `logs/build.log.gz` with
 `logs/failed-steps.txt` (every failed step's output, when there are any).
@@ -74,9 +81,10 @@ work on the agent gets the CPU first.
   uid of whoever built it, because agents differ.
 - **Arguments.** `linux_args.gn` is the argument set the 158 port's Linux build
   uses.
-- **No EngFlow, no buildevents, no S3.** The agent has none of those secrets
-  wired up for this pipeline. `package-artifacts.sh` replaces
-  `upload-artifacts.sh`.
+- **No EngFlow, no buildevents, no symbols.** The agent has none of those
+  secrets wired up for this pipeline. `package-artifacts.sh` and
+  `publish-artifacts.sh` replace `upload-artifacts.sh`; the symbols archive
+  it also builds needs a backend checkout beside the tree and is not made.
 - **The driver** is downloaded by `build.cjs` exactly as upstream does, from
   `https://static.replay.io/downloads/linux-recordreplay.tgz` (public). It is
   embedded in the browser but is the 108-era driver: enough to compile and

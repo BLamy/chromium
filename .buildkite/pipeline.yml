@@ -11,8 +11,9 @@
 #  - EngFlow remote execution (the aws-sm secrets, RBE_*): 158 compiles on the
 #    agent. This is why a cold build takes hours where 108's takes minutes.
 #  - buildevents / be_cmd: it needs Honeycomb secrets.
-#  - The S3 upload, and the E2E and recording test steps that download from it:
-#    the build is kept as a Buildkite artifact instead.
+#  - The symbols archive and the E2E test step. The build is kept as a
+#    Buildkite artifact, which the recording tests download, and published by
+#    its own step.
 env:
   FORCE_COLOR: 1
   GIT_TERMINAL_PROMPT: 0
@@ -83,6 +84,37 @@ steps:
       "$$SCRIPTS/ci/package-artifacts.sh" "$$OUT/build_id/linux/x86_64"
       ( cd "$$OUT" && buildkite-agent artifact upload "logs/**;build_id/linux/x86_64/**" )
       df -h "$$HOME"
+
+  # Publishes the archive the build step kept: to static.replay.io, with the
+  # S3 commands upstream's upload_build_artifacts.mjs runs, and as a GitHub
+  # release on this repository when the agent has a GITHUB_TOKEN. See
+  # replay_build_scripts/ci/publish-artifacts.sh. It does not wait for the
+  # recording tests, and they do not wait for it.
+  - label: "📦 Publish Chromium 158 (linux-x86_64)"
+    key: "publish-chromium-linux-x86_64"
+    depends_on:
+      - "build-chromium-linux-x86_64"
+    timeout_in_minutes: 30
+    priority: 1
+    plugins:
+      - thedyrt/skip-checkout#v0.1.1: ~
+    agents:
+      - "2xlarge=true"
+      - "build-runtime=true"
+      - "os=linux"
+      - "queue=default"
+    command: |
+      set -euo pipefail
+      curl -fsS "https://raw.githubusercontent.com/BLamy/chromium/$$BUILDKITE_COMMIT/replay_build_scripts/ci/bootstrap.sh" -o ci-bootstrap.sh
+      bash ci-bootstrap.sh
+      SCRIPTS=.ci-boot/replay_build_scripts
+      IN="publish-in-$$BUILDKITE_JOB_ID"
+      mkdir -p "$$IN"
+      buildkite-agent artifact download "build_id/linux/x86_64/*" "$$IN/" --step "build-chromium-linux-x86_64"
+      status=0
+      "$$SCRIPTS/ci/publish-artifacts.sh" "$$IN/build_id/linux/x86_64" || status=$$?
+      rm -rf "$$IN"
+      exit "$$status"
 
   # The backend's chromium-recording suite on the browser just built, with the
   # engine and driver built from the backend branch under test, and every
