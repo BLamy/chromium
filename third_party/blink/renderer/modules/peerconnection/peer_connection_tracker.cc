@@ -7,12 +7,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "base/record_replay.h"
 
 #include "base/check.h"
 #include "base/check_op.h"
@@ -633,15 +636,33 @@ void PeerConnectionTracker::Bind(
                                           TaskType::kMiscPlatformAPI));
 }
 
+// The registered peer connections with their local IDs. The map is keyed by
+// pointer, so its order is not the same when replaying as it was when
+// recording; a walk that does something for every connection goes in the order
+// of the IDs instead.
+static std::vector<std::pair<RTCPeerConnectionHandler*, int>>
+RecordReplayOrderedPeerConnections(
+    const HashMap<RTCPeerConnectionHandler*, int>& map) {
+  std::vector<std::pair<RTCPeerConnectionHandler*, int>> entries;
+  entries.reserve(map.size());
+  for (const auto& pair : map) {
+    entries.emplace_back(pair.key, pair.value);
+  }
+  if (recordreplay::IsRecordingOrReplaying()) {
+    std::sort(entries.begin(), entries.end(),
+              [](const auto& a, const auto& b) { return a.second < b.second; });
+  }
+  return entries;
+}
+
 void PeerConnectionTracker::OnSuspend() {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
   // Closing peer connections fires events. If JavaScript triggers the creation
   // or garbage collection of more peer connections, this would invalidate the
   // |peer_connection_local_id_map_| iterator. Therefor we iterate on a copy.
-  PeerConnectionLocalIdMap peer_connection_map_copy =
-      peer_connection_local_id_map_;
-  for (const auto& pair : peer_connection_map_copy) {
-    RTCPeerConnectionHandler* peer_connection_handler = pair.key;
+  for (const auto& pair :
+       RecordReplayOrderedPeerConnections(peer_connection_local_id_map_)) {
+    RTCPeerConnectionHandler* peer_connection_handler = pair.first;
     if (!peer_connection_local_id_map_.Contains(peer_connection_handler)) {
       // Skip peer connections that have been unregistered during this method
       // call. Avoids use-after-free.
@@ -655,8 +676,9 @@ void PeerConnectionTracker::OnThermalStateChange(
     mojom::blink::DeviceThermalState thermal_state) {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
   current_thermal_state_ = thermal_state;
-  for (auto& entry : peer_connection_local_id_map_) {
-    entry.key->OnThermalStateChange(current_thermal_state_);
+  for (const auto& entry :
+       RecordReplayOrderedPeerConnections(peer_connection_local_id_map_)) {
+    entry.first->OnThermalStateChange(current_thermal_state_);
   }
 }
 
@@ -704,24 +726,26 @@ void PeerConnectionTracker::StopDataChannelLog(int peer_connection_local_id) {
 void PeerConnectionTracker::GetStandardStats() {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
 
-  for (const auto& pair : peer_connection_local_id_map_) {
+  for (const auto& pair :
+       RecordReplayOrderedPeerConnections(peer_connection_local_id_map_)) {
     Vector<std::unique_ptr<blink::RTCRtpSenderPlatform>> senders =
-        pair.key->GetPlatformSenders();
+        pair.first->GetPlatformSenders();
     webrtc::scoped_refptr<InternalStandardStatsObserver> observer(
         new webrtc::RefCountedObject<InternalStandardStatsObserver>(
-            pair.key->GetWeakPtr(), pair.value, main_thread_task_runner_,
+            pair.first->GetWeakPtr(), pair.second, main_thread_task_runner_,
             std::move(senders),
             CrossThreadBindOnce(&PeerConnectionTracker::AddStandardStats,
                                 WrapCrossThreadWeakPersistent(this))));
-    pair.key->GetStandardStatsForTracker(observer);
+    pair.first->GetStandardStatsForTracker(observer);
   }
 }
 
 void PeerConnectionTracker::GetCurrentState() {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
 
-  for (const auto& pair : peer_connection_local_id_map_) {
-    pair.key->EmitCurrentStateForTracker();
+  for (const auto& pair :
+       RecordReplayOrderedPeerConnections(peer_connection_local_id_map_)) {
+    pair.first->EmitCurrentStateForTracker();
   }
 }
 
