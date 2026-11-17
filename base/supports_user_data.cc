@@ -4,16 +4,58 @@
 
 #include "base/supports_user_data.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "base/auto_reset.h"
 #include "base/feature_list.h"
+#include "base/record_replay.h"
 #include "base/sequence_checker.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
+namespace recordreplay {
+// True in a process the driver records as it is and runs again the same way to
+// replay it, such as an Electron app's main process. base/record_replay.cc.
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
+
 namespace base {
+
+namespace {
+
+// Whether what this process does has to come out the same a second time: it is
+// being recorded or replayed, or is a process the driver runs again to replay
+// it (an Electron app's main process), which answers false to the first.
+bool RecordReplayKeepsOrder() {
+  return recordreplay::IsRecordingOrReplaying() ||
+         recordreplay::IsSameOnBothSides();
+}
+
+}  // namespace
 
 struct SupportsUserData::Impl {
   // Externally-defined data accessible by key.
   absl::flat_hash_map<const void*, std::unique_ptr<Data>> user_data_;
+
+  // When recording or replaying, the keys in the order they were first set.
+  // The map is keyed by pointer, so it is walked in one order when recording
+  // and another when replaying, and what the data do as they are destroyed
+  // (closing message pipes, for one) has to come in the same order both
+  // times. A key that was removed stays here and is skipped.
+  std::vector<const void*> record_replay_order_;
+
+  // Destroys every entry, in the order the keys were set when that is known.
+  static void Destroy(
+      absl::flat_hash_map<const void*, std::unique_ptr<Data>> user_data,
+      std::vector<const void*> order) {
+    for (const void* key : order) {
+      auto it = user_data.find(key);
+      if (it != user_data.end()) {
+        auto owned_data = std::move(it->second);
+        user_data.erase(it);
+      }
+    }
+  }
 };
 
 std::unique_ptr<SupportsUserData::Data> SupportsUserData::Data::Clone() {
@@ -73,6 +115,10 @@ void SupportsUserData::SetUserData(const void* key,
   // Avoid null keys; they are too vulnerable to collision.
   DCHECK(key);
   if (data.get()) {
+    if (RecordReplayKeepsOrder() &&
+        !impl_->user_data_.contains(key)) {
+      impl_->record_replay_order_.push_back(key);
+    }
     impl_->user_data_[key] = std::move(data);
   } else {
     RemoveUserData(key);
@@ -106,6 +152,24 @@ void SupportsUserData::DetachFromSequence() {
 void SupportsUserData::CloneDataFrom(const SupportsUserData& other) {
   CHECK(!in_clear_);
   CHECK(!other.in_clear_);
+  if (RecordReplayKeepsOrder()) {
+    // In the order the keys were set, for the same reason as in Impl.
+    // A key removed and set again is in the list twice.
+    std::vector<const void*> cloned;
+    for (const void* key : other.impl_->record_replay_order_) {
+      auto it = other.impl_->user_data_.find(key);
+      if (it == other.impl_->user_data_.end() ||
+          std::ranges::find(cloned, key) != cloned.end()) {
+        continue;
+      }
+      cloned.push_back(key);
+      auto cloned_data = it->second->Clone();
+      if (cloned_data) {
+        SetUserData(key, std::move(cloned_data));
+      }
+    }
+    return;
+  }
   for (const auto& data_pair : other.impl_->user_data_) {
     auto cloned_data = data_pair.second->Clone();
     if (cloned_data) {
@@ -128,6 +192,9 @@ SupportsUserData::~SupportsUserData() {
   //   `SupportsUserData::Data` instances is non-deterministic.
   absl::flat_hash_map<const void*, std::unique_ptr<Data>> user_data;
   impl_->user_data_.swap(user_data);
+  std::vector<const void*> order;
+  impl_->record_replay_order_.swap(order);
+  Impl::Destroy(std::move(user_data), std::move(order));
 }
 
 void SupportsUserData::ClearAllUserData() {
@@ -140,6 +207,9 @@ void SupportsUserData::ClearAllUserData() {
   // local.
   absl::flat_hash_map<const void*, std::unique_ptr<Data>> user_data;
   impl_->user_data_.swap(user_data);
+  std::vector<const void*> order;
+  impl_->record_replay_order_.swap(order);
+  Impl::Destroy(std::move(user_data), std::move(order));
 }
 
 size_t SupportsUserData::UserDataCount() const {
