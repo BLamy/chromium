@@ -20,6 +20,12 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 
+namespace recordreplay {
+// True in a process the driver records as it is and runs again the same way to
+// replay it, such as an Electron app's main process. base/record_replay.cc.
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
+
 namespace base::sequence_manager::internal {
 
 namespace {
@@ -135,7 +141,11 @@ void ThreadController::EnableMessagePumpTimeKeeperMetrics(
   // The first idle of a Cocoa pump can come where nothing is recorded, and
   // then that task runs on the IO thread when it is noticed, at one point of
   // the thread's recorded calls when recording and another when replaying.
-  if (recordreplay::IsRecordingOrReplaying()) {
+  //
+  // The process that does this is one the driver runs again to replay it, and
+  // such a process answers false to IsRecordingOrReplaying().
+  if (recordreplay::IsRecordingOrReplaying() ||
+      recordreplay::IsSameOnBothSides()) {
     return;
   }
 

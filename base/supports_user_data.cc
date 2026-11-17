@@ -13,7 +13,25 @@
 #include "base/sequence_checker.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
+namespace recordreplay {
+// True in a process the driver records as it is and runs again the same way to
+// replay it, such as an Electron app's main process. base/record_replay.cc.
+BASE_EXPORT bool IsSameOnBothSides();
+}  // namespace recordreplay
+
 namespace base {
+
+namespace {
+
+// Whether what this process does has to come out the same a second time: it is
+// being recorded or replayed, or is a process the driver runs again to replay
+// it (an Electron app's main process), which answers false to the first.
+bool RecordReplayKeepsOrder() {
+  return recordreplay::IsRecordingOrReplaying() ||
+         recordreplay::IsSameOnBothSides();
+}
+
+}  // namespace
 
 struct SupportsUserData::Impl {
   // Externally-defined data accessible by key.
@@ -97,7 +115,7 @@ void SupportsUserData::SetUserData(const void* key,
   // Avoid null keys; they are too vulnerable to collision.
   DCHECK(key);
   if (data.get()) {
-    if (recordreplay::IsRecordingOrReplaying() &&
+    if (RecordReplayKeepsOrder() &&
         !impl_->user_data_.contains(key)) {
       impl_->record_replay_order_.push_back(key);
     }
@@ -134,7 +152,7 @@ void SupportsUserData::DetachFromSequence() {
 void SupportsUserData::CloneDataFrom(const SupportsUserData& other) {
   CHECK(!in_clear_);
   CHECK(!other.in_clear_);
-  if (recordreplay::IsRecordingOrReplaying()) {
+  if (RecordReplayKeepsOrder()) {
     // In the order the keys were set, for the same reason as in Impl.
     // A key removed and set again is in the list twice.
     std::vector<const void*> cloned;
