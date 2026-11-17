@@ -35,6 +35,13 @@ steps:
       CHROMIUM_CHECKOUT_PREPARE: "1"
       # Build past failed steps, so one build reports every compile error.
       REPLAY_NINJA_KEEP_GOING: "0"
+      # The driver the browser embeds: the one built from replayio/backend's
+      # Chromium 158 stack (branch chromium-158-publish, #13872) and published
+      # under its revision by build-driver-linker #4979, with its linker
+      # (builds/linker-linux-16626-d5b78db34480). Without this the build takes
+      # the unversioned latest driver, which is master's: a recording made
+      # with that browser names a linker that does not replay Chromium 158.
+      DRIVER_REVISION: "d5b78db34480"
     # The one agent with 8 cores and the disk for a Chromium checkout that the
     # Chromium 108 pipeline does not use (that one is runtimeType=chromiumbuild).
     agents:
