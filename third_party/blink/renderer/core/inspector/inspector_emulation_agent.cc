@@ -6,6 +6,7 @@
 
 #include <cmath>
 
+#include "base/record_replay.h"
 #include "base/feature_list.h"
 #include "third_party/blink/public/common/buildflags.h"
 #include "third_party/blink/public/common/features.h"
@@ -1057,6 +1058,8 @@ protocol::Response InspectorEmulationAgent::setUserAgentOverride(
 
 protocol::Response InspectorEmulationAgent::setLocaleOverride(
     std::optional<String> maybe_locale) {
+  recordreplay::Assert(
+      "[RUN-1537-1538] InspectorEmulationAgent::setLocaleOverride A");
   if (!IsTrustedClient()) {
     return protocol::Response::ServerError(
         "Locale override is only available to trusted clients");

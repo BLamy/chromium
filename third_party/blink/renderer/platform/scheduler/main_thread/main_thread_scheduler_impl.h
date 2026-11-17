@@ -825,8 +825,14 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
     Vector<AgentGroupSchedulerScope> agent_group_scheduler_scope_stack;
 
-    Persistent<GCedHeapHashSet<WeakMember<AgentGroupSchedulerImpl>>>
+    // Ordered by record/replay id, and kept alive while recording or
+    // replaying, so that walking the set does not depend on when GC runs.
+    Persistent<GCedHeapHashSet<
+        WeakMember<AgentGroupSchedulerImpl>,
+        WeakMemberHashTraitsRecordReplayId<AgentGroupSchedulerImpl>>>
         agent_group_schedulers;
+    Persistent<GCedHeapHashSet<Member<AgentGroupSchedulerImpl>>>
+        replay_agent_group_schedulers_strong;
     // Task queues that have been detached from their scheduler and may have
     // pending tasks that need to run.
     // In the order they were added: ShutdownEmptyDetachedTaskQueues() takes each
