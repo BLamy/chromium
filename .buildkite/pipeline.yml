@@ -1,31 +1,22 @@
 # One-off jobs against the backend's PR preview (replayio/backend #13872,
 # namespace chromium-158-publish). Not the build pipeline: that is the
 # branch chromium-158-buildkite.
+#
+# The preview's agent is only addressable from inside the cluster, so these
+# jobs run on the agents that are pods there (build 56: the two EC2 agents
+# the build pipeline uses resolve none of its names).
 steps:
-  - label: "🔎 Can this agent reach the PR preview? (default queue)"
-    key: "probe-default"
+  - label: "🔎 Can this agent reach the PR preview? (in-cluster, light queue)"
+    key: "probe-light"
     timeout_in_minutes: 5
     plugins:
       - thedyrt/skip-checkout#v0.1.1: ~
     agents:
-      - "2xlarge=true"
-      - "build-runtime=true"
-      - "os=linux"
-      - "queue=default"
-    command: &probe |
-      for h in agent.chromium-158-publish.svc.cluster.local agent.chromium-158-publish.replay.local agent-chromium-158-publish.tail8ddab.ts.net graphql-api.default.svc.cluster.local; do
+      - "queue=light"
+    command: |
+      for h in agent.chromium-158-publish.svc.cluster.local graphql-api.default.svc.cluster.local; do
         echo "$$h -> $$(getent hosts $$h || echo unresolved)"
         curl -s -m 8 -o /dev/null -w "  http %{http_code}\n" "http://$$h/" || true
       done
-      grep -v '^#' /etc/resolv.conf || true
-  - label: "🔎 Can this agent reach the PR preview? (runtime queue)"
-    key: "probe-runtime"
-    timeout_in_minutes: 5
-    plugins:
-      - thedyrt/skip-checkout#v0.1.1: ~
-    agents:
-      - "build-runtime=true"
-      - "runtimeType=chromiumbuild"
-      - "os=linux"
-      - "queue=runtime"
-    command: *probe
+      which node npx curl python3 || true
+      node --version || true
